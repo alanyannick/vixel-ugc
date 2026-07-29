@@ -1,0 +1,31 @@
+# dependencies
+/node_modules
+
+# Next.js
+/.next/
+/out/
+
+# production
+/build
+
+# local env and secrets
+.env
+.env.*
+!.env.example
+
+# test output
+/coverage
+/playwright-report
+/test-results
+
+# local deployment state
+.vercel
+
+# editor / OS
+.DS_Store
+*.log
+*.tsbuildinfo
+
+# local evidence containing URLs or credentials
+/.ops/evidence/private/
+

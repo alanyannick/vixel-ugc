@@ -1,0 +1,170 @@
+# Vixel KOC Studio Product Blueprint
+
+## 1. Product Definition
+
+Vixel KOC Studio is an AI campaign workspace for teams that need creator-style
+product videos without losing product truth, human credibility, or platform
+native expression.
+
+The product's job is not to generate a pretty clip from a prompt. It is to make
+the decisions and evidence behind that clip inspectable:
+
+```text
+source
+-> claim
+-> hook
+-> persona
+-> approved input
+-> provider job
+-> candidate
+-> adoption receipt
+```
+
+The first target user is a growth marketer, creative strategist, or founder
+creating short KOC/UGC concepts for TikTok, Reels, Shorts, or Xiaohongshu.
+
+## 2. Product Bar
+
+The first release is successful when a new user can:
+
+1. Add a product name, visible facts, target audience, platform, and goal.
+2. Receive five meaningfully different hook routes and three creator personas.
+3. Pick one route in a single review moment.
+4. Understand what will be generated, what it costs, and why it is paused.
+5. Approve exact paid inputs.
+6. Review generated candidates with their source and model lineage.
+7. Reload or export the project without losing the plan or results.
+
+Trust is more important than number of models. A finished video with an
+invented claim is a product failure.
+
+## 3. Core Information Architecture
+
+```text
+Public
+├── Home
+├── KOC workflow
+├── Product truth guide
+├── FAQ
+├── Pricing
+├── Privacy
+└── Terms
+
+Studio
+├── Campaigns
+├── New campaign
+├── Campaign board
+│   ├── Intake and sources
+│   ├── Creative routes
+│   ├── Plan/checkpoints
+│   ├── Assets and candidates
+│   └── Export
+└── Access gate
+```
+
+## 4. Visible Product Model
+
+The user sees one Director.
+
+The Director chooses one of three internal paths:
+
+- `direct`: safe, local, reversible operations such as renaming or export.
+- `guided`: a small missing decision blocks trustworthy work.
+- `planned`: multi-stage, paid, asynchronous, or approval-sensitive work.
+
+Router, Planner, and Executor are not separate characters. They are typed
+responsibilities behind one surface.
+
+## 5. KOC Workflow
+
+### Brief
+
+Inputs:
+
+- product name and category
+- visible/source-backed product facts
+- target audience and desired action
+- platform and output language
+- content form and duration
+- reference images and their roles
+
+Outputs:
+
+- source ledger and unsupported-claim warnings
+- five distinct hooks
+- three personas when a person appears
+- recommended duration, CTA, subtitle, and music choices
+- one review gate
+
+### Assets
+
+Conditional. Required when the project lacks a trustworthy creator anchor,
+product-in-context anchor, or try-on reference.
+
+Outputs first become candidates. A creator anchor cannot enter Production until
+the user accepts it.
+
+### Production
+
+Outputs:
+
+- concrete first-three-seconds hook
+- timed, word-for-word dialogue
+- product action
+- scene and shot direction
+- native dialogue/sound path
+- one continuous clip for suitable outputs of 15 seconds or less
+- actual media work items, not only a document
+
+### Post
+
+Conditional. Only added when deterministic trim/concat, opted-in subtitles,
+CTA/logo, or music mix is required.
+
+## 6. Canonical Data Boundaries
+
+- Campaign owns product facts, decisions, accepted artifacts, and revision.
+- Plan owns execution topology and runtime state.
+- Job owns provider submission and recovery.
+- Candidate owns immutable provider result and lineage.
+- Receipt proves a mutation or adoption.
+- UI projection never becomes a second source of truth.
+
+## 7. Safety and Spend
+
+- Product claims require a source.
+- Provider credentials never reach the browser.
+- Live generation requires both an authenticated studio session and an explicit
+  deployment flag.
+- Paid input approval is tied to a canonical input hash.
+- Changing prompt, model, references, ratio, duration, or audio invalidates the
+  previous approval.
+- Retry only failed work.
+- Cancel is written before external IO.
+- Late results are preserved as protected candidates and never auto-adopted.
+
+## 8. Non-goals
+
+- social account posting
+- arbitrary plugins or code execution
+- multiple visible agents
+- general-purpose chat
+- full nonlinear video editor
+- auto-invented product claims
+- automatic face creation after a provider privacy block
+
+## 9. Product Metrics
+
+- time to first approved creative route
+- percentage of campaigns with a source-backed hook
+- route-to-generation conversion
+- candidate acceptance rate
+- generation retry rate
+- duplicate paid submission count
+- lost paid result count
+- reload recovery success
+- export completion
+
+The hard reliability targets are zero duplicate paid submissions and zero lost
+provider results.
+
