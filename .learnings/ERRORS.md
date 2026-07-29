@@ -1,5 +1,46 @@
 # Errors
 
+## [ERR-20260730-008] vercel-domain-direct-connect
+
+**Logged**: 2026-07-30T03:18:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: release
+
+### Summary
+
+Direct `curl` and Node requests to the Vercel production alias bypassed the
+macOS system proxy, resolved through the local network path, and failed before
+TLS.
+
+### Error
+
+```text
+LibreSSL SSL_connect: SSL_ERROR_SYSCALL
+UND_ERR_CONNECT_TIMEOUT
+```
+
+### Context
+
+- Vercel's control plane already reported the deployment as `READY`.
+- macOS had an HTTPS proxy configured on `127.0.0.1:7897`, but command-line
+  clients did not inherit it automatically.
+- No production state changed during the failed requests.
+
+### Suggested Fix
+
+For production verification on this machine, pass the existing local proxy
+explicitly to command-line clients. Do not store the workstation proxy in
+project configuration.
+
+### Resolution
+
+- **Resolved**: 2026-07-30T03:19:00+08:00
+- **Notes**: Repeated the health request with the explicit HTTPS proxy and
+  received HTTP 200, readiness `true`, HSTS, CSP, COOP, and CORP.
+
+---
+
 ## [ERR-20260730-001] sips-webp-conversion
 
 **Logged**: 2026-07-30T00:00:00+08:00

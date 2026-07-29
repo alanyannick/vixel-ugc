@@ -8,6 +8,7 @@ import {
   MediaLedgerError,
   publicLedgerEntry,
 } from "@/lib/server/ledger";
+import { getServerRuntimeConfig } from "@/lib/server/env";
 
 export const runtime = "nodejs";
 export const maxDuration = 10;
@@ -26,6 +27,16 @@ export async function GET(request: Request): Promise<Response> {
       requestId,
     );
   }
+
+  const runtimeConfig = getServerRuntimeConfig();
+  if (!runtimeConfig.databaseConfigured && !runtimeConfig.liveGeneration) {
+    return jsonResponse({
+      requestId,
+      jobs: [],
+      recovery: "not_configured",
+    });
+  }
+
   try {
     const entries = await listOwnedMediaEntries(sessionIdentity);
     return jsonResponse({

@@ -38,6 +38,7 @@ import {
 import { GET as healthRoute } from "@/app/api/health/route";
 import { POST as approvalRoute } from "@/app/api/media/approval/route";
 import { POST as imageRoute } from "@/app/api/media/image/route";
+import { GET as mediaJobsRoute } from "@/app/api/media/jobs/route";
 
 const PNG_BASE64 = "iVBORw0KGgo=";
 const PNG_DATA_URL = `data:image/png;base64,${PNG_BASE64}`;
@@ -564,6 +565,33 @@ describe("image provider", () => {
 });
 
 describe("media ledger projection", () => {
+  it("treats server recovery as an empty capability in planning-only mode", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "protected-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "protected-session-secret-long-enough-for-production",
+    );
+    vi.stubEnv("ENABLE_LIVE_GENERATION", "false");
+    vi.stubEnv("DATABASE_APP_URL", "");
+    vi.stubEnv("DATABASE_URL", "");
+    const token = createSessionToken();
+
+    const response = await mediaJobsRoute(
+      new Request("https://studio.example.test/api/media/jobs", {
+        headers: {
+          cookie: `${STUDIO_SESSION_COOKIE}=${encodeURIComponent(token!)}`,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      jobs: [],
+      recovery: "not_configured",
+    });
+  });
+
   it("keeps large provider results out of repeated job metadata envelopes", () => {
     const projected = publicLedgerEntry({
       id: "11111111-1111-4111-8111-111111111111",
