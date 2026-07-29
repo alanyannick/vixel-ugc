@@ -1,6 +1,8 @@
 {
-  "checkedAt": "2026-07-29T19:29:04.325Z",
+  "checkedAt": "2026-07-29T19:39:24.970Z",
   "base": "https://vixel-koc.vercel.app",
+  "deploymentId": "dpl_GXHZV4epJLWfPhLucjA9g28x4ucC",
+  "sourceCommit": "fdde50b",
   "desktop": {
     "consoleErrors": [],
     "pageErrors": [],
