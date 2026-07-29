@@ -32,7 +32,7 @@ test("campaign intake reaches a five-route decision without media spend", async 
   });
   if (testInfo.project.name.includes("mobile")) {
     const director = page.getByRole("complementary", { name: "Director" });
-    await director.getByRole("button", { name: "Close Director" }).click();
+    await expect(director).toBeHidden();
     await page.getByRole("button", { name: "Open navigation" }).click();
   }
   await page.getByRole("button", { name: "New campaign" }).click();
@@ -55,6 +55,9 @@ test("campaign intake reaches a five-route decision without media spend", async 
   ).toBeVisible();
   await expect(page.getByText("5 routes ready", { exact: true })).toBeVisible();
   await expect(page.getByText("3 casting routes", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Creative foundation/ }),
+  ).toHaveAttribute("data-plan-stage-id", /^stage-/);
 
   await page.getByRole("button", { name: "Continue to assets" }).click();
   const approval = page.getByRole("dialog", { name: "Approve exact input" });

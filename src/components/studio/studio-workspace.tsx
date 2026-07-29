@@ -33,14 +33,18 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import { IconMark } from "@/components/studio/icon-mark";
 import {
+  approveMediaInput,
   createCreativeBrief,
   createImageCandidate,
+  listRecoverableMediaJobs,
   pollVideoCandidate,
+  readRecoverableMediaJob,
   submitVideoCandidate,
 } from "@/lib/client/api";
 import {
@@ -56,6 +60,11 @@ import {
   saveCampaign,
 } from "@/lib/client/campaign-store";
 import {
+  advanceExecutionPlan,
+  buildExecutionPlanForCampaign,
+  ensureExecutionPlan,
+} from "@/lib/client/execution-plan";
+import {
   exactInputSignature,
   explainCreativeRoute,
 } from "@/lib/domain";
@@ -66,8 +75,11 @@ type View = "board" | "sources" | "routes" | "candidates" | "receipts";
 
 type PaidApproval =
   | ({
-      prompt: string;
-      inputSignature: string;
+    prompt: string;
+    inputSignature: string;
+    idempotencyKey: string;
+    serverApprovalToken?: string;
+    providerModel?: string;
     } & (
       | {
           kind: "image";
@@ -79,16 +91,26 @@ type PaidApproval =
           durationSec: number;
           resolution: "720p";
           generateAudio: boolean;
+          anchorCandidateId: string;
+          anchorDigest: string;
+          imageDataUrl: string;
         }
     ))
   | null;
 
-const planStages = [
-  { id: "brief", label: "Brief" },
-  { id: "assets", label: "Assets" },
-  { id: "production", label: "Production" },
-  { id: "post", label: "Post" },
-] as const;
+function mediaJobKey(
+  kind: "image" | "video",
+  campaign: CampaignState,
+): string {
+  const campaignFragment = campaignJobFragment(campaign);
+  return `${kind}:${campaignFragment}:${campaign.revision}:${crypto.randomUUID()}`;
+}
+
+function campaignJobFragment(campaign: CampaignState): string {
+  return campaign.id
+    .replace(/[^A-Za-z0-9._:-]/g, "-")
+    .slice(-24);
+}
 
 function nowReceipt(action: string, detail: string) {
   return {
@@ -129,6 +151,40 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
+async function imageReferenceDataUrl(url: string): Promise<string> {
+  if (url.startsWith("data:image/")) return url;
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    referrerPolicy: "no-referrer",
+  });
+  if (!response.ok) {
+    throw new Error("The adopted anchor could not be loaded for video.");
+  }
+  const blob = await response.blob();
+  if (!["image/png", "image/jpeg", "image/webp"].includes(blob.type)) {
+    throw new Error("The adopted anchor is not a supported image.");
+  }
+  if (blob.size > 1_200_000) {
+    throw new Error("Keep the adopted video anchor under 1.2 MB.");
+  }
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("The adopted anchor could not be read."));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function sha256Text(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
 function downloadCampaign(campaign: CampaignState) {
   const payload = JSON.stringify(
     {
@@ -156,19 +212,46 @@ export function StudioWorkspace() {
   const [campaign, setCampaign] = useState<CampaignState>(demoCampaign);
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<View>("board");
-  const [directorOpen, setDirectorOpen] = useState(true);
+  const [directorOpen, setDirectorOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [briefBusy, setBriefBusy] = useState(false);
   const [generationBusy, setGenerationBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [approval, setApproval] = useState<PaidApproval>(null);
+  const generationLockRef = useRef(false);
+  const anchorLockRef = useRef(false);
+  const recoveryAttemptedRef = useRef(false);
+
+  const updateCampaign = useCallback(
+    (
+      updater: (current: CampaignState) => CampaignState,
+      receipt?: { action: string; detail: string },
+    ) => {
+      setCampaign((current) => {
+        const next = updater(current);
+        if (next === current) return current;
+        return {
+          ...next,
+          revision: current.revision + 1,
+          updatedAt: new Date().toISOString(),
+          receipts: receipt
+            ? [
+                nowReceipt(receipt.action, receipt.detail),
+                ...next.receipts,
+              ]
+            : next.receipts,
+        };
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     let active = true;
     loadCampaign()
       .then((stored) => {
-        if (active) setCampaign(stored);
+        if (active) setCampaign(ensureExecutionPlan(stored));
       })
       .finally(() => {
         if (active) setHydrated(true);
@@ -184,18 +267,181 @@ export function StudioWorkspace() {
   }, [campaign, hydrated]);
 
   useEffect(() => {
-    const activeJobs = campaign.jobs.filter(
-      (job) => job.status === "queued" || job.status === "processing",
-    );
-    if (!activeJobs.length) return;
-    let cancelled = false;
+    if (!hydrated || recoveryAttemptedRef.current) return;
+    recoveryAttemptedRef.current = true;
+    let active = true;
+
+    async function recoverServerLedger() {
+      try {
+        const fragment = campaignJobFragment(campaign);
+        const ledgerJobs = (await listRecoverableMediaJobs()).filter((job) =>
+          job.idempotencyKey.startsWith(`${job.kind}:${fragment}:`),
+        );
+        const recoveredResults = new Map<
+          string,
+          Awaited<ReturnType<typeof readRecoverableMediaJob>>["result"]
+        >();
+        for (const job of ledgerJobs
+          .filter((entry) => entry.status === "succeeded" && entry.hasResult)
+          .slice(0, 10)) {
+          const detail = await readRecoverableMediaJob(job.id);
+          recoveredResults.set(job.id, detail.result);
+        }
+        if (!active || !ledgerJobs.length) return;
+
+        updateCampaign((current) => {
+          let recoveredCount = 0;
+          let nextPlan = current.executionPlan;
+          const candidates = [...current.candidates];
+          const jobs = [...current.jobs];
+
+          for (const ledgerJob of ledgerJobs) {
+            const result = recoveredResults.get(ledgerJob.id);
+            const candidateId = `candidate-ledger-${ledgerJob.id}`;
+            if (
+              ledgerJob.status === "succeeded" &&
+              result?.url &&
+              !candidates.some(
+                (candidate) =>
+                  candidate.ledgerEntryId === ledgerJob.id ||
+                  candidate.id === candidateId,
+              )
+            ) {
+              candidates.unshift({
+                id: candidateId,
+                kind: ledgerJob.kind,
+                url: result.url,
+                label: `${current.input.productName} recovered ${ledgerJob.kind}`,
+                prompt: "Recovered from the server media ledger.",
+                createdAt: ledgerJob.updatedAt,
+                provider: ledgerJob.provider,
+                status: "candidate",
+                ledgerEntryId: ledgerJob.id,
+                providerTaskId: ledgerJob.taskId ?? undefined,
+                inputSignature: ledgerJob.inputSignature,
+                model: ledgerJob.model,
+              });
+              recoveredCount += 1;
+              nextPlan = advanceExecutionPlan(
+                nextPlan,
+                ledgerJob.kind === "image"
+                  ? "image_candidate"
+                  : "video_succeeded",
+              );
+            }
+
+            if (
+              ledgerJob.kind === "video" &&
+              ledgerJob.taskId &&
+              !jobs.some((job) => job.id === ledgerJob.taskId)
+            ) {
+              jobs.unshift({
+                id: ledgerJob.taskId,
+                kind: "video",
+                status:
+                  ledgerJob.status === "submitted"
+                    ? "queued"
+                    : ledgerJob.status === "submit_unknown"
+                      ? "failed"
+                      : ledgerJob.status === "submitting"
+                        ? "queued"
+                        : ledgerJob.status,
+                prompt: "Recovered server-ledgered video input.",
+                createdAt: ledgerJob.createdAt,
+                updatedAt: ledgerJob.updatedAt,
+                provider: ledgerJob.provider,
+                progress: null,
+                url: result?.url ?? null,
+                error: ledgerJob.error?.message ?? null,
+                ledgerEntryId: ledgerJob.id,
+                idempotencyKey: ledgerJob.idempotencyKey,
+                inputSignature: ledgerJob.inputSignature,
+                model: ledgerJob.model,
+              });
+            }
+          }
+
+          if (
+            candidates.length === current.candidates.length &&
+            jobs.length === current.jobs.length
+          ) {
+            return current;
+          }
+          return {
+            ...current,
+            candidates,
+            jobs,
+            executionPlan: nextPlan,
+            receipts: [
+              nowReceipt(
+                "Server ledger reconciled",
+                `${recoveredCount} provider result${recoveredCount === 1 ? "" : "s"} recovered after reload.`,
+              ),
+              ...current.receipts,
+            ],
+          };
+        });
+      } catch {
+        // Recovery is capability-based. A planning-only deployment has no
+        // server ledger, and the browser-local campaign remains fully usable.
+      }
+    }
+
+    void recoverServerLedger();
+    return () => {
+      active = false;
+    };
+  }, [campaign, hydrated, updateCampaign]);
+
+  const activeJobKey = useMemo(
+    () =>
+      campaign.jobs
+        .filter(
+          (job) => job.status === "queued" || job.status === "processing",
+        )
+        .map((job) => `${job.id}@${Date.parse(job.createdAt)}`)
+        .sort()
+        .join("|"),
+    [campaign.jobs],
+  );
+
+  useEffect(() => {
+    if (!activeJobKey) return;
+    const trackedJobs = activeJobKey.split("|").map((entry) => {
+      const separator = entry.lastIndexOf("@");
+      return {
+        id: entry.slice(0, separator),
+        createdAtMs: Number(entry.slice(separator + 1)),
+      };
+    });
+    const abortController = new AbortController();
+    let stopped = false;
+    let timer: number | undefined;
+    let failureStreak = 0;
 
     async function syncJobs() {
-      for (const job of activeJobs) {
+      if (stopped) return;
+      if (document.visibilityState === "hidden") {
+        timer = window.setTimeout(() => void syncJobs(), 8_000);
+        return;
+      }
+
+      const pollableJobs = trackedJobs.filter(
+        (job) =>
+          Number.isFinite(job.createdAtMs) &&
+          Date.now() - job.createdAtMs < 24 * 60 * 60 * 1_000,
+      );
+      if (!pollableJobs.length) return;
+      let hadPollingFailure = false;
+
+      for (const job of pollableJobs) {
         try {
-          const polled = await pollVideoCandidate(job.id);
-          if (cancelled) return;
-          setCampaign((current) => {
+          const polled = await pollVideoCandidate(
+            job.id,
+            abortController.signal,
+          );
+          if (stopped) return;
+          updateCampaign((current) => {
             const currentJob = current.jobs.find((item) => item.id === job.id);
             if (
               !currentJob ||
@@ -219,16 +465,31 @@ export function StudioWorkspace() {
                     kind: "video" as const,
                     url: polled.result.url,
                     label: `${current.input.productName} production take`,
-                    prompt: job.prompt,
+                    prompt: currentJob.prompt,
                     createdAt: new Date().toISOString(),
                     provider: polled.provider,
                     status: "candidate" as const,
+                    ledgerEntryId: currentJob.ledgerEntryId,
+                    providerTaskId: job.id,
+                    inputSignature: currentJob.inputSignature,
+                    model: currentJob.model,
                   }
+                : null;
+            const jobChanged =
+              currentJob.status !== polled.result.status ||
+              currentJob.progress !== polled.result.progress ||
+              currentJob.url !== polled.result.url ||
+              currentJob.error !== polled.result.error;
+            if (!jobChanged && !candidate) return current;
+            const updatedAt = new Date().toISOString();
+            const terminalEvent =
+              terminal && currentJob.status !== polled.result.status
+                ? polled.result.status === "succeeded"
+                  ? "video_succeeded"
+                  : "video_failed"
                 : null;
             return {
               ...current,
-              revision: terminal ? current.revision + 1 : current.revision,
-              updatedAt: new Date().toISOString(),
               jobs: current.jobs.map((item) =>
                 item.id === job.id
                   ? {
@@ -237,13 +498,16 @@ export function StudioWorkspace() {
                       progress: polled.result.progress,
                       url: polled.result.url,
                       error: polled.result.error,
-                      updatedAt: new Date().toISOString(),
+                      updatedAt,
                     }
                   : item,
               ),
               candidates: candidate
                 ? [candidate, ...current.candidates]
                 : current.candidates,
+              executionPlan: terminalEvent
+                ? advanceExecutionPlan(current.executionPlan, terminalEvent)
+                : current.executionPlan,
               receipts:
                 terminal && currentJob.status !== polled.result.status
                   ? [
@@ -262,42 +526,26 @@ export function StudioWorkspace() {
             };
           });
         } catch {
-          // A polling failure is not the provider job failing. The durable task
-          // stays recoverable and will be checked again on the next interval.
+          if (!stopped) hadPollingFailure = true;
         }
+      }
+
+      failureStreak = hadPollingFailure
+        ? Math.min(failureStreak + 1, 3)
+        : 0;
+      const nextDelay = Math.min(8_000 * 2 ** failureStreak, 60_000);
+      if (!stopped) {
+        timer = window.setTimeout(() => void syncJobs(), nextDelay);
       }
     }
 
     void syncJobs();
-    const timer = window.setInterval(() => void syncJobs(), 8_000);
     return () => {
-      cancelled = true;
-      window.clearInterval(timer);
+      stopped = true;
+      abortController.abort();
+      if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [campaign.jobs]);
-
-  const updateCampaign = useCallback(
-    (
-      updater: (current: CampaignState) => CampaignState,
-      receipt?: { action: string; detail: string },
-    ) => {
-      setCampaign((current) => {
-        const next = updater(current);
-        return {
-          ...next,
-          revision: current.revision + 1,
-          updatedAt: new Date().toISOString(),
-          receipts: receipt
-            ? [
-                nowReceipt(receipt.action, receipt.detail),
-                ...next.receipts,
-              ]
-            : next.receipts,
-        };
-      });
-    },
-    [],
-  );
+  }, [activeJobKey, updateCampaign]);
 
   const selectedHook = useMemo(
     () =>
@@ -333,7 +581,11 @@ export function StudioWorkspace() {
   );
 
   const beginNewCampaign = () => {
-    setCampaign(newCampaign());
+    const fresh = newCampaign();
+    updateCampaign(() => fresh, {
+      action: "Campaign created",
+      detail: "A new source-grounded campaign workspace was opened.",
+    });
     setView("sources");
     setMobileNavOpen(false);
     setError("");
@@ -341,7 +593,10 @@ export function StudioWorkspace() {
   };
 
   const restoreDemo = () => {
-    setCampaign(demoCampaign);
+    updateCampaign(() => ensureExecutionPlan(demoCampaign), {
+      action: "Demo restored",
+      detail: "The built-in source-grounded demo campaign was restored.",
+    });
     setView("board");
     setError("");
     setNotice("Demo campaign restored.");
@@ -349,7 +604,13 @@ export function StudioWorkspace() {
 
   const selectHook = (hook: CreativeHook) => {
     updateCampaign(
-      (current) => ({ ...current, selectedHookId: hook.id }),
+      (current) => {
+        const next = { ...current, selectedHookId: hook.id };
+        return {
+          ...next,
+          executionPlan: buildExecutionPlanForCampaign(next),
+        };
+      },
       { action: "Hook selected", detail: hook.label },
     );
     setNotice(`${hook.label} is now the production route.`);
@@ -357,7 +618,13 @@ export function StudioWorkspace() {
 
   const selectPersona = (persona: CreatorPersona) => {
     updateCampaign(
-      (current) => ({ ...current, selectedPersonaId: persona.id }),
+      (current) => {
+        const next = { ...current, selectedPersonaId: persona.id };
+        return {
+          ...next,
+          executionPlan: buildExecutionPlanForCampaign(next),
+        };
+      },
       { action: "Persona selected", detail: persona.label },
     );
     setNotice(`${persona.label} is now the creator anchor.`);
@@ -365,18 +632,27 @@ export function StudioWorkspace() {
 
   const adoptCandidate = (candidate: Candidate) => {
     updateCampaign(
-      (current) => ({
-        ...current,
-        candidates: current.candidates.map((item) => ({
-          ...item,
-          status:
-            item.id === candidate.id
-              ? "adopted"
-              : item.status === "adopted"
-                ? "candidate"
-                : item.status,
-        })),
-      }),
+      (current) => {
+        const next = {
+          ...current,
+          candidates: current.candidates.map((item) => ({
+            ...item,
+            status:
+              item.id === candidate.id
+                ? ("adopted" as const)
+                : item.kind === candidate.kind && item.status === "adopted"
+                  ? ("candidate" as const)
+                  : item.status,
+          })),
+        };
+        return {
+          ...next,
+          executionPlan: advanceExecutionPlan(
+            next.executionPlan,
+            candidate.kind === "image" ? "image_adopted" : "video_adopted",
+          ),
+        };
+      },
       { action: "Candidate adopted", detail: candidate.label },
     );
     setNotice(`${candidate.label} became the accepted visual source.`);
@@ -403,20 +679,26 @@ export function StudioWorkspace() {
       prompt: exactInput.prompt,
       aspectRatio: exactInput.aspectRatio,
       inputSignature: exactInputSignature(exactInput),
+      idempotencyKey: mediaJobKey("image", campaign),
     });
   };
 
-  const startVideoGeneration = () => {
+  const startVideoGeneration = async () => {
     if (!selectedHook || !selectedPersona) {
       setError("Choose one hook and one creator persona before production.");
       setView("routes");
       return;
     }
-    if (!campaign.candidates.some((item) => item.status === "adopted")) {
-      setError("Adopt one visual anchor before starting video production.");
+    const adoptedAnchor = campaign.candidates.find(
+      (item) => item.status === "adopted" && item.kind === "image",
+    );
+    if (!adoptedAnchor) {
+      setError("Adopt one image anchor before starting video production.");
       setView("candidates");
       return;
     }
+    if (anchorLockRef.current) return;
+    anchorLockRef.current = true;
     const durationSec = Math.min(campaign.input.durationSec, 15);
     const prompt = [
       `Create one continuous ${durationSec}-second 9:16 KOC product video for ${campaign.input.productName}.`,
@@ -428,34 +710,77 @@ export function StudioWorkspace() {
     ]
       .filter(Boolean)
       .join(" ");
-    const exactInput = {
-      kind: "video",
-      prompt,
-      ratio: "9:16",
-      durationSec,
-      resolution: "720p",
-      generateAudio: true,
-    } as const;
     setError("");
-    setApproval({
-      ...exactInput,
-      inputSignature: exactInputSignature(exactInput),
-    });
+    setNotice("Preparing the adopted image anchor for exact-input review.");
+    try {
+      const imageDataUrl = await imageReferenceDataUrl(adoptedAnchor.url);
+      const anchorDigest = await sha256Text(imageDataUrl);
+      const exactInput = {
+        kind: "video",
+        prompt,
+        ratio: "9:16",
+        durationSec,
+        resolution: "720p",
+        generateAudio: true,
+        anchorCandidateId: adoptedAnchor.id,
+        anchorDigest,
+      } as const;
+      setApproval({
+        ...exactInput,
+        imageDataUrl,
+        inputSignature: exactInputSignature(exactInput),
+        idempotencyKey: mediaJobKey("video", campaign),
+      });
+      setNotice("");
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The adopted anchor could not be prepared for video.",
+      );
+    } finally {
+      anchorLockRef.current = false;
+    }
   };
 
   const confirmGeneration = async () => {
-    if (!approval) return;
+    if (!approval || generationLockRef.current) return;
+    generationLockRef.current = true;
     setGenerationBusy(true);
     setError("");
     try {
       if (approval.kind === "video") {
-        const submitted = await submitVideoCandidate({
+        const mediaInput = {
           prompt: approval.prompt,
+          imageDataUrl: approval.imageDataUrl,
           durationSec: approval.durationSec,
           ratio: approval.ratio,
           resolution: approval.resolution,
           generateAudio: approval.generateAudio,
-          idempotencyKey: approval.inputSignature,
+          idempotencyKey: approval.idempotencyKey,
+        };
+        const signed = approval.serverApprovalToken
+          ? null
+          : await approveMediaInput("video", mediaInput);
+        const approvalToken =
+          approval.serverApprovalToken ?? signed?.approvalToken;
+        if (!approvalToken) {
+          throw new Error("The server could not sign this paid video input.");
+        }
+        if (signed) {
+          setApproval((current) =>
+            current?.idempotencyKey === approval.idempotencyKey
+              ? {
+                  ...current,
+                  serverApprovalToken: signed.approvalToken,
+                  providerModel: signed.providerModel,
+                }
+              : current,
+          );
+        }
+        const submitted = await submitVideoCandidate({
+          ...mediaInput,
+          approvalToken,
         });
         const submittedAt = new Date().toISOString();
         updateCampaign(
@@ -471,6 +796,10 @@ export function StudioWorkspace() {
                     createdAt: submittedAt,
                     provider: submitted.provider,
                     status: "candidate" as const,
+                    ledgerEntryId: submitted.job.id,
+                    providerTaskId: submitted.result.taskId,
+                    inputSignature: submitted.job.inputSignature,
+                    model: submitted.job.model,
                   }
                 : null;
             return {
@@ -487,6 +816,10 @@ export function StudioWorkspace() {
                   progress: submitted.result.progress,
                   url: submitted.result.url,
                   error: submitted.result.error,
+                  ledgerEntryId: submitted.job.id,
+                  idempotencyKey: submitted.job.idempotencyKey,
+                  inputSignature: submitted.job.inputSignature,
+                  model: submitted.job.model,
                 },
                 ...current.jobs.filter(
                   (job) => job.id !== submitted.result.taskId,
@@ -495,6 +828,27 @@ export function StudioWorkspace() {
               candidates: immediateCandidate
                 ? [immediateCandidate, ...current.candidates]
                 : current.candidates,
+              executionPlan:
+                submitted.result.status === "succeeded"
+                  ? advanceExecutionPlan(
+                      advanceExecutionPlan(
+                        current.executionPlan,
+                        "video_submitted",
+                      ),
+                      "video_succeeded",
+                    )
+                  : submitted.result.status === "failed"
+                    ? advanceExecutionPlan(
+                        advanceExecutionPlan(
+                          current.executionPlan,
+                          "video_submitted",
+                        ),
+                        "video_failed",
+                      )
+                    : advanceExecutionPlan(
+                        current.executionPlan,
+                        "video_submitted",
+                      ),
             };
           },
           {
@@ -509,18 +863,42 @@ export function StudioWorkspace() {
         );
         return;
       }
-      const result = await createImageCandidate({
+      const references = [
+        campaign.input.productImageDataUrl
+          ? { dataUrl: campaign.input.productImageDataUrl }
+          : {},
+        campaign.input.creatorImageDataUrl
+          ? { dataUrl: campaign.input.creatorImageDataUrl }
+          : {},
+      ].filter((item) => "dataUrl" in item && Boolean(item.dataUrl));
+      const mediaInput = {
         prompt: approval.prompt,
         aspectRatio: approval.aspectRatio,
-        references: [
-          campaign.input.productImageDataUrl
-            ? { dataUrl: campaign.input.productImageDataUrl }
-            : {},
-          campaign.input.creatorImageDataUrl
-            ? { dataUrl: campaign.input.creatorImageDataUrl }
-            : {},
-        ].filter((item) => "dataUrl" in item && Boolean(item.dataUrl)),
-        idempotencyKey: approval.inputSignature,
+        references,
+        idempotencyKey: approval.idempotencyKey,
+      };
+      const signed = approval.serverApprovalToken
+        ? null
+        : await approveMediaInput("image", mediaInput);
+      const approvalToken =
+        approval.serverApprovalToken ?? signed?.approvalToken;
+      if (!approvalToken) {
+        throw new Error("The server could not sign this paid image input.");
+      }
+      if (signed) {
+        setApproval((current) =>
+          current?.idempotencyKey === approval.idempotencyKey
+            ? {
+                ...current,
+                serverApprovalToken: signed.approvalToken,
+                providerModel: signed.providerModel,
+              }
+            : current,
+        );
+      }
+      const result = await createImageCandidate({
+        ...mediaInput,
+        approvalToken,
       });
       const candidate: Candidate = {
         id: `candidate-${crypto.randomUUID()}`,
@@ -531,11 +909,18 @@ export function StudioWorkspace() {
         createdAt: new Date().toISOString(),
         provider: result.provider,
         status: "candidate",
+        ledgerEntryId: result.job.id,
+        inputSignature: result.job.inputSignature,
+        model: result.job.model,
       };
       updateCampaign(
         (current) => ({
           ...current,
           candidates: [candidate, ...current.candidates],
+          executionPlan: advanceExecutionPlan(
+            current.executionPlan,
+            "image_candidate",
+          ),
         }),
         {
           action: "Provider result claimed",
@@ -552,6 +937,7 @@ export function StudioWorkspace() {
           : "Generation failed before a candidate was created.",
       );
     } finally {
+      generationLockRef.current = false;
       setGenerationBusy(false);
     }
   };
@@ -757,17 +1143,10 @@ export function StudioWorkspace() {
                     .text()
                     .then((raw) => {
                       const imported = parseCampaignExport(raw);
-                      setCampaign({
-                        ...imported,
-                        revision: imported.revision + 1,
-                        updatedAt: new Date().toISOString(),
-                        receipts: [
-                          nowReceipt(
-                            "Campaign imported",
-                            "Campaign state restored from a validated Vixel export.",
-                          ),
-                          ...imported.receipts,
-                        ],
+                      updateCampaign(() => ensureExecutionPlan(imported), {
+                        action: "Campaign imported",
+                        detail:
+                          "Campaign state restored from a validated Vixel export.",
                       });
                       setView("board");
                       setNotice("Campaign restored from export.");
@@ -848,21 +1227,26 @@ export function StudioWorkspace() {
               key={campaign.id}
               campaign={campaign}
               busy={briefBusy}
-              onChange={setCampaign}
               onSubmit={async (input) => {
                 setBriefBusy(true);
                 setError("");
                 try {
                   const result = await createCreativeBrief(input);
                   updateCampaign(
-                    (current) => ({
-                      ...current,
-                      name: `${input.productName} · KOC routes`,
-                      input,
-                      brief: result.brief,
-                      selectedHookId: result.brief.recommendedHookId,
-                      selectedPersonaId: result.brief.recommendedPersonaId,
-                    }),
+                    (current) => {
+                      const next = {
+                        ...current,
+                        name: `${input.productName} · KOC routes`,
+                        input,
+                        brief: result.brief,
+                        selectedHookId: result.brief.recommendedHookId,
+                        selectedPersonaId: result.brief.recommendedPersonaId,
+                      };
+                      return {
+                        ...next,
+                        executionPlan: buildExecutionPlanForCampaign(next),
+                      };
+                    },
                     {
                       action: "Creative brief created",
                       detail: `${result.brief.hooks.length} hooks and ${result.brief.personas.length} personas via ${result.provider}.`,
@@ -949,63 +1333,69 @@ function PlanRail({
   campaign: CampaignState;
   onNavigate: (view: View) => void;
 }) {
-  const state = {
-    brief: campaign.brief ? "done" : "active",
-    assets: campaign.candidates.some((item) => item.status === "adopted")
-      ? "done"
-      : campaign.brief
-        ? "active"
-        : "waiting",
-    production:
-      campaign.candidates.some((item) => item.status === "adopted") &&
-      campaign.selectedHookId
-        ? "active"
-        : "waiting",
-    post: "optional",
-  } as const;
+  const plan = campaign.executionPlan;
+  const stages = plan
+    ? [...plan.stages].sort(
+        (left, right) => left.planner.order - right.planner.order,
+      )
+    : [];
 
   return (
     <div className={styles.planRail} aria-label="Campaign plan">
       <div className={styles.planTitle}>
         <span>Plan</span>
         <strong>
-          {campaign.brief
-            ? campaign.candidates.some((item) => item.status === "adopted")
-              ? "Production input ready"
-              : "Waiting for an accepted anchor"
-            : "Waiting for product truth"}
+          {plan
+            ? `${plan.runtime.status} · r${plan.revision}`
+            : "Waiting for approved product truth"}
         </strong>
       </div>
       <div className={styles.planStages}>
-        {planStages.map((stage, index) => {
-          const itemState = state[stage.id];
+        {(stages.length
+          ? stages
+          : [
+              {
+                id: "brief-pending",
+                planner: { title: "Product brief", order: 0 },
+                runtime: { status: "ready" as const },
+              },
+            ]
+        ).map((stage, index) => {
+          const itemState =
+            stage.runtime.status === "succeeded"
+              ? "done"
+              : ["ready", "running", "failed"].includes(stage.runtime.status)
+                ? "active"
+                : "waiting";
           return (
             <button
               key={stage.id}
               type="button"
+              data-plan-stage-id={stage.id}
+              title={`${stage.planner.title} · ${stage.id}`}
               className={`${styles.planStage} ${styles[`plan_${itemState}`]}`}
               onClick={() =>
                 onNavigate(
-                  stage.id === "brief"
+                  !plan
                     ? "sources"
-                    : stage.id === "assets"
-                      ? "candidates"
-                      : "board",
+                    : index === 0
+                      ? "routes"
+                      : index === 1
+                        ? "candidates"
+                        : "receipts",
                 )
               }
             >
               <span className={styles.planDot}>
                 {itemState === "done" ? <Check size={12} /> : index + 1}
               </span>
-              <span>{stage.label}</span>
+              <span>{stage.planner.title}</span>
               <small>
                 {itemState === "done"
                   ? "Complete"
                   : itemState === "active"
-                    ? "Active"
-                    : itemState === "optional"
-                      ? "If needed"
-                      : "Waiting"}
+                    ? stage.runtime.status
+                    : "Waiting"}
               </small>
             </button>
           );
@@ -1245,12 +1635,10 @@ function CampaignBoard({
 function SourcesView({
   campaign,
   busy,
-  onChange,
   onSubmit,
 }: {
   campaign: CampaignState;
   busy: boolean;
-  onChange: (campaign: CampaignState) => void;
   onSubmit: (input: CampaignInput) => Promise<void>;
 }) {
   const [input, setInput] = useState<CampaignInput>(campaign.input);
@@ -1277,7 +1665,6 @@ function SourcesView({
     }
     setInlineError("");
     const normalized = { ...input, facts };
-    onChange({ ...campaign, input: normalized });
     void onSubmit(normalized);
   };
 
@@ -1457,7 +1844,7 @@ function SourcesView({
           </div>
           <p className={styles.formHint}>
             Images stay in this browser until you explicitly approve a provider
-            request. Maximum 2 MB per reference.
+            request. Maximum 1.2 MB per reference.
           </p>
         </fieldset>
 
@@ -1509,8 +1896,8 @@ function ReferenceUpload({
       setError("Choose an image file.");
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Keep this reference under 2 MB.");
+    if (file.size > 1_200_000) {
+      setError("Keep this reference under 1.2 MB.");
       return;
     }
     const reader = new FileReader();
@@ -1737,10 +2124,11 @@ function CandidatesView({
       </section>
       {campaign.candidates.length ? (
         <div className={styles.candidateGrid}>
-          {campaign.candidates.map((candidate) => (
+          {campaign.candidates.map((candidate, index) => (
             <CandidateCard
               key={candidate.id}
               candidate={candidate}
+              featured={index === 0}
               onAdopt={() => onAdopt(candidate)}
             />
           ))}
@@ -1799,6 +2187,7 @@ function CandidateCard({
             fill
             sizes={featured ? "(max-width: 900px) 100vw, 55vw" : "360px"}
             unoptimized={candidate.url.startsWith("data:")}
+            priority={featured}
           />
         )}
         <span
@@ -1820,7 +2209,12 @@ function CandidateCard({
         <div>
           <strong>{candidate.label}</strong>
           <span>
-            {candidate.provider} · {formatTime(candidate.createdAt)}
+            {candidate.provider}
+            {candidate.model ? ` / ${candidate.model}` : ""} ·{" "}
+            {candidate.inputSignature
+              ? `${candidate.inputSignature.slice(0, 10)} · `
+              : ""}
+            {formatTime(candidate.createdAt)}
           </span>
         </div>
         <p>{candidate.prompt}</p>
@@ -2101,7 +2495,7 @@ function ApprovalDialog({
               <dd>
                 {approval.kind === "image"
                   ? references.length || "None"
-                  : "Accepted anchor lineage"}
+                  : `1 adopted image · ${approval.anchorDigest.slice(0, 10)}`}
               </dd>
             </div>
             <div>
@@ -2124,8 +2518,9 @@ function ApprovalDialog({
           <div className={styles.spendNote}>
             <CircleAlert size={17} />
             <p>
-              Provider pricing depends on the configured model. Vixel will make
-              one submission and will not retry a successful provider task.
+              Provider pricing depends on the configured model. Vixel makes one
+              server-ledgered submission and never automatically resubmits an
+              ambiguous paid request.
             </p>
           </div>
         </div>

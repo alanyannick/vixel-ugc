@@ -6,8 +6,8 @@
   --studio-border: #2b2f27;
   --studio-soft-border: #22261f;
   --studio-text: #f3f0e8;
-  --studio-muted: #92978d;
-  --studio-dim: #666c62;
+  --studio-muted: #a6ab9f;
+  --studio-dim: #8c9187;
   --studio-citron: #c7f43d;
   --studio-citron-dark: #212b0a;
   --studio-coral: #ff7a64;
@@ -18,6 +18,8 @@
   overflow: hidden;
   background: var(--studio-bg);
   color: var(--studio-text);
+  color-scheme: dark;
+  font-family: "Manrope Variable", "Avenir Next", sans-serif;
 }
 
 .sidebar {
@@ -95,7 +97,7 @@
 
 .primaryNav button {
   display: grid;
-  min-height: 42px;
+  min-height: 44px;
   grid-template-columns: 20px 1fr auto;
   align-items: center;
   gap: 10px;
@@ -246,6 +248,7 @@
 
 .sidebarFooter > a {
   display: flex;
+  min-height: 44px;
   align-items: center;
   justify-content: space-between;
   color: var(--studio-muted);
@@ -345,7 +348,7 @@
 .primaryButton,
 .textButton {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -429,7 +432,7 @@
 }
 
 .textButton {
-  min-height: 32px;
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -561,12 +564,12 @@
 .errorNotice {
   display: grid;
   min-height: 40px;
-  grid-template-columns: 18px 1fr 24px;
+  grid-template-columns: 18px 1fr 44px;
   align-items: center;
   gap: 8px;
   padding: 8px 24px;
   border-bottom: 1px solid;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .notice {
@@ -584,8 +587,8 @@
 .notice button,
 .errorNotice button {
   display: grid;
-  width: 24px;
-  height: 24px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 0;
   background: transparent;
@@ -1155,7 +1158,7 @@
 
 .factRow {
   display: grid;
-  grid-template-columns: 30px 1fr 36px;
+  grid-template-columns: 30px 1fr 44px;
   align-items: center;
   border: 1px solid var(--studio-border);
   border-radius: 7px;
@@ -1175,7 +1178,8 @@
 
 .factRow button {
   display: grid;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 0;
   background: transparent;
@@ -1188,7 +1192,7 @@
 
 .addFact {
   display: inline-flex;
-  min-height: 36px;
+  min-height: 44px;
   align-items: center;
   gap: 6px;
   justify-self: start;
@@ -1265,8 +1269,8 @@
   top: 8px;
   right: 8px;
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 5px;
@@ -1779,6 +1783,7 @@
   position: relative;
   display: grid;
   gap: 4px;
+  min-height: 56px;
   padding: 11px 0;
   border-bottom: 1px solid var(--studio-soft-border);
 }
@@ -1801,6 +1806,8 @@
   position: absolute;
   top: 50%;
   right: 0;
+  min-width: 44px;
+  min-height: 44px;
   border: 0;
   background: transparent;
   color: var(--studio-muted);
@@ -2140,6 +2147,83 @@
   font-size: 10px;
 }
 
+/*
+ * Studio readability floor.
+ * The workspace is intentionally dense, but claims, approvals, provider state,
+ * and recovery metadata must remain readable without zooming.
+ */
+.studioShell p,
+.studioShell li {
+  font-size: 14px;
+}
+
+.studioShell small,
+.studioShell label,
+.studioShell .breadcrumb,
+.studioShell .saveState,
+.studioShell .navSectionLabel,
+.studioShell .planTitle span,
+.studioShell .sectionEyebrow,
+.studioShell .chooserHeader > div > span,
+.studioShell .directorSection > span,
+.studioShell .promptReview > span,
+.studioShell .objectNumber,
+.studioShell .approvedRoute > div > span,
+.studioShell .shotList time,
+.studioShell .productionMeta span,
+.studioShell .statusAdopted,
+.studioShell .statusCandidate,
+.studioShell .candidateInfo > div span,
+.studioShell .factRow > span,
+.studioShell .formHint,
+.studioShell .uploadError,
+.studioShell .hookNumber,
+.studioShell .hookBody > span small,
+.studioShell .personaBody small,
+.studioShell .routeDecisionBar span,
+.studioShell .routerBadge span,
+.studioShell .routerBadge strong,
+.studioShell .decisionItem small,
+.studioShell .directorPanel > footer {
+  font-size: 12px;
+}
+
+.studioShell .campaignMini strong,
+.studioShell .localStatus strong,
+.studioShell .planTitle strong,
+.studioShell .planStage > span:nth-child(2),
+.studioShell .shotList strong,
+.studioShell .jobRow strong,
+.studioShell .candidateInfo strong,
+.studioShell .missingAnchor strong,
+.studioShell .hookBody strong,
+.studioShell .personaBody strong,
+.studioShell .routeDecisionBar strong,
+.studioShell .decisionItem strong,
+.studioShell .directorAction strong {
+  font-size: 13px;
+}
+
+.studioShell .shotList span,
+.studioShell .hookBody em {
+  font-size: 14px;
+}
+
+.studioShell .secondaryButton,
+.studioShell .importButton,
+.studioShell .iconButton,
+.studioShell .primaryButton,
+.studioShell .textButton {
+  font-size: 12px;
+}
+
+.studioShell .sourceForm input,
+.studioShell .sourceForm textarea,
+.studioShell .sourceForm select,
+.studioShell .gateInputRow input {
+  font-size: 14px;
+}
+
 .spin {
   animation: spin 900ms linear infinite;
 }
@@ -2260,7 +2344,12 @@
   .planRail {
     display: block;
     overflow-x: auto;
-    padding: 12px;
+    padding: 12px 12px 14px;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 12px;
+    scroll-snap-type: x proximity;
+    scrollbar-color: var(--studio-dim) transparent;
+    scrollbar-width: thin;
   }
 
   .planTitle {
@@ -2269,6 +2358,19 @@
 
   .planStages {
     min-width: 430px;
+    padding-right: 28px;
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 12px,
+      #000 calc(100% - 32px),
+      transparent 100%
+    );
+  }
+
+  .planStage {
+    min-height: 44px;
+    scroll-snap-align: start;
   }
 
   .notice,
@@ -2374,9 +2476,53 @@
     flex-direction: column;
   }
 
-  .routeDecisionBar .primaryButton,
   .formFooter .primaryButton {
     width: 100%;
+  }
+
+  .routeDecisionBar {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 10px;
+  }
+
+  .routeDecisionBar > div {
+    min-width: 0;
+    align-content: center;
+  }
+
+  .routeDecisionBar span {
+    display: none;
+  }
+
+  .routeDecisionBar strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .routeDecisionBar .primaryButton {
+    width: auto;
+    min-height: 44px;
+    padding: 0 12px;
+  }
+
+  .studioShell .sourceForm input,
+  .studioShell .sourceForm textarea,
+  .studioShell .sourceForm select,
+  .studioShell .gateInputRow input {
+    font-size: 16px;
+  }
+
+  .mobileClose,
+  .mobileMenu,
+  .iconButton,
+  .directorCloseButton {
+    width: 44px;
+    height: 44px;
   }
 
   .detailIntroRow .primaryButton {

@@ -36,7 +36,7 @@ const faqItems = [
     id: "live-generation",
     question: "When does live generation happen?",
     answer:
-      "Only when the deployment has live generation enabled, the user has an authenticated studio session, and the exact paid input has been approved. Selecting a route by itself does not submit a provider job.",
+      "Only when the deployment has live generation enabled, an HTTPS provider and isolated PostgreSQL ledger are ready, the user has an authenticated studio session, and the server has signed the exact paid input. Selecting a route by itself does not submit a provider job. The hosted preview keeps this capability off until all of those gates are present.",
   },
   {
     id: "paid-input",
@@ -54,7 +54,7 @@ const faqItems = [
     id: "late-results",
     question: "What happens to late provider results?",
     answer:
-      "They are preserved as protected candidates with their lineage. A late result is never silently adopted into the campaign.",
+      "The domain state machine treats a result that arrives after a cancellation tombstone as a protected candidate and never auto-adopts it. The current hosted preview does not expose provider cancellation while paid generation is disabled.",
   },
   {
     id: "export",

@@ -56,8 +56,8 @@ const sections: LegalSection[] = [
       <>
         <p>
           Live generation occurs only on a configured deployment after the
-          required approval. Provider usage may incur cost under the
-          deployment&apos;s provider account.
+          required server-signed approval and durable-ledger claim. Provider
+          usage may incur cost under the deployment&apos;s provider account.
         </p>
         <p>
           Generated outputs can be unpredictable. A candidate may be

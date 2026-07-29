@@ -22,6 +22,92 @@ const loginSchema = z.object({
   code: z.string().max(1_024),
 });
 
+const FAILED_ATTEMPT_LIMIT = 8;
+const FAILED_ATTEMPT_WINDOW_MS = 5 * 60 * 1_000;
+const MAX_TRACKED_CLIENTS = 5_000;
+
+type AttemptRecord = {
+  failures: number;
+  resetAt: number;
+};
+
+// This is intentionally a best-effort, per-instance brake. It limits cheap
+// brute-force bursts against a warm function, but it is not a distributed
+// security boundary. Production deployments should additionally enforce a
+// shared edge/WAF rate limit.
+const accessAttempts = new Map<string, AttemptRecord>();
+
+function mutationComesFromSameOrigin(request: Request): boolean {
+  const fetchSite = request.headers.get("sec-fetch-site")?.toLowerCase();
+  if (
+    fetchSite &&
+    fetchSite !== "same-origin" &&
+    fetchSite !== "none"
+  ) {
+    return false;
+  }
+
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  try {
+    return new URL(origin).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
+function clientKey(request: Request): string {
+  const forwarded = request.headers
+    .get("x-forwarded-for")
+    ?.split(",", 1)[0]
+    ?.trim();
+  return (forwarded || request.headers.get("x-real-ip")?.trim() || "unknown").slice(
+    0,
+    128,
+  );
+}
+
+function pruneAttemptStore(now: number): void {
+  if (accessAttempts.size < 1_000) return;
+  for (const [key, record] of accessAttempts) {
+    if (record.resetAt <= now) accessAttempts.delete(key);
+  }
+  while (accessAttempts.size > MAX_TRACKED_CLIENTS) {
+    const oldestKey = accessAttempts.keys().next().value as string | undefined;
+    if (!oldestKey) break;
+    accessAttempts.delete(oldestKey);
+  }
+}
+
+function activeAttemptRecord(key: string, now: number): AttemptRecord | null {
+  const record = accessAttempts.get(key);
+  if (!record) return null;
+  if (record.resetAt <= now) {
+    accessAttempts.delete(key);
+    return null;
+  }
+  return record;
+}
+
+function recordFailedAttempt(key: string, now: number): void {
+  pruneAttemptStore(now);
+  const current = activeAttemptRecord(key, now);
+  accessAttempts.set(key, {
+    failures: (current?.failures ?? 0) + 1,
+    resetAt: current?.resetAt ?? now + FAILED_ATTEMPT_WINDOW_MS,
+  });
+}
+
+function crossSiteError(requestId: string): Response {
+  return apiError(
+    403,
+    "cross_site_request_blocked",
+    "This request must originate from the studio.",
+    false,
+    requestId,
+  );
+}
+
 export async function GET(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
   const state = getAccessState(request);
@@ -36,6 +122,10 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
+  if (!mutationComesFromSameOrigin(request)) {
+    return crossSiteError(requestId);
+  }
+
   const state = getAccessState(request);
   if (!state.required) {
     return jsonResponse({
@@ -55,10 +145,29 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  const attemptKey = clientKey(request);
+  const now = Date.now();
+  const attemptRecord = activeAttemptRecord(attemptKey, now);
+  if (attemptRecord && attemptRecord.failures >= FAILED_ATTEMPT_LIMIT) {
+    const retryAfter = Math.max(
+      1,
+      Math.ceil((attemptRecord.resetAt - now) / 1_000),
+    );
+    return apiError(
+      429,
+      "access_rate_limited",
+      "Too many access attempts. Try again later.",
+      true,
+      requestId,
+      { "retry-after": String(retryAfter) },
+    );
+  }
+
   let body: unknown;
   try {
     body = await readJsonBody(request);
   } catch (error) {
+    recordFailedAttempt(attemptKey, now);
     return apiError(
       error instanceof ApiRequestError && error.code === "request_too_large"
         ? 413
@@ -71,6 +180,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success || !verifyAccessCode(parsed.data.code)) {
+    recordFailedAttempt(attemptKey, now);
     return apiError(
       401,
       "invalid_access_code",
@@ -79,6 +189,7 @@ export async function POST(request: Request): Promise<Response> {
       requestId,
     );
   }
+  accessAttempts.delete(attemptKey);
   const token = createSessionToken();
   if (!token) {
     return apiError(
@@ -102,9 +213,11 @@ export async function POST(request: Request): Promise<Response> {
 
 export async function DELETE(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
+  if (!mutationComesFromSameOrigin(request)) {
+    return crossSiteError(requestId);
+  }
   return jsonResponse(
     { ok: true, authenticated: false, requestId },
     { headers: { "set-cookie": expiredSessionCookie() } },
   );
 }
-

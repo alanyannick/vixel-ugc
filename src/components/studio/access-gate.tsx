@@ -20,13 +20,23 @@ export function AccessGate({ children }: { children: ReactNode }) {
     fetch("/api/auth/access", { cache: "no-store" })
       .then(async (response) => {
         if (!active) return;
-        if (response.status === 404) {
-          setState("open");
+        if (!response.ok) {
+          setError(
+            "Studio access could not be verified. Check your connection and try again.",
+          );
+          setState("locked");
           return;
         }
         const body = (await response.json().catch(() => null)) as
           | { authenticated?: boolean; required?: boolean }
           | null;
+        if (!body) {
+          setError(
+            "Studio access could not be verified. Check your connection and try again.",
+          );
+          setState("locked");
+          return;
+        }
         setState(
           body?.authenticated || body?.required === false
             ? "open"
@@ -34,7 +44,12 @@ export function AccessGate({ children }: { children: ReactNode }) {
         );
       })
       .catch(() => {
-        if (active) setState("open");
+        if (active) {
+          setError(
+            "Studio access could not be verified. Check your connection and try again.",
+          );
+          setState("locked");
+        }
       });
     return () => {
       active = false;

@@ -124,24 +124,29 @@ CTA/logo, or music mix is required.
 ## 6. Canonical Data Boundaries
 
 - Campaign owns product facts, decisions, accepted artifacts, and revision.
-- Plan owns execution topology and runtime state.
-- Job owns provider submission and recovery.
+- The stored domain `ExecutionPlan` owns execution topology and runtime state;
+  the Studio rail reads it directly.
+- A PostgreSQL media-ledger job owns provider submission and recovery.
 - Candidate owns immutable provider result and lineage.
 - Receipt proves a mutation or adoption.
-- UI projection never becomes a second source of truth.
+- Canonical campaign mutations pass through one client writer; paid submission
+  mutations pass through the server ledger.
 
 ## 7. Safety and Spend
 
 - Product claims require a source.
 - Provider credentials never reach the browser.
-- Live generation requires both an authenticated studio session and an explicit
-  deployment flag.
-- Paid input approval is tied to a canonical input hash.
+- Live generation requires an authenticated studio session, explicit deployment
+  flag, HTTPS provider, and isolated PostgreSQL ledger.
+- Paid input approval is a short-lived server HMAC tied to the canonical input,
+  session, provider model, and idempotency key.
 - Changing prompt, model, references, ratio, duration, or audio invalidates the
   previous approval.
-- Retry only failed work.
-- Cancel is written before external IO.
-- Late results are preserved as protected candidates and never auto-adopted.
+- Ambiguous provider submission is recorded as `submit_unknown` and never
+  automatically retried.
+- Cancel, failed-only retry, and protected late-result transitions are covered
+  by the domain model and tests. Provider cancellation is not exposed while the
+  hosted preview has live generation disabled.
 
 ## 8. Non-goals
 
@@ -167,4 +172,3 @@ CTA/logo, or music mix is required.
 
 The hard reliability targets are zero duplicate paid submissions and zero lost
 provider results.
-

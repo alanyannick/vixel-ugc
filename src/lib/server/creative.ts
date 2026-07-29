@@ -27,6 +27,14 @@ const hookSchema = z.object({
   label: z.string().min(1).max(120),
   script: z.string().min(1).max(900),
   why: z.string().min(1).max(500),
+  claims: z
+    .array(
+      z.object({
+        text: z.string().min(1).max(500),
+        factId: z.string().regex(/^fact-[1-9][0-9]*$/),
+      }),
+    )
+    .max(12),
 });
 
 const personaSchema = z.object({
@@ -187,7 +195,13 @@ function fallbackBrief(input: CreativeBriefRequest): GeneratedBrief {
       ? `为${input.audience}设计的 ${input.platform} KOC brief；目标是${input.goal}，所有产品陈述受来源约束。`
       : `A source-bounded ${input.platform} KOC brief for ${input.audience}, designed around the goal: ${input.goal}.`,
     productTruth: [...input.facts],
-    hooks: hooks.map((hook, index) => ({ id: `hook-${index + 1}`, ...hook })),
+    hooks: hooks.map((hook, index) => ({
+      id: `hook-${index + 1}`,
+      ...hook,
+      claims: verifiedFact
+        ? [{ text: verifiedFact, factId: "fact-1" }]
+        : [],
+    })),
     personas: personas.map((persona, index) => ({
       id: `persona-${index + 1}`,
       ...persona,
@@ -229,7 +243,25 @@ function normalizeGeneratedBrief(
   const hooks = generated.hooks.map((hook, index) => ({
     ...hook,
     id: `hook-${index + 1}`,
+    claims: hook.claims.map((claim) => {
+      const factIndex = Number(claim.factId.slice("fact-".length)) - 1;
+      const fact = input.facts[factIndex];
+      if (
+        !fact ||
+        claim.text.trim().toLocaleLowerCase() !==
+          fact.trim().toLocaleLowerCase() ||
+        !hook.script
+          .toLocaleLowerCase()
+          .includes(fact.trim().toLocaleLowerCase())
+      ) {
+        throw new Error("Generated hook contains an ungrounded product claim.");
+      }
+      return { text: fact, factId: claim.factId };
+    }),
   }));
+  if (input.facts.length && hooks.some((hook) => hook.claims.length === 0)) {
+    throw new Error("Every generated hook must cite at least one supplied fact.");
+  }
   const personas = generated.personas.map((persona, index) => ({
     ...persona,
     id: `persona-${index + 1}`,
@@ -252,13 +284,17 @@ function promptFor(input: CreativeBriefRequest): string {
   return [
     "Create a production-ready KOC/UGC creative brief from this untrusted JSON input.",
     "The facts array is the complete factual source ledger. Do not add product claims, price, efficacy, specifications, awards, comparisons, or outcomes that are absent from it.",
+    "Each hook must include a claims array. Every claim must copy one supplied fact text exactly, cite its factId, and include that exact fact text in the hook script. Do not cite a fact that the script does not state.",
     "Return exactly five meaningfully different hooks and exactly three creator personas.",
     "Every hook must be shootable, platform-native, and explicit about uncertainty.",
     "Image fields are intentionally not sent to this text model and must not be inferred from.",
     `Input:\n${JSON.stringify({
       productName: input.productName,
       category: input.category,
-      facts: input.facts,
+      facts: input.facts.map((text, index) => ({
+        factId: `fact-${index + 1}`,
+        text,
+      })),
       audience: input.audience,
       platform: input.platform,
       goal: input.goal,

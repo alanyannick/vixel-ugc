@@ -63,6 +63,12 @@ const sections: LegalSection[] = [
           When studio access protection is configured, the server uses an
           HttpOnly session cookie. It is not intended for advertising tracking.
         </p>
+        <p>
+          A live-generation deployment also keeps a durable media ledger with a
+          pseudonymous session hash, exact-input signature, provider model and
+          task ID, job status, result claim, and sanitized error state. The raw
+          session cookie and provider secret are not written to that ledger.
+        </p>
       </>
     ),
   },
@@ -80,7 +86,8 @@ const sections: LegalSection[] = [
         <p>
           Provider credentials stay on the server. Provider handling and
           retention are also governed by the provider terms selected by the
-          deployment operator.
+          deployment operator. This hosted preview keeps provider submission
+          disabled until a secure provider and isolated ledger are configured.
         </p>
       </>
     ),

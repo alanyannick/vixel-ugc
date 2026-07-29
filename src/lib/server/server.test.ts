@@ -3,16 +3,24 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createSessionToken,
   getAccessState,
+  getStudioSessionIdentity,
   STUDIO_SESSION_COOKIE,
   verifySessionToken,
 } from "./auth";
+import {
+  approvalFingerprint,
+  issueMediaApproval,
+  verifyMediaApproval,
+} from "./approval";
 import { generateCreativeBrief } from "./creative";
 import { getServerRuntimeConfig, normalizeNewApiBase } from "./env";
+import { paidControlPlaneReadiness } from "./ledger";
 import {
   imageGenerationRequestSchema,
   requireLiveGeneration,
   videoGenerationRequestSchema,
 } from "./media";
+import { publicLedgerEntry } from "./ledger";
 import {
   extractVideoTaskId,
   generateNewApiImage,
@@ -28,6 +36,7 @@ import {
   POST as accessLogin,
 } from "@/app/api/auth/access/route";
 import { GET as healthRoute } from "@/app/api/health/route";
+import { POST as approvalRoute } from "@/app/api/media/approval/route";
 import { POST as imageRoute } from "@/app/api/media/image/route";
 
 const PNG_BASE64 = "iVBORw0KGgo=";
@@ -89,6 +98,11 @@ describe("server environment", () => {
     vi.stubEnv("NEWAPI_API_KEY", "health-route-secret");
     vi.stubEnv("ENABLE_LIVE_GENERATION", "true");
     vi.stubEnv("DATABASE_APP_URL", "postgres://not-used-by-this-test");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "health-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "health-session-secret-long-enough-for-production",
+    );
     const response = await healthRoute();
     const text = await response.text();
     expect(response.status).toBe(200);
@@ -130,7 +144,10 @@ describe("access-code session", () => {
   it("rejects a wrong code and accepts the right code with an HttpOnly cookie", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("STUDIO_ACCESS_CODE", "test-access-code");
-    vi.stubEnv("STUDIO_SESSION_SECRET", "test-session-secret-long-enough");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "test-session-secret-long-enough-for-production",
+    );
 
     const rejected = await accessLogin(
       new Request("https://studio.example.test/api/auth/access", {
@@ -170,6 +187,167 @@ describe("access-code session", () => {
   });
 });
 
+describe("server-signed paid approval", () => {
+  it("binds the token to session, kind, exact signature, model, and idempotency key", () => {
+    vi.stubEnv("STUDIO_SESSION_SECRET", "unit-test-session-secret");
+    const expected = {
+      sessionIdentity: "a".repeat(64),
+      kind: "image" as const,
+      inputSignature: "b".repeat(64),
+      providerModel: "gpt-image-2",
+      idempotencyKey: "image:approval-test",
+    };
+    const issued = issueMediaApproval({
+      ...expected,
+      now: 1_800_000_000_000,
+      nonce: "approval-test-nonce",
+    });
+    expect(issued).toBeTruthy();
+    expect(
+      verifyMediaApproval(issued?.token, expected, 1_800_000_001_000),
+    ).toMatchObject(expected);
+    expect(
+      verifyMediaApproval(
+        issued?.token,
+        { ...expected, inputSignature: "c".repeat(64) },
+        1_800_000_001_000,
+      ),
+    ).toBeNull();
+    expect(
+      verifyMediaApproval(
+        issued?.token,
+        { ...expected, providerModel: "another-model" },
+        1_800_000_001_000,
+      ),
+    ).toBeNull();
+    expect(
+      verifyMediaApproval(issued?.token, expected, 1_800_000_301_000),
+    ).toBeNull();
+    expect(approvalFingerprint(issued!.token)).toMatch(/^[a-f0-9]{64}$/);
+    expect(issued?.token).not.toContain("unit-test-session-secret");
+  });
+
+  it("derives a pseudonymous identity without returning the raw session cookie", () => {
+    vi.stubEnv("STUDIO_SESSION_SECRET", "unit-test-session-secret");
+    const token = createSessionToken();
+    const request = new Request("https://studio.example.test", {
+      headers: {
+        cookie: `${STUDIO_SESSION_COOKIE}=${encodeURIComponent(token!)}`,
+      },
+    });
+    const identity = getStudioSessionIdentity(request);
+    expect(identity).toMatch(/^[a-f0-9]{64}$/);
+    expect(identity).not.toContain(token!);
+  });
+
+  it("requires live mode, HTTPS provider, and PostgreSQL before signing", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "protected-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "protected-session-secret-at-least-thirty-two-bytes",
+    );
+    vi.stubEnv("ENABLE_LIVE_GENERATION", "true");
+    vi.stubEnv("NEWAPI_BASE_URL", "https://newapi.example.test/v1");
+    vi.stubEnv("NEWAPI_API_KEY", "provider-key");
+    vi.stubEnv("DATABASE_URL", "");
+    expect(paidControlPlaneReadiness()).toMatchObject({
+      ready: false,
+      code: "database_not_configured",
+    });
+
+    const token = createSessionToken();
+    const response = await approvalRoute(
+      new Request("https://studio.example.test/api/media/approval", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `${STUDIO_SESSION_COOKIE}=${encodeURIComponent(token!)}`,
+        },
+        body: JSON.stringify({
+          kind: "image",
+          input: {
+            prompt: "A source-grounded product frame.",
+            aspectRatio: "9:16",
+            idempotencyKey: "image:approval-route",
+          },
+        }),
+      }),
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: { code: "database_not_configured" },
+    });
+
+    vi.stubEnv("DATABASE_URL", "postgres://ledger.example.test/vixel");
+    vi.stubEnv("NEWAPI_BASE_URL", "http://newapi.example.test/v1");
+    expect(paidControlPlaneReadiness()).toMatchObject({
+      ready: false,
+      code: "secure_provider_required",
+    });
+  });
+
+  it("rejects exact-input tampering before database or provider IO", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "protected-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "protected-session-secret-at-least-thirty-two-bytes",
+    );
+    vi.stubEnv("ENABLE_LIVE_GENERATION", "true");
+    vi.stubEnv("NEWAPI_BASE_URL", "https://newapi.example.test/v1");
+    vi.stubEnv("NEWAPI_API_KEY", "provider-key");
+    vi.stubEnv("DATABASE_URL", "postgres://unreachable.example.test/vixel");
+    const token = createSessionToken();
+    const cookie = `${STUDIO_SESSION_COOKIE}=${encodeURIComponent(token!)}`;
+    const approvedInput = {
+      prompt: "A source-grounded product frame.",
+      aspectRatio: "9:16",
+      idempotencyKey: "image:unsigned-route",
+    };
+    const approvalResponse = await approvalRoute(
+      new Request("https://studio.example.test/api/media/approval", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie,
+        },
+        body: JSON.stringify({ kind: "image", input: approvedInput }),
+      }),
+    );
+    expect(approvalResponse.status).toBe(200);
+    const approved = (await approvalResponse.json()) as {
+      approvalToken: string;
+      inputSignature: string;
+      providerModel: string;
+    };
+    expect(approved.approvalToken).toMatch(/^ma1\./);
+    expect(approved.inputSignature).toMatch(/^[a-f0-9]{64}$/);
+    expect(approved.providerModel).toBe("gpt-image-2");
+
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const response = await imageRoute(
+      new Request("https://studio.example.test/api/media/image", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie,
+        },
+        body: JSON.stringify({
+          ...approvedInput,
+          prompt: "A tampered product frame.",
+          approvalToken: approved.approvalToken,
+        }),
+      }),
+    );
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      error: { code: "invalid_media_approval" },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("creative fallback", () => {
   it("is deterministic, disclosed, and always returns five hooks and three personas", async () => {
     vi.stubEnv("NEWAPI_BASE_URL", "");
@@ -189,6 +367,14 @@ describe("creative fallback", () => {
     expect(first.brief.hooks).toHaveLength(5);
     expect(first.brief.personas).toHaveLength(3);
     expect(first.brief.productTruth).toEqual(input.facts);
+    expect(
+      first.brief.hooks.every(
+        (hook) =>
+          hook.claims.length === 1 &&
+          hook.claims[0].factId === "fact-1" &&
+          hook.script.includes(input.facts[0]),
+      ),
+    ).toBe(true);
     expect(first.groundingWarnings.length).toBeGreaterThan(0);
     expect(first.brief).toEqual(second.brief);
   });
@@ -231,34 +417,28 @@ describe("image provider", () => {
     });
   });
 
-  it("retries one transient response and forwards the idempotency key", async () => {
+  it("never automatically resubmits an ambiguous paid image request", async () => {
     stubProviderEnvironment();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response('{"error":"temporary"}', { status: 503 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: [{ b64_json: PNG_BASE64 }] }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('{"error":"temporary"}', { status: 503 }),
+    );
 
-    const generated = await generateNewApiImage({
-      prompt: "A clean product still life.",
-      size: "1024x1024",
-      references: [],
-      idempotencyKey: "image:test-retry-key",
-      fetchImpl: fetchMock,
-      retryDelayMs: 0,
+    await expect(
+      generateNewApiImage({
+        prompt: "A clean product still life.",
+        size: "1024x1024",
+        references: [],
+        idempotencyKey: "image:test-single-submit-key",
+        fetchImpl: fetchMock,
+      }),
+    ).rejects.toMatchObject({
+      code: "provider_unavailable",
+      retryable: true,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(generated.attempts).toBe(2);
-    expect(generated.model).toBe("gpt-image-2");
-    const init = fetchMock.mock.calls[1][1] as RequestInit;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect(new Headers(init.headers).get("idempotency-key")).toBe(
-      "image:test-retry-key",
+      "image:test-single-submit-key",
     );
   });
 
@@ -289,7 +469,6 @@ describe("image provider", () => {
       ],
       idempotencyKey: "image:edit-reference-key",
       fetchImpl: fetchMock,
-      retryDelayMs: 0,
     });
     expect(generated.mode).toBe("edit");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -301,11 +480,8 @@ describe("image provider", () => {
 
   it("does not expose a provider error body or key", async () => {
     stubProviderEnvironment();
-    vi.stubEnv("ENABLE_LIVE_GENERATION", "true");
     const providerSecret = "provider-response-secret-value";
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(
+    const fetchMock = vi.fn().mockResolvedValue(
         new Response(
           JSON.stringify({
             error: `${providerSecret} unit-test-provider-key`,
@@ -313,33 +489,41 @@ describe("image provider", () => {
           { status: 400 },
         ),
       );
-    const response = await imageRoute(
-      new Request("https://studio.example.test/api/media/image", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          prompt: "A clean product still life.",
-          references: [],
-        }),
-      }),
+    const error = await generateNewApiImage({
+      prompt: "A clean product still life.",
+      size: "1024x1024",
+      references: [],
+      idempotencyKey: "image:sanitized-provider-error",
+      fetchImpl: fetchMock,
+    }).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ProviderRequestError);
+    expect(String((error as Error).message)).not.toContain(providerSecret);
+    expect(String((error as Error).message)).not.toContain(
+      "unit-test-provider-key",
     );
-    const responseText = await response.text();
-    expect(response.status).toBe(502);
-    expect(responseText).not.toContain(providerSecret);
-    expect(responseText).not.toContain("unit-test-provider-key");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("fails before fetch when the provider key is missing", async () => {
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "protected-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "protected-session-secret-at-least-thirty-two-bytes",
+    );
     vi.stubEnv("ENABLE_LIVE_GENERATION", "true");
     vi.stubEnv("NEWAPI_BASE_URL", "https://newapi.example.test/v1");
     vi.stubEnv("NEWAPI_API_KEY", "");
+    vi.stubEnv("DATABASE_URL", "postgres://ledger.example.test/vixel");
+    const token = createSessionToken();
     const fetchMock = vi.spyOn(globalThis, "fetch");
     const response = await imageRoute(
       new Request("https://studio.example.test/api/media/image", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          cookie: `${STUDIO_SESSION_COOKIE}=${encodeURIComponent(token!)}`,
+        },
         body: JSON.stringify({ prompt: "A product frame." }),
       }),
     );
@@ -352,8 +536,11 @@ describe("image provider", () => {
 
   it("requires both authentication and the live flag", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("STUDIO_ACCESS_CODE", "protected");
-    vi.stubEnv("STUDIO_SESSION_SECRET", "protected-session-secret");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "protected-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "protected-session-secret-long-enough-for-production",
+    );
     vi.stubEnv("ENABLE_LIVE_GENERATION", "true");
     vi.stubEnv("NEWAPI_BASE_URL", "https://newapi.example.test/v1");
     vi.stubEnv("NEWAPI_API_KEY", "provider-key");
@@ -373,6 +560,31 @@ describe("image provider", () => {
     vi.stubEnv("STUDIO_SESSION_SECRET", "");
     vi.stubEnv("ENABLE_LIVE_GENERATION", "false");
     expect(requireLiveGeneration("request-id")?.status).toBe(503);
+  });
+});
+
+describe("media ledger projection", () => {
+  it("keeps large provider results out of repeated job metadata envelopes", () => {
+    const projected = publicLedgerEntry({
+      id: "11111111-1111-4111-8111-111111111111",
+      sessionIdentity: "a".repeat(64),
+      kind: "image",
+      idempotencyKey: "image:test-ledger-envelope",
+      inputSignature: "b".repeat(64),
+      approvalSignature: "c".repeat(64),
+      providerModel: "gpt-image-2",
+      status: "succeeded",
+      providerTaskId: null,
+      providerResult: { url: `data:image/png;base64,${"A".repeat(1_000)}` },
+      errorCode: null,
+      errorMessage: null,
+      createdAt: "2026-07-30T00:00:00.000Z",
+      updatedAt: "2026-07-30T00:00:01.000Z",
+    });
+
+    expect(projected.hasResult).toBe(true);
+    expect(projected).not.toHaveProperty("result");
+    expect(JSON.stringify(projected)).not.toContain("data:image");
   });
 });
 

@@ -3,6 +3,11 @@
 import { del, get, set } from "idb-keyval";
 import { z } from "zod";
 
+import {
+  ExecutionPlanSchema,
+  type ExecutionPlan,
+} from "@/lib/domain/contracts";
+
 const CAMPAIGN_KEY = "vixel-koc:campaign:v1";
 
 export type Platform = "TikTok" | "Instagram Reels" | "YouTube Shorts" | "小红书";
@@ -27,6 +32,10 @@ export type CreativeHook = {
   label: string;
   script: string;
   why: string;
+  claims?: Array<{
+    text: string;
+    factId: string;
+  }>;
 };
 
 export type CreatorPersona = {
@@ -56,6 +65,10 @@ export type Candidate = {
   createdAt: string;
   provider: string;
   status: "candidate" | "adopted" | "protected";
+  ledgerEntryId?: string;
+  providerTaskId?: string;
+  inputSignature?: string;
+  model?: string;
 };
 
 export type GenerationJob = {
@@ -69,6 +82,10 @@ export type GenerationJob = {
   progress: number | null;
   url: string | null;
   error: string | null;
+  ledgerEntryId?: string;
+  idempotencyKey?: string;
+  inputSignature?: string;
+  model?: string;
 };
 
 export type CampaignState = {
@@ -81,6 +98,7 @@ export type CampaignState = {
   brief: CreativeBrief | null;
   selectedHookId: string | null;
   selectedPersonaId: string | null;
+  executionPlan: ExecutionPlan | null;
   jobs: GenerationJob[];
   candidates: Candidate[];
   receipts: Array<{
@@ -135,6 +153,15 @@ const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
             label: z.string().min(1).max(240),
             script: z.string().min(1).max(2_000),
             why: z.string().min(1).max(1_000),
+            claims: z
+              .array(
+                z.object({
+                  text: z.string().min(1).max(500),
+                  factId: z.string().min(3).max(160),
+                }),
+              )
+              .max(12)
+              .optional(),
           }),
         )
         .length(5),
@@ -156,6 +183,7 @@ const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
     .nullable(),
   selectedHookId: z.string().max(180).nullable(),
   selectedPersonaId: z.string().max(180).nullable(),
+  executionPlan: ExecutionPlanSchema.nullable().default(null),
   jobs: z.array(
     z.object({
       id: z.string().min(1).max(180),
@@ -168,6 +196,10 @@ const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
       progress: z.number().min(0).max(100).nullable(),
       url: z.string().max(32_000).nullable(),
       error: z.string().max(2_000).nullable(),
+      ledgerEntryId: z.string().uuid().optional(),
+      idempotencyKey: z.string().min(8).max(128).optional(),
+      inputSignature: z.string().min(8).max(160).optional(),
+      model: z.string().min(1).max(240).optional(),
     }),
   ),
   candidates: z.array(
@@ -180,6 +212,10 @@ const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
       createdAt: z.string().datetime(),
       provider: z.string().min(1).max(160),
       status: z.enum(["candidate", "adopted", "protected"]),
+      ledgerEntryId: z.string().uuid().optional(),
+      providerTaskId: z.string().max(180).optional(),
+      inputSignature: z.string().min(8).max(160).optional(),
+      model: z.string().min(1).max(240).optional(),
     }),
   ),
   receipts: z.array(
@@ -204,32 +240,62 @@ const demoBrief: CreativeBrief = {
     {
       id: "hook-texture",
       label: "The texture check",
-      script: "If sticky serums make you quit after day one, look at this texture.",
+      script:
+        "If sticky serums make you quit after day one, look at this lightweight gel-serum texture.",
       why: "Starts with a recognizable friction and proves the answer on camera.",
+      claims: [
+        {
+          text: "Lightweight gel-serum texture",
+          factId: "fact-1",
+        },
+      ],
     },
     {
       id: "hook-desk",
       label: "Desk-drawer reset",
-      script: "The one thing I reach for when office air makes my skin feel tight.",
+      script:
+        "The lightweight gel-serum texture is why this stays in my desk drawer.",
       why: "Places the product in a believable daily context without inventing efficacy.",
+      claims: [
+        {
+          text: "Lightweight gel-serum texture",
+          factId: "fact-1",
+        },
+      ],
     },
     {
       id: "hook-two-drops",
       label: "Two-drop routine",
-      script: "Two drops, no fragrance, and I can get on with my morning.",
+      script:
+        "Two drops, a fragrance-free formula, and I can get on with my morning.",
       why: "Specific product action gives the first seconds a useful visual beat.",
+      claims: [{ text: "Fragrance-free formula", factId: "fact-2" }],
     },
     {
       id: "hook-label",
       label: "Read the label",
-      script: "I bought this because the front is quiet. The ingredient list is, too.",
+      script:
+        "The 30 ml recyclable glass bottle is the first detail I checked.",
       why: "Turns product packaging into the proof instead of making a broad claim.",
+      claims: [
+        {
+          text: "30 ml recyclable glass bottle",
+          factId: "fact-3",
+        },
+      ],
     },
     {
       id: "hook-finish",
       label: "No-filter finish",
-      script: "No filter—this is how it sits under daylight right after application.",
+      script:
+        "No filter—this is the lightweight gel-serum texture in daylight.",
       why: "Uses a native creator convention while keeping the claim observable.",
+      claims: [
+        {
+          text: "Lightweight gel-serum texture",
+          factId: "fact-1",
+        },
+      ],
     },
   ],
   personas: [
@@ -288,6 +354,7 @@ export const demoCampaign: CampaignState = {
   brief: demoBrief,
   selectedHookId: "hook-texture",
   selectedPersonaId: "persona-editor",
+  executionPlan: null,
   jobs: [],
   candidates: [
     {
@@ -334,8 +401,16 @@ export const demoCampaign: CampaignState = {
 };
 
 export async function loadCampaign(): Promise<CampaignState> {
-  const stored = await get<CampaignState>(CAMPAIGN_KEY);
-  return stored ? { ...stored, jobs: stored.jobs ?? [] } : demoCampaign;
+  const stored = await get<CampaignState & { executionPlan?: ExecutionPlan | null }>(
+    CAMPAIGN_KEY,
+  );
+  return stored
+    ? {
+        ...stored,
+        executionPlan: stored.executionPlan ?? null,
+        jobs: stored.jobs ?? [],
+      }
+    : demoCampaign;
 }
 
 export async function saveCampaign(campaign: CampaignState): Promise<void> {
@@ -391,6 +466,7 @@ export function newCampaign(): CampaignState {
     brief: null,
     selectedHookId: null,
     selectedPersonaId: null,
+    executionPlan: null,
     jobs: [],
     candidates: [],
     receipts: [],

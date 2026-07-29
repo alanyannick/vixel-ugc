@@ -1,10 +1,11 @@
 import { Buffer } from "node:buffer";
-import { setTimeout as delay } from "node:timers/promises";
 
 import { getServerRuntimeConfig } from "./env";
 import type { ParsedImageDataUrl } from "./data-url";
 
-const MAX_PROVIDER_JSON_BYTES = 24 * 1024 * 1024;
+// Vercel Functions reject request or response bodies above 4.5 MB. Keep enough
+// headroom for the API envelope when a provider returns base64 JSON.
+const MAX_PROVIDER_JSON_BYTES = 3_500_000;
 const SAFE_TASK_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 type FetchLike = typeof fetch;
@@ -94,14 +95,30 @@ async function readProviderJson(response: Response): Promise<unknown> {
     );
   }
 
-  const text = await response.text();
-  if (text.length > MAX_PROVIDER_JSON_BYTES) {
-    throw new ProviderRequestError(
-      "provider_invalid_response",
-      "The provider response was too large.",
-      false,
-      response.status,
-    );
+  if (!response.body) return null;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_PROVIDER_JSON_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new ProviderRequestError(
+          "provider_invalid_response",
+          "The provider response was too large.",
+          false,
+          response.status,
+        );
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+  } finally {
+    reader.releaseLock();
   }
   try {
     return text ? JSON.parse(text) : null;
@@ -117,6 +134,51 @@ async function readProviderJson(response: Response): Promise<unknown> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function isPrivateResultHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (
+    normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    normalized === "::1" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe8") ||
+    normalized.startsWith("fe9") ||
+    normalized.startsWith("fea") ||
+    normalized.startsWith("feb")
+  ) {
+    return true;
+  }
+  const octets = normalized.split(".").map(Number);
+  if (
+    octets.length === 4 &&
+    octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)
+  ) {
+    return (
+      octets[0] === 10 ||
+      octets[0] === 127 ||
+      (octets[0] === 169 && octets[1] === 254) ||
+      (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+      (octets[0] === 192 && octets[1] === 168) ||
+      octets[0] === 0
+    );
+  }
+  return false;
+}
+
+function isSafeProviderAssetUrl(url: URL): boolean {
+  const allowedProtocol =
+    process.env.NODE_ENV === "production"
+      ? url.protocol === "https:"
+      : ["http:", "https:"].includes(url.protocol);
+  return (
+    allowedProtocol &&
+    !url.username &&
+    !url.password &&
+    !isPrivateResultHostname(url.hostname)
+  );
 }
 
 function imageMimeFromBytes(bytes: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | null {
@@ -221,11 +283,7 @@ export function normalizeImageProviderResponse(
         false,
       );
     }
-    if (
-      !["http:", "https:"].includes(url.protocol) ||
-      url.username ||
-      url.password
-    ) {
+    if (!isSafeProviderAssetUrl(url)) {
       throw new ProviderRequestError(
         "provider_invalid_response",
         "The image provider returned an invalid image URL.",
@@ -270,7 +328,6 @@ export async function generateNewApiImage(input: {
   idempotencyKey: string;
   timeoutMs?: number;
   fetchImpl?: FetchLike;
-  retryDelayMs?: number;
   signal?: AbortSignal;
 }): Promise<{
   result: NormalizedImageResult;
@@ -292,7 +349,6 @@ export async function generateNewApiImage(input: {
 
   const fetchImpl = input.fetchImpl ?? fetch;
   const timeoutMs = input.timeoutMs ?? 240_000;
-  const retryDelayMs = input.retryDelayMs ?? 250;
   const model = normalizeImageModel(runtime.newApi.imageModel);
   const prompt = input.aspectRatio
     ? `${input.prompt}\n\nComposition target: ${input.aspectRatio} aspect ratio. Keep the frame crop-safe.`
@@ -300,92 +356,69 @@ export async function generateNewApiImage(input: {
   const isEdit = input.references.length > 0;
   const endpoint = `${runtime.newApi.openAiBaseUrl}/images/${isEdit ? "edits" : "generations"}`;
 
-  let attempts = 0;
-  let lastError: ProviderRequestError | null = null;
-  while (attempts < 2) {
-    attempts += 1;
-    const headers = new Headers({
-      Authorization: `Bearer ${providerApiKey()}`,
-      "Idempotency-Key": input.idempotencyKey,
+  const headers = new Headers({
+    Authorization: `Bearer ${providerApiKey()}`,
+    "Idempotency-Key": input.idempotencyKey,
+  });
+  let body: BodyInit;
+  if (isEdit) {
+    const form = new FormData();
+    form.set("model", model);
+    form.set("prompt", prompt);
+    form.set("size", input.size);
+    form.set("n", "1");
+    input.references.forEach((reference, index) => {
+      const imageBuffer = new ArrayBuffer(reference.bytes.byteLength);
+      new Uint8Array(imageBuffer).set(reference.bytes);
+      form.append(
+        "image",
+        new Blob([imageBuffer], { type: reference.mimeType }),
+        referenceFileName(reference.mimeType, index),
+      );
     });
-    let body: BodyInit;
-    if (isEdit) {
-      const form = new FormData();
-      form.set("model", model);
-      form.set("prompt", prompt);
-      form.set("size", input.size);
-      form.set("n", "1");
-      input.references.forEach((reference, index) => {
-        const imageBuffer = new ArrayBuffer(reference.bytes.byteLength);
-        new Uint8Array(imageBuffer).set(reference.bytes);
-        form.append(
-          "image",
-          new Blob([imageBuffer], { type: reference.mimeType }),
-          referenceFileName(reference.mimeType, index),
-        );
-      });
-      body = form;
-    } else {
-      headers.set("content-type", "application/json");
-      body = JSON.stringify({
-        model,
-        prompt,
-        size: input.size,
-        n: 1,
-      });
-    }
-
-    let response: Response;
-    try {
-      response = await fetchWithTimeout(
-        fetchImpl,
-        endpoint,
-        { method: "POST", headers, body },
-        timeoutMs,
-        input.signal,
-      );
-    } catch (error) {
-      lastError = new ProviderRequestError(
-        isAbortError(error) ? "provider_timeout" : "provider_unavailable",
-        isAbortError(error)
-          ? "The image provider timed out."
-          : "The image provider is temporarily unavailable.",
-        true,
-      );
-      if (attempts < 2) {
-        if (retryDelayMs > 0) await delay(retryDelayMs);
-        continue;
-      }
-      throw lastError;
-    }
-
-    if (!response.ok) {
-      lastError = providerErrorForStatus("image", response.status);
-      await response.body?.cancel().catch(() => undefined);
-      if (lastError.retryable && attempts < 2) {
-        if (retryDelayMs > 0) await delay(retryDelayMs);
-        continue;
-      }
-      throw lastError;
-    }
-
-    const data = await readProviderJson(response);
-    return {
-      result: normalizeImageProviderResponse(data),
+    body = form;
+  } else {
+    headers.set("content-type", "application/json");
+    body = JSON.stringify({
       model,
-      mode: isEdit ? "edit" : "generation",
-      attempts,
-    };
+      prompt,
+      size: input.size,
+      n: 1,
+    });
   }
 
-  throw (
-    lastError ??
-    new ProviderRequestError(
-      "provider_unavailable",
-      "The image provider is temporarily unavailable.",
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      fetchImpl,
+      endpoint,
+      { method: "POST", headers, body },
+      timeoutMs,
+      input.signal,
+    );
+  } catch (error) {
+    throw new ProviderRequestError(
+      isAbortError(error) ? "provider_timeout" : "provider_unavailable",
+      isAbortError(error)
+        ? "The image provider timed out. Its acceptance state is unknown; this job will not be submitted again automatically."
+        : "The image provider could not be reached. This job will not be submitted again automatically.",
       true,
-    )
-  );
+    );
+  }
+
+  if (!response.ok) {
+    const providerError = providerErrorForStatus("image", response.status);
+    await response.body?.cancel().catch(() => undefined);
+    throw providerError;
+  }
+
+  const data = await readProviderJson(response);
+  return {
+    result: normalizeImageProviderResponse(data),
+    model,
+    mode: isEdit ? "edit" : "generation",
+    attempts: 1,
+  };
 }
 
 export function isSafeVideoTaskId(value: string): boolean {
@@ -488,11 +521,7 @@ function extractVideoUrl(data: unknown, depth = 0): string | null {
     if (typeof value !== "string") continue;
     try {
       const url = new URL(value);
-      if (
-        ["http:", "https:"].includes(url.protocol) &&
-        !url.username &&
-        !url.password
-      ) {
+      if (isSafeProviderAssetUrl(url)) {
         return url.toString();
       }
     } catch {

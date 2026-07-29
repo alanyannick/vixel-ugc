@@ -17,6 +17,27 @@ export class StudioApiError extends Error {
   }
 }
 
+export type MediaLedgerJob = {
+  id: string;
+  kind: "image" | "video";
+  status:
+    | "submitting"
+    | "submitted"
+    | "processing"
+    | "succeeded"
+    | "failed"
+    | "submit_unknown";
+  provider: string;
+  model: string;
+  inputSignature: string;
+  idempotencyKey: string;
+  taskId: string | null;
+  hasResult: boolean;
+  error: { code: string; message: string } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 async function parseResponse<T>(response: Response): Promise<T> {
   const body = (await response.json().catch(() => null)) as
     | T
@@ -61,21 +82,64 @@ export async function createCreativeBrief(
   };
 }
 
+export async function approveMediaInput(
+  kind: "image" | "video",
+  input: Record<string, unknown> & { idempotencyKey: string },
+): Promise<{
+  approvalToken: string;
+  idempotencyKey: string;
+  inputSignature: string;
+  providerModel: string;
+  expiresAt: string;
+}> {
+  const response = await fetch("/api/media/approval", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "idempotency-key": input.idempotencyKey,
+    },
+    body: JSON.stringify({ kind, input }),
+  });
+  return parseResponse<{
+    approvalToken: string;
+    idempotencyKey: string;
+    inputSignature: string;
+    providerModel: string;
+    expiresAt: string;
+  }>(response);
+}
+
 export async function createImageCandidate(input: {
   prompt: string;
   aspectRatio: string;
   references?: Array<{ dataUrl?: string; url?: string }>;
   idempotencyKey: string;
-}): Promise<{ url: string; provider: string; requestId?: string }> {
+  approvalToken: string;
+}): Promise<{
+  url: string;
+  provider: string;
+  job: MediaLedgerJob;
+  requestId?: string;
+}> {
   const response = await fetch("/api/media/image", {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(input),
+    headers: {
+      "content-type": "application/json",
+      "idempotency-key": input.idempotencyKey,
+      "x-media-approval": input.approvalToken,
+    },
+    body: JSON.stringify({
+      prompt: input.prompt,
+      aspectRatio: input.aspectRatio,
+      references: input.references,
+      idempotencyKey: input.idempotencyKey,
+    }),
   });
   const result = await parseResponse<{
     url?: string;
     image?: { url?: string };
     result?: { url?: string };
+    job: MediaLedgerJob;
     provider?: string;
     requestId?: string;
   }>(response);
@@ -89,7 +153,8 @@ export async function createImageCandidate(input: {
   }
   return {
     url,
-    provider: result.provider ?? "NewAPI",
+    provider: result.job?.provider ?? result.provider ?? "NewAPI",
+    job: result.job,
     requestId: result.requestId,
   };
 }
@@ -104,17 +169,54 @@ export type VideoJobResult = {
 
 export async function submitVideoCandidate(input: {
   prompt: string;
+  imageDataUrl: string;
   durationSec: number;
   ratio: "1:1" | "16:9" | "9:16";
   resolution: "720p" | "1080p";
   generateAudio: boolean;
   idempotencyKey: string;
-}): Promise<{ result: VideoJobResult; provider: string }> {
+  approvalToken: string;
+}): Promise<{
+  result: VideoJobResult;
+  provider: string;
+  job: MediaLedgerJob;
+}> {
   const response = await fetch("/api/media/video", {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(input),
+    headers: {
+      "content-type": "application/json",
+      "idempotency-key": input.idempotencyKey,
+      "x-media-approval": input.approvalToken,
+    },
+    body: JSON.stringify({
+      prompt: input.prompt,
+      imageDataUrl: input.imageDataUrl,
+      durationSec: input.durationSec,
+      ratio: input.ratio,
+      resolution: input.resolution,
+      generateAudio: input.generateAudio,
+      idempotencyKey: input.idempotencyKey,
+    }),
   });
+  const body = await parseResponse<{
+    job: MediaLedgerJob;
+    result: VideoJobResult;
+  }>(response);
+  return {
+    result: body.result,
+    provider: body.job.provider ?? "NewAPI",
+    job: body.job,
+  };
+}
+
+export async function pollVideoCandidate(
+  taskId: string,
+  signal?: AbortSignal,
+): Promise<{ result: VideoJobResult; provider: string }> {
+  const response = await fetch(
+    `/api/media/video/${encodeURIComponent(taskId)}`,
+    { cache: "no-store", signal },
+  );
   const body = await parseResponse<{
     job: { provider?: string };
     result: VideoJobResult;
@@ -125,19 +227,19 @@ export async function submitVideoCandidate(input: {
   };
 }
 
-export async function pollVideoCandidate(
-  taskId: string,
-): Promise<{ result: VideoJobResult; provider: string }> {
+export async function listRecoverableMediaJobs(): Promise<MediaLedgerJob[]> {
+  const response = await fetch("/api/media/jobs", { cache: "no-store" });
+  const body = await parseResponse<{ jobs: MediaLedgerJob[] }>(response);
+  return body.jobs;
+}
+
+export async function readRecoverableMediaJob(entryId: string): Promise<{
+  job: MediaLedgerJob;
+  result: { url?: string; taskId?: string; status?: string } | null;
+}> {
   const response = await fetch(
-    `/api/media/video/${encodeURIComponent(taskId)}`,
+    `/api/media/jobs/${encodeURIComponent(entryId)}`,
     { cache: "no-store" },
   );
-  const body = await parseResponse<{
-    job: { provider?: string };
-    result: VideoJobResult;
-  }>(response);
-  return {
-    result: body.result,
-    provider: body.job.provider ?? "NewAPI",
-  };
+  return parseResponse(response);
 }

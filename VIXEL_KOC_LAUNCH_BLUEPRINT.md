@@ -2,7 +2,8 @@
 
 ## Goal
 
-- Current stack: empty Git repository.
+- Current stack: Next.js 16, React 19, TypeScript, browser IndexedDB,
+  PostgreSQL-ready media ledger, NewAPI adapters, and Vercel.
 - Target stack: a production-ready, local-first KOC/UGC creative studio on Vercel.
 - Primary test environment: local development and Vercel preview/production.
 - Planned production environment: Vercel with server-only NewAPI media access.
@@ -49,39 +50,54 @@ Product intake
 - Frontend: Next.js App Router, React, TypeScript.
 - API runtime: Vercel Node functions through Next route handlers.
 - Project persistence: browser IndexedDB/local-first repository for v1; export/import as JSON.
-- Auth: deferred unless a safe existing Supabase project can be isolated without touching the drama product.
+- Auth: HMAC-signed HttpOnly preview sessions with fail-closed access checks,
+  origin/fetch-metadata validation, and best-effort login throttling.
 - Media provider: NewAPI through server-only adapters.
-- Object storage: provider result URLs plus browser-local metadata for v1.
+- Paid control plane: short-lived exact-input HMAC approval plus a PostgreSQL
+  unique submission ledger and session-owned recovery routes.
+- Object storage: bounded provider data URLs or validated public HTTPS result
+  URLs plus durable result claims. Dedicated object storage remains a follow-up.
 - DNS/domain: Vercel project URL for first launch; custom domain is follow-up.
 
 ## Environment Inventory Categories
 
-- App runtime: `NEXT_PUBLIC_APP_URL`, `NODE_ENV`.
+- App runtime: `NEXT_PUBLIC_SITE_URL`, `NODE_ENV`.
 - Agent/text: `NEWAPI_BASE_URL`, `NEWAPI_API_KEY`, `NEWAPI_TEXT_MODEL`.
 - Image: `NEWAPI_IMAGE_MODEL`.
 - Video: `NEWAPI_VIDEO_MODEL`.
-- Optional observability: `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`.
+- Paid ledger: `DATABASE_APP_URL` or `DATABASE_URL`.
+- Access: `STUDIO_ACCESS_CODE`, `STUDIO_SESSION_SECRET`.
 
 ## Launch Clusters
 
 - [x] Cluster 1: Discovery and boundary scan
   - Evidence: empty target repository verified; report, KOC workflow, Higgsfield surface, and interactive-drama source tree inspected.
-- [ ] Cluster 2: Product and information architecture
-  - Required evidence: product blueprint, route map, data contracts, visual thesis, and acceptance flow.
-- [ ] Cluster 3: Runtime and deploy foundation
-  - Required evidence: deterministic install, typecheck, lint, tests, production build, Vercel config.
-- [ ] Cluster 4: Marketing and entry surface
-  - Required evidence: responsive homepage, real product composition, CTA path, accessibility and performance checks.
-- [ ] Cluster 5: KOC workspace and creative router
-  - Required evidence: intake, direct/guided/planned routes, five-hook brief, decision gate, plan surface, receipts.
-- [ ] Cluster 6: Media provider and recovery
-  - Required evidence: server-only NewAPI adapter, idempotency, task states, retry/cancel semantics, mock tests, at least one live provider proof when credentials work.
-- [ ] Cluster 7: Project durability and export
-  - Required evidence: reload persistence, versioned project schema, artifact candidates, adoption, JSON export/import.
-- [ ] Cluster 8: SEO/GEO and trust
-  - Required evidence: metadata, canonical, sitemap, robots, JSON-LD, AI-readable product/FAQ content, privacy/terms, security headers.
-- [ ] Cluster 9: Real-path validation and design loop
-  - Required evidence: desktop/mobile browser path, visual audit, console errors, accessibility, recovery and failure paths.
+- [x] Cluster 2: Product and information architecture
+  - Evidence: `docs/PRODUCT_BLUEPRINT.md`, `DESIGN.md`, typed domain contracts,
+    route map, acceptance flow, and one-Director architecture.
+- [x] Cluster 3: Runtime and deploy foundation
+  - Evidence: deterministic lockfile; lint, typecheck, 62 tests, production
+    build, Vercel project link, and environment inventory.
+- [x] Cluster 4: Marketing and entry surface
+  - Evidence: responsive homepage, original creator assets, direct Studio CTA,
+    keyboard focus, reduced motion, and desktop/mobile browser QA.
+- [x] Cluster 5: KOC workspace and creative router
+  - Evidence: intake, deterministic router, five hooks, three personas, explicit
+    decision, stored domain `ExecutionPlan`, candidates, receipts, and Director.
+- [x] Cluster 6: Media provider and recovery
+  - Evidence: server-only adapters, server-signed approval, PostgreSQL unique
+    submit claim, `submit_unknown`, owned polling, result recovery routes, and
+    mock tests. Live proof is intentionally blocked because the available
+    NewAPI endpoint is plaintext HTTP and no isolated KOC database is approved.
+- [x] Cluster 7: Project durability and export
+  - Evidence: IndexedDB reload, versioned validated export/import, persisted
+    plan/jobs/candidates, deterministic lineage, and server-ledger reconciliation.
+- [x] Cluster 8: SEO/GEO and trust
+  - Evidence: canonical metadata, OG image, sitemap, robots, JSON-LD,
+    `/llms.txt`, workflow/FAQ/product-truth pages, privacy/terms, CSP/HSTS.
+- [x] Cluster 9: Real-path validation and design loop
+  - Evidence: independent design/security/architecture audits, 1440/390 browser
+    checks, four Chrome E2E tests, clean lint/build, and fixed P0 findings.
 - [ ] Cluster 10: Vercel production deployment
   - Required evidence: deployment URL, response headers, `/`, `/studio`, `/api/health`, metadata and one core workflow smoke.
 
@@ -101,4 +117,3 @@ Product intake
 - Every required launch cluster is checked or has a smallest, explicit human-only blocker.
 - Evidence is captured for local and deployed core paths.
 - Final report records what passed, what failed, the deployed URL, and remaining risk.
-

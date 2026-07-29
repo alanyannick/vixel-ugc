@@ -2,8 +2,12 @@ import { Buffer } from "node:buffer";
 
 import { z } from "zod";
 
-export const MAX_REFERENCE_BYTES = 8 * 1024 * 1024;
-export const MAX_REFERENCE_DATA_URL_LENGTH = 11 * 1024 * 1024;
+// Two typical reference images must fit inside the bounded JSON request with
+// base64 expansion. Larger originals should use direct object-storage uploads
+// rather than traversing a Vercel Function as JSON.
+export const MAX_REFERENCE_BYTES = 1_310_720; // 1.25 MiB
+export const MAX_REFERENCE_DATA_URL_LENGTH =
+  Math.ceil(MAX_REFERENCE_BYTES / 3) * 4 + 64;
 
 const DATA_IMAGE_PATTERN =
   /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/;

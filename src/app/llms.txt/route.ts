@@ -25,7 +25,7 @@ Product claims require a supplied source. Vixel separates visible facts, support
 
 ## Paid-generation policy
 
-Live generation requires a configured provider, an authenticated studio session, a deployment flag, and approval tied to a canonical input hash. Changing prompt, model, references, aspect ratio, duration, or audio invalidates the approval. Late results remain protected candidates and are not auto-adopted.
+Live generation requires a secure HTTPS provider, an isolated PostgreSQL ledger, an authenticated studio session, a deployment flag, and a short-lived server signature tied to the canonical input, provider model, session, and idempotency key. Changing prompt, model, references, aspect ratio, duration, or audio requires a new review. Deployment capability is disclosed by /api/health; the hosted preview keeps paid generation disabled until every gate is ready. Cancellation and protected-late-result transitions are part of the tested domain state machine but provider cancellation is not exposed in the current hosted preview.
 
 ## Primary pages
 

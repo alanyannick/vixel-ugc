@@ -16,7 +16,7 @@ export const metadata: Metadata = createPageMetadata({
 const accessRows = [
   ["Campaign briefs and source ledger", true, true],
   ["Five hook routes and three personas", true, true],
-  ["Durable plan and review checkpoints", true, true],
+  ["Canonical plan and local recovery", true, true],
   ["Campaign JSON export and restore", true, true],
   ["Live image and video provider jobs", false, true],
   ["Deployment-level access control", false, true],
@@ -82,8 +82,8 @@ export default function PricingPage() {
               <h3>Private deployment</h3>
             </div>
             <p>
-              Connect a supported provider on the server, protect the studio,
-              and turn on live generation for approved users.
+              Connect an HTTPS provider and isolated PostgreSQL ledger on the
+              server, protect the studio, and then enable live generation.
             </p>
             <strong>Provider usage billed by your configuration</strong>
             <Link className="button button--outline-ink" href="/faq#live-generation">
@@ -143,7 +143,8 @@ export default function PricingPage() {
           </p>
           <p>
             <span>03</span>
-            Retries target failed work instead of duplicating successful jobs.
+            Ambiguous paid submissions are never auto-retried; the server ledger
+            returns the existing job state.
           </p>
         </div>
       </section>

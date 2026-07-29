@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+// Vercel Functions reject request or response payloads above 4.5 MB. Keep a
+// conservative margin for platform framing and reject while streaming instead
+// of buffering an attacker-controlled body first.
+export const MAX_JSON_REQUEST_BYTES = 4 * 1024 * 1024;
 
 export type ApiErrorBody = {
   error: {
@@ -45,19 +49,46 @@ export function apiError(
 
 export async function readJsonBody(request: Request): Promise<unknown> {
   const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > 32 * 1024 * 1024) {
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > MAX_JSON_REQUEST_BYTES
+  ) {
     throw new ApiRequestError("request_too_large");
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  try {
+    reader = request.body?.getReader() ?? null;
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        totalBytes += value.byteLength;
+        if (totalBytes > MAX_JSON_REQUEST_BYTES) {
+          await reader.cancel().catch(() => undefined);
+          throw new ApiRequestError("request_too_large");
+        }
+        chunks.push(value);
+      }
+    }
+  } catch (error) {
+    if (error instanceof ApiRequestError) throw error;
+    throw new ApiRequestError("invalid_json");
+  } finally {
+    reader?.releaseLock();
   }
 
   let text: string;
   try {
-    text = await request.text();
+    text = new TextDecoder("utf-8", { fatal: true }).decode(
+      Buffer.concat(chunks, totalBytes),
+    );
   } catch {
     throw new ApiRequestError("invalid_json");
   }
-  if (Buffer.byteLength(text, "utf8") > 32 * 1024 * 1024) {
-    throw new ApiRequestError("request_too_large");
-  }
+
   try {
     return JSON.parse(text);
   } catch {

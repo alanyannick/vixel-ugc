@@ -138,6 +138,23 @@ export function requireStudioSession(
   );
 }
 
+/**
+ * Returns a stable, pseudonymous owner for the authenticated studio session.
+ *
+ * The raw cookie and its bearer value must never enter a database, log, or API
+ * response. Hashing the already-verified token gives the paid-work ledger a
+ * session-scoped ownership key without creating another browser-visible
+ * credential.
+ */
+export function getStudioSessionIdentity(request: Request): string | null {
+  const token = readCookie(request, STUDIO_SESSION_COOKIE);
+  if (!verifySessionToken(token)) return null;
+  return createHash("sha256")
+    .update("vixel-studio-session:v1\0", "utf8")
+    .update(token!, "utf8")
+    .digest("hex");
+}
+
 export function verifyAccessCode(candidate: string): boolean {
   const expected = secretValue("STUDIO_ACCESS_CODE");
   return Boolean(expected && constantTimeTextEqual(candidate, expected));

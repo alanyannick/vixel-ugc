@@ -7,6 +7,7 @@
  */
 
 import { env as nodeEnvironment } from "node:process";
+import { Buffer } from "node:buffer";
 
 export type ServerRuntimeConfig = {
   production: boolean;
@@ -14,6 +15,7 @@ export type ServerRuntimeConfig = {
   databaseConfigured: boolean;
   newApi: {
     configured: boolean;
+    transportSecure: boolean;
     rootBaseUrl: string | null;
     openAiBaseUrl: string | null;
     textModel: string;
@@ -23,6 +25,9 @@ export type ServerRuntimeConfig = {
   access: {
     configured: boolean;
     required: boolean;
+    codeStrong: boolean;
+    sessionSecretStrong: boolean;
+    misconfigured: boolean;
   };
   build: {
     version: string;
@@ -34,10 +39,27 @@ export type ServerRuntimeConfig = {
 const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
 const DEFAULT_IMAGE_MODEL = "gpt-image-2";
 const DEFAULT_VIDEO_MODEL = "seedance-2.0";
+export const MIN_ACCESS_CODE_BYTES = 16;
+export const MIN_SESSION_SECRET_BYTES = 32;
 
 function envValue(env: NodeJS.ProcessEnv, name: string): string | null {
   const value = env[name]?.trim();
   return value ? value : null;
+}
+
+function hasMinimumBytes(value: string | null, minimum: number): boolean {
+  return Boolean(value && Buffer.byteLength(value, "utf8") >= minimum);
+}
+
+function hasPostgresConnection(env: NodeJS.ProcessEnv): boolean {
+  const value =
+    envValue(env, "DATABASE_APP_URL") ?? envValue(env, "DATABASE_URL");
+  if (!value) return false;
+  try {
+    return ["postgres:", "postgresql:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
 }
 
 export function normalizeNewApiBase(
@@ -74,24 +96,35 @@ export function getServerRuntimeConfig(
 ): ServerRuntimeConfig {
   const production = env.NODE_ENV === "production";
   const normalizedBase = normalizeNewApiBase(envValue(env, "NEWAPI_BASE_URL"));
+  const providerTransportSecure = Boolean(
+    normalizedBase?.rootBaseUrl.startsWith("https://"),
+  );
   const providerTransportAllowed = Boolean(
-    normalizedBase &&
-      (!production || normalizedBase.rootBaseUrl.startsWith("https://")),
+    normalizedBase && (!production || providerTransportSecure),
   );
   const providerConfigured = Boolean(
     providerTransportAllowed && envValue(env, "NEWAPI_API_KEY"),
   );
-  const accessCodeConfigured = Boolean(envValue(env, "STUDIO_ACCESS_CODE"));
-  const sessionSecretConfigured = Boolean(envValue(env, "STUDIO_SESSION_SECRET"));
+  const accessCode = envValue(env, "STUDIO_ACCESS_CODE");
+  const sessionSecret = envValue(env, "STUDIO_SESSION_SECRET");
+  const accessCodePresent = Boolean(accessCode);
+  const sessionSecretPresent = Boolean(sessionSecret);
+  const codeStrong = hasMinimumBytes(accessCode, MIN_ACCESS_CODE_BYTES);
+  const sessionSecretStrong = hasMinimumBytes(
+    sessionSecret,
+    MIN_SESSION_SECRET_BYTES,
+  );
+  const accessRequired =
+    production || accessCodePresent || sessionSecretPresent;
+  const accessConfigured = codeStrong && sessionSecretStrong;
 
   return {
     production,
     liveGeneration: envValue(env, "ENABLE_LIVE_GENERATION")?.toLowerCase() === "true",
-    databaseConfigured: Boolean(
-      envValue(env, "DATABASE_URL") || envValue(env, "DATABASE_APP_URL"),
-    ),
+    databaseConfigured: hasPostgresConnection(env),
     newApi: {
       configured: providerConfigured,
+      transportSecure: providerTransportSecure,
       rootBaseUrl: normalizedBase?.rootBaseUrl ?? null,
       openAiBaseUrl: normalizedBase?.openAiBaseUrl ?? null,
       textModel: envValue(env, "NEWAPI_TEXT_MODEL") ?? DEFAULT_TEXT_MODEL,
@@ -99,8 +132,11 @@ export function getServerRuntimeConfig(
       videoModel: envValue(env, "NEWAPI_VIDEO_MODEL") ?? DEFAULT_VIDEO_MODEL,
     },
     access: {
-      configured: accessCodeConfigured && sessionSecretConfigured,
-      required: production || accessCodeConfigured || sessionSecretConfigured,
+      configured: accessConfigured,
+      required: accessRequired,
+      codeStrong,
+      sessionSecretStrong,
+      misconfigured: accessRequired && !accessConfigured,
     },
     build: {
       version: envValue(env, "npm_package_version") ?? "0.1.0",

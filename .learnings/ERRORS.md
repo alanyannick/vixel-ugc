@@ -43,6 +43,122 @@ conversion, then verify dimensions and file sizes.
 
 ---
 
+## [ERR-20260730-006] playwright-browser-download-reset
+
+**Logged**: 2026-07-30T02:43:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+
+The Playwright Chromium archive download repeatedly reset during TLS transfer.
+
+### Error
+
+```text
+ECONNRESET while downloading the Playwright browser archive
+```
+
+### Context
+
+- The machine already had a compatible installed Chrome.
+- No application or browser profile data was modified by the failed download.
+
+### Suggested Fix
+
+Use Playwright's installed Chrome channel in this workspace and reserve bundled
+browser downloads for environments where the artifact CDN is reachable.
+
+### Resolution
+
+- **Resolved**: 2026-07-30T02:47:00+08:00
+- **Notes**: Configured the Chrome channel; the four desktop/mobile E2E tests
+  completed successfully.
+
+---
+
+## [ERR-20260730-007] broad-env-url-scan-exposed-credential
+
+**Logged**: 2026-07-30T03:04:00+08:00
+**Priority**: high
+**Status**: resolved
+**Area**: security
+
+### Summary
+
+A diagnostic URL inventory included a credential-bearing database URL from a
+separate local project's environment file in terminal output.
+
+### Error
+
+```text
+A connection URL was printed before host-only redaction was applied.
+```
+
+### Context
+
+- The credential was not copied into this project, committed, deployed, or
+  included in any user-facing response.
+- The scan was read-only, but its output scope was broader than necessary.
+
+### Suggested Fix
+
+Never print raw environment values. Parse and redact within the same process
+before output, or print variable names and capability booleans only.
+
+### Resolution
+
+- **Resolved**: 2026-07-30T03:05:00+08:00
+- **Notes**: No shared database was reused. The KOC production deployment keeps
+  live generation disabled until it has an explicitly isolated database and a
+  secure HTTPS provider. The local environment file was tightened to mode 0600.
+
+---
+
+## [ERR-20260730-006] paid-boundary-test-order
+
+**Logged**: 2026-07-30T02:56:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+
+Legacy media-route tests expected provider behavior before satisfying the new
+session, approval, and durable-ledger preconditions.
+
+### Error
+
+```text
+expected 401 to be 502
+expected 401 to be 503
+```
+
+### Context
+
+- The paid control plane intentionally moved authentication and durable
+  admission ahead of all provider IO.
+- The failures showed stale test expectations, not a runtime regression.
+
+### Suggested Fix
+
+Test provider sanitization directly at the adapter boundary, and test route
+handlers for the new fail-closed ordering independently.
+
+### Metadata
+
+- Reproducible: yes
+- Related Files: src/lib/server/server.test.ts, src/app/api/media/image/route.ts
+
+### Resolution
+
+- **Resolved**: 2026-07-30T02:56:00+08:00
+- **Notes**: Tests were updated to assert that missing session, database, or
+  signed approval prevents provider fetch.
+
+---
+
 ## [ERR-20260730-002] playwright-browser-binary-missing
 
 **Logged**: 2026-07-30T02:20:00+08:00
