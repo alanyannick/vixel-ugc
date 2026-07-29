@@ -28,7 +28,7 @@
 - [x] Candidate adoption creates a receipt and does not mutate unrelated candidate kinds.
 - [x] Reload/return restores project, plan, jobs, candidates, and selected route.
 - [x] JSON export/import round-trips the versioned project.
-- [ ] Vercel deployment serves `/`, `/studio`, and `/api/health`.
+- [x] Vercel deployment serves `/`, `/studio`, and `/api/health`.
 
 ## P1 Should Pass
 
@@ -49,8 +49,9 @@
 - [x] `robots.txt` and `sitemap.xml` are valid.
 - [x] Product, SoftwareApplication, FAQ, and Organization JSON-LD validate.
 - [x] AI-readable `/llms.txt` and source-backed workflow/FAQ pages exist.
-- [ ] Evidence pack contains local and deployed screenshots plus command logs.
-  - Local 1440/390 screenshots exist; deployed evidence is captured after release.
+- [x] Evidence pack contains local and deployed screenshots plus command logs.
+  - Evidence: `docs/evidence/README.md`, four local screenshots, four production
+    screenshots, and the sanitized production `qa-results.json`.
 - [x] Design baseline and final design audit record the B baseline and P1/P2 fixes.
 - [x] Repro and rollback notes are documented in `docs/OPERATIONS.md`.
 

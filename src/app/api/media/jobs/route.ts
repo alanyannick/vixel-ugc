@@ -17,6 +17,16 @@ export async function GET(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
   const accessError = requireStudioSession(request, requestId);
   if (accessError) return accessError;
+
+  const runtimeConfig = getServerRuntimeConfig();
+  if (!runtimeConfig.databaseConfigured && !runtimeConfig.liveGeneration) {
+    return jsonResponse({
+      requestId,
+      jobs: [],
+      recovery: "not_configured",
+    });
+  }
+
   const sessionIdentity = getStudioSessionIdentity(request);
   if (!sessionIdentity) {
     return apiError(
@@ -26,15 +36,6 @@ export async function GET(request: Request): Promise<Response> {
       false,
       requestId,
     );
-  }
-
-  const runtimeConfig = getServerRuntimeConfig();
-  if (!runtimeConfig.databaseConfigured && !runtimeConfig.liveGeneration) {
-    return jsonResponse({
-      requestId,
-      jobs: [],
-      recovery: "not_configured",
-    });
   }
 
   try {

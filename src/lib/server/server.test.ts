@@ -565,6 +565,25 @@ describe("image provider", () => {
 });
 
 describe("media ledger projection", () => {
+  it("does not require a session identity for an unprotected empty recovery surface", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "");
+    vi.stubEnv("STUDIO_SESSION_SECRET", "");
+    vi.stubEnv("ENABLE_LIVE_GENERATION", "false");
+    vi.stubEnv("DATABASE_APP_URL", "");
+    vi.stubEnv("DATABASE_URL", "");
+
+    const response = await mediaJobsRoute(
+      new Request("https://studio.example.test/api/media/jobs"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      jobs: [],
+      recovery: "not_configured",
+    });
+  });
+
   it("treats server recovery as an empty capability in planning-only mode", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("STUDIO_ACCESS_CODE", "protected-access-code");

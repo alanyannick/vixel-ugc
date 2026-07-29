@@ -98,8 +98,12 @@ Product intake
 - [x] Cluster 9: Real-path validation and design loop
   - Evidence: independent design/security/architecture audits, 1440/390 browser
     checks, four Chrome E2E tests, clean lint/build, and fixed P0 findings.
-- [ ] Cluster 10: Vercel production deployment
-  - Required evidence: deployment URL, response headers, `/`, `/studio`, `/api/health`, metadata and one core workflow smoke.
+- [x] Cluster 10: Vercel production deployment
+  - Evidence: canonical production alias `https://vixel-koc.vercel.app`,
+    immutable Vercel deployment recorded in `docs/evidence/README.md`, READY
+    control-plane state, security headers, `/`, `/studio`, `/api/health`,
+    metadata endpoints, authenticated five-hook/three-persona workflow smoke,
+    and clean 1440/390 production browser passes.
 
 ## Explicit Non-goals for First Launch
 

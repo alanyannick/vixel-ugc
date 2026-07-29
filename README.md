@@ -4,6 +4,18 @@ Vixel KOC Studio turns grounded product references into reviewable creator
 campaigns: five hook routes, one explicit decision, a durable execution plan,
 and protected image/video candidates.
 
+## Production
+
+The private planning preview is deployed at
+[vixel-koc.vercel.app](https://vixel-koc.vercel.app). The access code is kept
+out of the repository and distributed separately. Live paid generation remains
+fail-closed; planning, source grounding, review, local recovery, and campaign
+export are available.
+
+See the checked-in [release evidence](./docs/evidence/README.md) for immutable
+deployment metadata, sanitized API results, security headers, and desktop/mobile
+screenshots.
+
 ## Local development
 
 ```bash

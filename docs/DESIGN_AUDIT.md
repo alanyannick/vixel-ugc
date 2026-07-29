@@ -40,6 +40,9 @@ target was primarily interface ergonomics, not a visual-direction reset.
 - Computed Studio font is `Manrope Variable`; `color-scheme` is dark.
 - 390px pages report no body-level horizontal overflow.
 - The first visible candidate is eager/priority loaded.
+- Final local and production captures at 1440px and 390px are retained in
+  `docs/evidence/`; the production QA record has no console, page, request, or
+  HTTP errors.
 
 The post-fix surface meets the review's A- closure target without changing the
 accepted brand direction.

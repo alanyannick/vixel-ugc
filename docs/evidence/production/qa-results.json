@@ -1,0 +1,280 @@
+{
+  "checkedAt": "2026-07-29T19:29:04.325Z",
+  "base": "https://vixel-koc.vercel.app",
+  "desktop": {
+    "consoleErrors": [],
+    "pageErrors": [],
+    "requestFailures": [],
+    "httpErrors": [],
+    "watchedResponses": [
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/workflows/koc-video"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/product-truth"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/pricing"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/faq"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg",
+        "resourceType": "fetch",
+        "pageUrl": "https://vixel-koc.vercel.app/faq"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/studio"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/api/media/jobs",
+        "resourceType": "fetch",
+        "pageUrl": "https://vixel-koc.vercel.app/studio"
+      }
+    ],
+    "marketing": [
+      {
+        "path": "/",
+        "status": 200,
+        "title": "Product truth, creator native",
+        "h1": "Product truth,creator native.",
+        "overflow": {
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "horizontal": false
+        }
+      },
+      {
+        "path": "/workflows/koc-video",
+        "status": 200,
+        "title": "KOC video workflow · Vixel KOC Studio",
+        "h1": "From grounded briefto publishable candidate.",
+        "overflow": {
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "horizontal": false
+        }
+      },
+      {
+        "path": "/product-truth",
+        "status": 200,
+        "title": "Product truth standard · Vixel KOC Studio",
+        "h1": "Creative freedom needsa fixed point.",
+        "overflow": {
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "horizontal": false
+        }
+      },
+      {
+        "path": "/pricing",
+        "status": 200,
+        "title": "Studio access · Vixel KOC Studio",
+        "h1": "Plan freely.Generate deliberately.",
+        "overflow": {
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "horizontal": false
+        }
+      },
+      {
+        "path": "/faq",
+        "status": 200,
+        "title": "Frequently asked questions · Vixel KOC Studio",
+        "h1": "Clear answers beforecreative work begins.",
+        "overflow": {
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "horizontal": false
+        }
+      }
+    ],
+    "homeReveal": {
+      "count": 10,
+      "sampled": 10,
+      "visibleSamples": 8,
+      "minimumSampleOpacity": 0.639292
+    },
+    "iconStatus": 200,
+    "studio": {
+      "boardVisible": true,
+      "directorToggleVisible": true,
+      "demoCopyPresent": true,
+      "planRail": {
+        "scrollWidth": 867,
+        "clientWidth": 867,
+        "overflowX": "visible",
+        "scrollSnapType": "none"
+      },
+      "overflow": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "horizontal": false
+      }
+    },
+    "directorOpen": true
+  },
+  "mobile": {
+    "consoleErrors": [],
+    "pageErrors": [],
+    "requestFailures": [],
+    "httpErrors": [],
+    "watchedResponses": [
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/workflows/koc-video"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/product-truth"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/pricing"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/faq"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg",
+        "resourceType": "fetch",
+        "pageUrl": "https://vixel-koc.vercel.app/faq"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
+        "resourceType": "other",
+        "pageUrl": "https://vixel-koc.vercel.app/studio"
+      },
+      {
+        "status": 200,
+        "url": "https://vixel-koc.vercel.app/api/media/jobs",
+        "resourceType": "fetch",
+        "pageUrl": "https://vixel-koc.vercel.app/studio"
+      }
+    ],
+    "marketing": [
+      {
+        "path": "/",
+        "status": 200,
+        "title": "Product truth, creator native",
+        "h1": "Product truth,creator native.",
+        "overflow": {
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "horizontal": false
+        }
+      },
+      {
+        "path": "/workflows/koc-video",
+        "status": 200,
+        "title": "KOC video workflow · Vixel KOC Studio",
+        "h1": "From grounded briefto publishable candidate.",
+        "overflow": {
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "horizontal": false
+        }
+      },
+      {
+        "path": "/product-truth",
+        "status": 200,
+        "title": "Product truth standard · Vixel KOC Studio",
+        "h1": "Creative freedom needsa fixed point.",
+        "overflow": {
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "horizontal": false
+        }
+      },
+      {
+        "path": "/pricing",
+        "status": 200,
+        "title": "Studio access · Vixel KOC Studio",
+        "h1": "Plan freely.Generate deliberately.",
+        "overflow": {
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "horizontal": false
+        }
+      },
+      {
+        "path": "/faq",
+        "status": 200,
+        "title": "Frequently asked questions · Vixel KOC Studio",
+        "h1": "Clear answers beforecreative work begins.",
+        "overflow": {
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "horizontal": false
+        }
+      }
+    ],
+    "homeReveal": {
+      "count": 10,
+      "sampled": 10,
+      "visibleSamples": 10,
+      "minimumSampleOpacity": 0.992705
+    },
+    "iconStatus": 200,
+    "studio": {
+      "boardVisible": true,
+      "directorToggleVisible": true,
+      "demoCopyPresent": true,
+      "planRail": {
+        "scrollWidth": 454,
+        "clientWidth": 390,
+        "overflowX": "auto",
+        "scrollSnapType": "x"
+      },
+      "overflow": {
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "horizontal": false
+      }
+    },
+    "routesVisible": true,
+    "candidatesVisible": true,
+    "directorOpen": true
+  }
+}
