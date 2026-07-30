@@ -20,6 +20,7 @@
 
 # local deployment state
 .vercel
+/supabase/.temp/
 
 # editor / OS
 .DS_Store

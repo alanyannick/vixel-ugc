@@ -13,9 +13,11 @@ import {
   readJsonBody,
 } from "@/lib/server/api";
 import {
+  getAccountSession,
   getStudioSessionIdentity,
   requireStudioSession,
 } from "@/lib/server/auth";
+import { requirePaidGenerationAccess } from "@/lib/server/billing";
 import {
   claimMediaSubmission,
   completeMediaSubmission,
@@ -76,6 +78,8 @@ export async function POST(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
   const accessError = requireStudioSession(request, requestId);
   if (accessError) return accessError;
+  const billingError = await requirePaidGenerationAccess(request, requestId);
+  if (billingError) return billingError;
   const sessionIdentity = getStudioSessionIdentity(request);
   if (!sessionIdentity) {
     return apiError(
@@ -177,6 +181,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     claim = await claimMediaSubmission({
       sessionIdentity,
+      accountUserId: getAccountSession(request)?.userId ?? null,
       kind: "video",
       idempotencyKey,
       inputSignature,

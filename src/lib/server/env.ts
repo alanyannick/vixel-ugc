@@ -13,6 +13,36 @@ export type ServerRuntimeConfig = {
   production: boolean;
   liveGeneration: boolean;
   databaseConfigured: boolean;
+  product: {
+    siteUrl: string | null;
+    supabase: {
+      configured: boolean;
+      url: string | null;
+      publishableKeyConfigured: boolean;
+      secretKeyConfigured: boolean;
+    };
+    turnstile: {
+      configured: boolean;
+      siteKey: string | null;
+      secretKeyConfigured: boolean;
+    };
+    resend: {
+      configured: boolean;
+      webhookConfigured: boolean;
+    };
+    stripe: {
+      configured: boolean;
+      webhookConfigured: boolean;
+      priceConfigured: boolean;
+    };
+    features: {
+      waitlist: FeatureReadiness;
+      accountAuth: FeatureReadiness;
+      cloudCampaigns: FeatureReadiness;
+      lifecycleEmail: FeatureReadiness;
+      billing: FeatureReadiness;
+    };
+  };
   newApi: {
     configured: boolean;
     transportSecure: boolean;
@@ -36,15 +66,65 @@ export type ServerRuntimeConfig = {
   };
 };
 
+export type FeatureReadiness = {
+  enabled: boolean;
+  ready: boolean;
+  missing: string[];
+};
+
+export type PublicProductConfig = {
+  siteUrl: string | null;
+  supabaseUrl: string | null;
+  supabasePublishableKey: string | null;
+  turnstileSiteKey: string | null;
+};
+
 const DEFAULT_TEXT_MODEL = "gpt-5.4-mini";
 const DEFAULT_IMAGE_MODEL = "gpt-image-2";
 const DEFAULT_VIDEO_MODEL = "veo-3.1-fast-generate-preview";
 export const MIN_ACCESS_CODE_BYTES = 16;
 export const MIN_SESSION_SECRET_BYTES = 32;
 
-function envValue(env: NodeJS.ProcessEnv, name: string): string | null {
+export function envValue(
+  env: NodeJS.ProcessEnv,
+  name: string,
+): string | null {
   const value = env[name]?.trim();
   return value ? value : null;
+}
+
+function enabled(env: NodeJS.ProcessEnv, name: string): boolean {
+  return envValue(env, name)?.toLowerCase() === "true";
+}
+
+function validHttpUrl(
+  value: string | null,
+  production: boolean,
+): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (!["http:", "https:"].includes(url.protocol)) return null;
+    if (production && url.protocol !== "https:") return null;
+    if (url.username || url.password || url.search || url.hash) return null;
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return null;
+  }
+}
+
+function featureReadiness(
+  featureEnabled: boolean,
+  requirements: Array<[configured: boolean, name: string]>,
+): FeatureReadiness {
+  const missing = requirements
+    .filter(([configured]) => !configured)
+    .map(([, name]) => name);
+  return {
+    enabled: featureEnabled,
+    ready: featureEnabled && missing.length === 0,
+    missing,
+  };
 }
 
 function hasMinimumBytes(value: string | null, minimum: number): boolean {
@@ -95,6 +175,40 @@ export function getServerRuntimeConfig(
   env: NodeJS.ProcessEnv = nodeEnvironment,
 ): ServerRuntimeConfig {
   const production = env.NODE_ENV === "production";
+  const databaseConfigured = hasPostgresConnection(env);
+  const siteUrl = validHttpUrl(
+    envValue(env, "NEXT_PUBLIC_SITE_URL"),
+    production,
+  );
+  const supabaseUrl = validHttpUrl(
+    envValue(env, "NEXT_PUBLIC_SUPABASE_URL"),
+    production,
+  );
+  const supabasePublishableKey = envValue(
+    env,
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  );
+  const supabaseSecretKey = envValue(env, "SUPABASE_SECRET_KEY");
+  const turnstileSiteKey = envValue(
+    env,
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+  );
+  const turnstileSecretKey = envValue(env, "TURNSTILE_SECRET_KEY");
+  const resendApiKey = envValue(env, "RESEND_API_KEY");
+  const resendFrom = envValue(env, "RESEND_TRANSACTIONAL_FROM");
+  const resendWebhookSecret = envValue(env, "RESEND_WEBHOOK_SECRET");
+  const stripeSecret = envValue(env, "STRIPE_SECRET_KEY");
+  const stripeWebhookSecret = envValue(env, "STRIPE_WEBHOOK_SECRET");
+  const stripePrice = envValue(env, "STRIPE_PRICE_UGC_BETA");
+  const cronSecret = envValue(env, "CRON_SECRET");
+  const supabaseConfigured = Boolean(
+    supabaseUrl && supabasePublishableKey && supabaseSecretKey,
+  );
+  const turnstileConfigured = Boolean(
+    turnstileSiteKey && turnstileSecretKey,
+  );
+  const resendConfigured = Boolean(resendApiKey && resendFrom);
+  const stripeConfigured = Boolean(stripeSecret && siteUrl);
   const normalizedBase = normalizeNewApiBase(envValue(env, "NEWAPI_BASE_URL"));
   const providerTransportSecure = Boolean(
     normalizedBase?.rootBaseUrl.startsWith("https://"),
@@ -120,8 +234,72 @@ export function getServerRuntimeConfig(
 
   return {
     production,
-    liveGeneration: envValue(env, "ENABLE_LIVE_GENERATION")?.toLowerCase() === "true",
-    databaseConfigured: hasPostgresConnection(env),
+    liveGeneration: enabled(env, "ENABLE_LIVE_GENERATION"),
+    databaseConfigured,
+    product: {
+      siteUrl,
+      supabase: {
+        configured: supabaseConfigured,
+        url: supabaseUrl,
+        publishableKeyConfigured: Boolean(supabasePublishableKey),
+        secretKeyConfigured: Boolean(supabaseSecretKey),
+      },
+      turnstile: {
+        configured: turnstileConfigured,
+        siteKey: turnstileSiteKey,
+        secretKeyConfigured: Boolean(turnstileSecretKey),
+      },
+      resend: {
+        configured: resendConfigured,
+        webhookConfigured: Boolean(resendWebhookSecret),
+      },
+      stripe: {
+        configured: stripeConfigured,
+        webhookConfigured: Boolean(stripeWebhookSecret),
+        priceConfigured: Boolean(stripePrice),
+      },
+      features: {
+        waitlist: featureReadiness(
+          enabled(env, "ENABLE_PUBLIC_WAITLIST"),
+          [
+            [databaseConfigured, "database"],
+            [!production || turnstileConfigured, "turnstile"],
+          ],
+        ),
+        accountAuth: featureReadiness(
+          enabled(env, "ENABLE_ACCOUNT_AUTH"),
+          [
+            [databaseConfigured, "database"],
+            [supabaseConfigured, "supabase"],
+            [!production || turnstileConfigured, "turnstile"],
+          ],
+        ),
+        cloudCampaigns: featureReadiness(
+          enabled(env, "ENABLE_CLOUD_CAMPAIGNS"),
+          [
+            [databaseConfigured, "database"],
+            [supabaseConfigured, "supabase"],
+          ],
+        ),
+        lifecycleEmail: featureReadiness(
+          enabled(env, "ENABLE_LIFECYCLE_EMAIL"),
+          [
+            [databaseConfigured, "database"],
+            [resendConfigured, "resend"],
+            [Boolean(cronSecret), "cron"],
+          ],
+        ),
+        billing: featureReadiness(
+          enabled(env, "ENABLE_BILLING"),
+          [
+            [databaseConfigured, "database"],
+            [stripeConfigured, "stripe"],
+            [Boolean(stripeWebhookSecret), "stripe_webhook"],
+            [Boolean(stripePrice), "stripe_price"],
+          ],
+        ),
+      },
+    },
     newApi: {
       configured: providerConfigured,
       transportSecure: providerTransportSecure,
@@ -149,5 +327,18 @@ export function getServerRuntimeConfig(
         envValue(env, "NODE_ENV") ??
         "development",
     },
+  };
+}
+
+export function getPublicProductConfig(
+  env: NodeJS.ProcessEnv = nodeEnvironment,
+): PublicProductConfig {
+  const config = getServerRuntimeConfig(env);
+  return {
+    siteUrl: config.product.siteUrl,
+    supabaseUrl: config.product.supabase.url,
+    supabasePublishableKey:
+      envValue(env, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+    turnstileSiteKey: config.product.turnstile.siteKey,
   };
 }

@@ -2355,6 +2355,51 @@
   line-height: 1.55;
 }
 
+.gateTextButton,
+.gateRecoveryToggle,
+.gateActions button,
+.gateActions a {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--studio-muted);
+  font: inherit;
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.gateTextButton {
+  justify-self: start;
+  padding: 0;
+}
+
+.gateRecoveryToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 24px;
+  padding: 0;
+}
+
+.gateTextButton:hover,
+.gateRecoveryToggle:hover,
+.gateActions button:hover,
+.gateActions a:hover {
+  color: var(--studio-citron);
+}
+
+.gateActions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.gateActions a {
+  display: inline-flex;
+  align-items: center;
+  border-bottom: 1px solid var(--studio-border);
+}
+
 .gateChecking {
   color: var(--studio-muted);
   font-size: 10px;

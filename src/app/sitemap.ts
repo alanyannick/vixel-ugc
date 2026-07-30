@@ -46,6 +46,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
+      path: "/pricing",
+      lastModified: "2026-07-31",
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    },
+    {
+      path: "/waitlist",
+      lastModified: "2026-07-31",
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+    },
+    {
       path: "/faq",
       lastModified: "2026-07-31",
       changeFrequency: "monthly" as const,

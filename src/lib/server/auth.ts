@@ -14,14 +14,28 @@ export const STUDIO_IDENTITY_COOKIE = "vixel_studio_identity";
 export const STUDIO_IDENTITY_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 const TOKEN_CLOCK_SKEW_SECONDS = 5 * 60;
-const MAX_SIGNED_TOKEN_LENGTH = 512;
+const MAX_SIGNED_TOKEN_LENGTH = 1_024;
 const SESSION_NONCE_PATTERN = /^[A-Za-z0-9_-]{24}$/;
 const STUDIO_SUBJECT_PATTERN = /^[a-f0-9]{64}$/;
+const USER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ENCODED_EMAIL_PATTERN = /^[A-Za-z0-9_-]{3,427}$/;
 const SIGNATURE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+export type AccountStatus = "pending" | "approved" | "suspended";
+export type AppRole = "user" | "admin";
+export type AccountSession = {
+  userId: string;
+  email: string;
+  accountStatus: AccountStatus;
+  appRole: AppRole;
+  expiresAt: number;
+};
 
 type VerifiedSession =
   | { version: "v1"; expiresAt: number }
-  | { version: "v2"; expiresAt: number; subject: string };
+  | { version: "v2"; expiresAt: number; subject: string }
+  | ({ version: "v3" } & AccountSession);
 
 type VerifiedStudioIdentity = {
   subject: string;
@@ -40,7 +54,7 @@ type AccessState =
       allowed: false;
       required: true;
       configured: boolean;
-      reason: "not_authenticated" | "not_configured";
+      reason: "not_authenticated" | "not_configured" | "not_approved";
     };
 
 function secretValue(name: "STUDIO_ACCESS_CODE" | "STUDIO_SESSION_SECRET") {
@@ -59,7 +73,7 @@ function signPayload(payload: string, secret: string): Buffer {
 }
 
 function signScopedPayload(
-  scope: "session:v2" | "identity:v1",
+  scope: "session:v2" | "session:v3" | "identity:v1",
   payload: string,
   secret: string,
 ): Buffer {
@@ -134,6 +148,42 @@ export function createSessionToken(now = Date.now()): string | null {
   );
 }
 
+export function createAccountSessionToken(
+  account: Omit<AccountSession, "expiresAt">,
+  now = Date.now(),
+): string | null {
+  const secret = secretValue("STUDIO_SESSION_SECRET");
+  const normalizedEmail = account.email.trim().toLowerCase();
+  if (
+    !secret ||
+    !USER_ID_PATTERN.test(account.userId) ||
+    !["pending", "approved", "suspended"].includes(account.accountStatus) ||
+    !["user", "admin"].includes(account.appRole) ||
+    normalizedEmail.length > 320
+  ) {
+    return null;
+  }
+  const encodedEmail = Buffer.from(normalizedEmail, "utf8").toString(
+    "base64url",
+  );
+  if (!ENCODED_EMAIL_PATTERN.test(encodedEmail)) return null;
+
+  const expiresAt = Math.floor(now / 1000) + STUDIO_SESSION_TTL_SECONDS;
+  const payload = [
+    "v3",
+    expiresAt,
+    account.userId.toLowerCase(),
+    account.accountStatus,
+    account.appRole,
+    encodedEmail,
+    randomBytes(18).toString("base64url"),
+  ].join(".");
+  const signature = signScopedPayload("session:v3", payload, secret).toString(
+    "base64url",
+  );
+  return `${payload}.${signature}`;
+}
+
 function verifiedSession(
   token: string | null | undefined,
   now = Date.now(),
@@ -160,6 +210,52 @@ function verifiedSession(
     );
     return signatureMatches(parts[3], expectedSignature)
       ? { version: "v1", expiresAt }
+      : null;
+  }
+
+  if (parts.length === 8 && parts[0] === "v3") {
+    const expiresAt = Number(parts[1]);
+    const userId = parts[2];
+    const accountStatus = parts[3] as AccountStatus;
+    const appRole = parts[4] as AppRole;
+    const encodedEmail = parts[5];
+    if (
+      !validFutureExpiry(expiresAt, nowSeconds, STUDIO_SESSION_TTL_SECONDS) ||
+      !USER_ID_PATTERN.test(userId) ||
+      !["pending", "approved", "suspended"].includes(accountStatus) ||
+      !["user", "admin"].includes(appRole) ||
+      !ENCODED_EMAIL_PATTERN.test(encodedEmail) ||
+      !SESSION_NONCE_PATTERN.test(parts[6])
+    ) {
+      return null;
+    }
+    let email: string;
+    try {
+      email = Buffer.from(encodedEmail, "base64url").toString("utf8");
+      if (
+        Buffer.from(email, "utf8").toString("base64url") !== encodedEmail ||
+        email !== email.trim().toLowerCase() ||
+        email.length > 320
+      ) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+    const expectedSignature = signScopedPayload(
+      "session:v3",
+      parts.slice(0, 7).join("."),
+      secret,
+    );
+    return signatureMatches(parts[7], expectedSignature)
+      ? {
+          version: "v3",
+          expiresAt,
+          userId: userId.toLowerCase(),
+          email,
+          accountStatus,
+          appRole,
+        }
       : null;
   }
 
@@ -270,9 +366,14 @@ function sessionSubject(
   session: VerifiedSession | null,
 ): string | null {
   if (!token || !session) return null;
-  return session.version === "v2"
-    ? session.subject
-    : legacySessionIdentity(token);
+  if (session.version === "v2") return session.subject;
+  if (session.version === "v3") {
+    return createHash("sha256")
+      .update("vixel-account-user:v1\0", "utf8")
+      .update(session.userId, "utf8")
+      .digest("hex");
+  }
+  return legacySessionIdentity(token);
 }
 
 /**
@@ -317,6 +418,7 @@ export function studioSessionMigrationCookies(
   const sessionToken = readCookie(request, STUDIO_SESSION_COOKIE);
   const session = verifiedSession(sessionToken, now);
   if (!session || !sessionToken) return [];
+  if (session.version === "v3") return [];
 
   const identity = verifiedStudioIdentity(
     readCookie(request, STUDIO_IDENTITY_COOKIE),
@@ -353,7 +455,21 @@ export function getAccessState(request: Request): AccessState {
       reason: "not_configured",
     };
   }
-  if (verifySessionToken(readCookie(request, STUDIO_SESSION_COOKIE))) {
+  const session = verifiedSession(
+    readCookie(request, STUDIO_SESSION_COOKIE),
+  );
+  if (
+    session?.version === "v3" &&
+    session.accountStatus !== "approved"
+  ) {
+    return {
+      allowed: false,
+      required: true,
+      configured: true,
+      reason: "not_approved",
+    };
+  }
+  if (session) {
     return { allowed: true, required: true, configured: true };
   }
   return {
@@ -379,6 +495,15 @@ export function requireStudioSession(
       requestId,
     );
   }
+  if (state.reason === "not_approved") {
+    return apiError(
+      403,
+      "waitlist_approval_required",
+      "Waitlist approval is required to enter Studio.",
+      false,
+      requestId,
+    );
+  }
   return apiError(
     401,
     "authentication_required",
@@ -400,6 +525,24 @@ export function getStudioSessionIdentity(request: Request): string | null {
   const token = readCookie(request, STUDIO_SESSION_COOKIE);
   const session = verifiedSession(token);
   return sessionSubject(token, session);
+}
+
+export function getAccountSession(
+  request: Request,
+  now = Date.now(),
+): AccountSession | null {
+  const session = verifiedSession(
+    readCookie(request, STUDIO_SESSION_COOKIE),
+    now,
+  );
+  if (!session || session.version !== "v3") return null;
+  return {
+    userId: session.userId,
+    email: session.email,
+    accountStatus: session.accountStatus,
+    appRole: session.appRole,
+    expiresAt: session.expiresAt,
+  };
 }
 
 export function verifyAccessCode(candidate: string): boolean {
