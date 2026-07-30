@@ -19,6 +19,10 @@ const HARDENING_MIGRATION_URL = new URL(
   "../supabase/migrations/20260730193000_harden_media_generation_ledger.sql",
   import.meta.url,
 );
+const ACCOUNT_OWNER_MIGRATION_URL = new URL(
+  "../supabase/migrations/20260730211500_ensure_media_generation_account_owner.sql",
+  import.meta.url,
+);
 const UPGRADE_SENTINEL_ID = "00000000-0000-4000-8000-000000000001";
 
 function fail(message) {
@@ -70,6 +74,10 @@ if (runtimePassword.length < 16) {
 
 const baseMigrationSql = await readFile(BASE_MIGRATION_URL, "utf8");
 const hardeningMigrationSql = await readFile(HARDENING_MIGRATION_URL, "utf8");
+const accountOwnerMigrationSql = await readFile(
+  ACCOUNT_OWNER_MIGRATION_URL,
+  "utf8",
+);
 if (
   !baseMigrationSql.includes(
     "create table if not exists vixel_koc.media_generation_ledger",
@@ -77,6 +85,9 @@ if (
   baseMigrationSql.includes("revision bigint") ||
   !hardeningMigrationSql.includes(
     "add column if not exists revision bigint not null default 0",
+  ) ||
+  !accountOwnerMigrationSql.includes(
+    "add column if not exists account_user_id uuid",
   ) ||
   !baseMigrationSql.includes("create role vixel_koc_runtime nologin")
 ) {
@@ -166,6 +177,7 @@ try {
   }
 
   await client.query(hardeningMigrationSql);
+  await client.query(accountOwnerMigrationSql);
 
   if (isFreshDatabase) {
     const upgradedSentinel = await client.query(
@@ -222,12 +234,16 @@ try {
   const hardeningMigrationDigest = createHash("sha256")
     .update(hardeningMigrationSql)
     .digest("hex");
+  const accountOwnerMigrationDigest = createHash("sha256")
+    .update(accountOwnerMigrationSql)
+    .digest("hex");
 
   process.stdout.write(
     [
       `Prepared ${EXPECTED_DATABASE} with PostgreSQL ${databaseIdentity.server_version_num}.`,
       `Applied ${fileURLToPath(BASE_MIGRATION_URL)} (sha256:${baseMigrationDigest}).`,
       `Applied ${fileURLToPath(HARDENING_MIGRATION_URL)} (sha256:${hardeningMigrationDigest}).`,
+      `Applied ${fileURLToPath(ACCOUNT_OWNER_MIGRATION_URL)} (sha256:${accountOwnerMigrationDigest}).`,
       isFreshDatabase
         ? "Verified base-to-incremental upgrade row preservation."
         : "Re-applied idempotent migrations to an existing isolated test ledger.",
