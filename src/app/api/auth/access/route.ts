@@ -8,10 +8,12 @@ import {
   readJsonBody,
 } from "@/lib/server/api";
 import {
-  createSessionToken,
+  createStudioLoginSession,
   expiredSessionCookie,
   getAccessState,
   sessionCookie,
+  studioIdentityCookie,
+  studioSessionMigrationCookies,
   verifyAccessCode,
 } from "@/lib/server/auth";
 
@@ -111,13 +113,22 @@ function crossSiteError(requestId: string): Response {
 export async function GET(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
   const state = getAccessState(request);
-  return jsonResponse({
-    ok: true,
-    authenticated: state.allowed,
-    required: state.required,
-    configured: state.configured,
-    requestId,
-  });
+  const headers = new Headers();
+  if (state.allowed && state.required) {
+    for (const cookie of studioSessionMigrationCookies(request)) {
+      headers.append("set-cookie", cookie);
+    }
+  }
+  return jsonResponse(
+    {
+      ok: true,
+      authenticated: state.allowed,
+      required: state.required,
+      configured: state.configured,
+      requestId,
+    },
+    { headers },
+  );
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -190,8 +201,8 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
   accessAttempts.delete(attemptKey);
-  const token = createSessionToken();
-  if (!token) {
+  const loginSession = createStudioLoginSession(request);
+  if (!loginSession) {
     return apiError(
       503,
       "access_not_configured",
@@ -200,6 +211,14 @@ export async function POST(request: Request): Promise<Response> {
       requestId,
     );
   }
+  const headers = new Headers();
+  if (loginSession.identityTokenToSet) {
+    headers.append(
+      "set-cookie",
+      studioIdentityCookie(loginSession.identityTokenToSet),
+    );
+  }
+  headers.append("set-cookie", sessionCookie(loginSession.sessionToken));
   return jsonResponse(
     {
       ok: true,
@@ -207,7 +226,7 @@ export async function POST(request: Request): Promise<Response> {
       required: true,
       requestId,
     },
-    { headers: { "set-cookie": sessionCookie(token) } },
+    { headers },
   );
 }
 

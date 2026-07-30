@@ -6,7 +6,7 @@ export const siteConfig = {
   name: "Vixel UGC Studio",
   shortName: "Vixel UGC",
   description:
-    "A source-grounded AI UGC video generator for planning and producing creator-style product ads.",
+    "A source-grounded AI UGC campaign planning beta. Live image and video generation requires a deployment with provider and ledger readiness.",
   url: canonicalUrl,
   locale: "en_US",
   keywords: [

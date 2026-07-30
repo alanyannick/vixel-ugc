@@ -54,7 +54,7 @@ const faqItems = [
     id: "storage",
     question: "Where is campaign data stored?",
     answer:
-      "In the current beta, campaign planning state is kept in the browser and can be exported as JSON. Approved generation inputs pass through the server to the configured provider; provider credentials are never sent to the browser.",
+      "Campaign planning state stays in the browser and can be exported as JSON. An enabled deployment keeps paid-job status and result claims in a private PostgreSQL ledger under a signed pseudonymous recovery identity. Approved inputs pass through the server to the provider; provider credentials never reach the browser.",
   },
   {
     id: "outputs",

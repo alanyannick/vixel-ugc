@@ -10,6 +10,7 @@ import {
 import {
   completeMediaSubmission,
   findOwnedVideoTask,
+  isTerminalMediaLedgerStatus,
   MediaLedgerError,
   noteMediaLedgerError,
   paidControlPlaneReadiness,
@@ -98,7 +99,7 @@ export async function GET(
       requestId,
     );
   }
-  if (owned.status === "succeeded" || owned.status === "failed") {
+  if (isTerminalMediaLedgerStatus(owned.status)) {
     return jsonResponse({
       requestId,
       replayed: true,
@@ -115,6 +116,8 @@ export async function GET(
     const entry = await completeMediaSubmission({
       entryId: owned.id,
       sessionIdentity,
+      expectedStatus: owned.status,
+      expectedRevision: owned.revision,
       status: statusFor(polled.result.status),
       providerTaskId: polled.result.taskId,
       providerResult: polled.result,
@@ -123,7 +126,7 @@ export async function GET(
       requestId,
       replayed: false,
       job: publicLedgerEntry(entry),
-      result: polled.result,
+      result: entry.providerResult,
     });
   } catch (error) {
     if (error instanceof ProviderRequestError) {
@@ -131,6 +134,8 @@ export async function GET(
         await noteMediaLedgerError({
           entryId: owned.id,
           sessionIdentity,
+          expectedStatus: owned.status,
+          expectedRevision: owned.revision,
           errorCode: error.code,
           errorMessage: error.message,
         });

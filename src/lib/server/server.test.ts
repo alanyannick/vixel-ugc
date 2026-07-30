@@ -1,10 +1,19 @@
+import { createHmac } from "node:crypto";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/server/database-readiness", () => ({
+  probeMediaLedgerReadiness: vi.fn(async () => ({ status: "ready" })),
+}));
 
 import {
   createSessionToken,
   getAccessState,
   getStudioSessionIdentity,
+  STUDIO_IDENTITY_COOKIE,
+  STUDIO_IDENTITY_TTL_SECONDS,
   STUDIO_SESSION_COOKIE,
+  STUDIO_SESSION_TTL_SECONDS,
   verifySessionToken,
 } from "./auth";
 import {
@@ -32,6 +41,7 @@ import {
 } from "./provider";
 
 import {
+  DELETE as accessLogout,
   GET as accessStatus,
   POST as accessLogin,
 } from "@/app/api/auth/access/route";
@@ -42,6 +52,22 @@ import { GET as mediaJobsRoute } from "@/app/api/media/jobs/route";
 
 const PNG_BASE64 = "iVBORw0KGgo=";
 const PNG_DATA_URL = `data:image/png;base64,${PNG_BASE64}`;
+
+function setCookieValues(response: Response): string[] {
+  return response.headers.getSetCookie();
+}
+
+function responseCookiePair(response: Response, name: string): string {
+  const cookie = setCookieValues(response).find((value) =>
+    value.startsWith(`${name}=`),
+  );
+  expect(cookie).toBeTruthy();
+  return cookie!.split(";", 1)[0];
+}
+
+function requestCookies(...pairs: string[]): { cookie: string } {
+  return { cookie: pairs.join("; ") };
+}
 
 function stubProviderEnvironment() {
   vi.stubEnv("NODE_ENV", "test");
@@ -136,11 +162,16 @@ describe("access-code session", () => {
     vi.stubEnv("STUDIO_SESSION_SECRET", "unit-test-session-secret");
     const token = createSessionToken(1_800_000_000_000);
     expect(token).toBeTruthy();
+    expect(token).toMatch(/^v2\./);
     expect(token).not.toContain("unit-test-session-secret");
     expect(verifySessionToken(token, 1_800_000_000_000)).toBe(true);
     expect(verifySessionToken(`${token}tampered`, 1_800_000_000_000)).toBe(
       false,
     );
+    expect(
+      verifySessionToken(token!.replace(/^v2\./, "v3."), 1_800_000_000_000),
+    ).toBe(false);
+    expect(verifySessionToken("v2." + "x".repeat(600))).toBe(false);
   });
 
   it("fails closed in production when access configuration is missing", () => {
@@ -156,7 +187,7 @@ describe("access-code session", () => {
     });
   });
 
-  it("rejects a wrong code and accepts the right code with an HttpOnly cookie", async () => {
+  it("rejects a wrong code and accepts the right code with hardened cookies", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("STUDIO_ACCESS_CODE", "test-access-code");
     vi.stubEnv(
@@ -182,15 +213,28 @@ describe("access-code session", () => {
       }),
     );
     expect(accepted.status).toBe(200);
-    const setCookie = accepted.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain("HttpOnly");
-    expect(setCookie).toContain("SameSite=Strict");
-    expect(setCookie).toContain("Secure");
+    const setCookies = setCookieValues(accepted);
+    expect(setCookies).toHaveLength(2);
+    for (const cookie of setCookies) {
+      expect(cookie).toContain("HttpOnly");
+      expect(cookie).toContain("SameSite=Strict");
+      expect(cookie).toContain("Secure");
+      expect(cookie).not.toContain("test-access-code");
+      expect(cookie).not.toContain(
+        "test-session-secret-long-enough-for-production",
+      );
+    }
+    expect(
+      setCookies.find((cookie) =>
+        cookie.startsWith(`${STUDIO_IDENTITY_COOKIE}=`),
+      ),
+    ).toContain(`Max-Age=${STUDIO_IDENTITY_TTL_SECONDS}`);
 
-    const cookiePair = setCookie.split(";")[0];
+    const sessionPair = responseCookiePair(accepted, STUDIO_SESSION_COOKIE);
+    const identityPair = responseCookiePair(accepted, STUDIO_IDENTITY_COOKIE);
     const status = await accessStatus(
       new Request("https://studio.example.test/api/auth/access", {
-        headers: { cookie: cookiePair },
+        headers: requestCookies(sessionPair, identityPair),
       }),
     );
     expect(await status.json()).toMatchObject({
@@ -198,7 +242,271 @@ describe("access-code session", () => {
       required: true,
       configured: true,
     });
-    expect(cookiePair.startsWith(`${STUDIO_SESSION_COOKIE}=`)).toBe(true);
+    expect(sessionPair.startsWith(`${STUDIO_SESSION_COOKIE}=`)).toBe(true);
+  });
+
+  it("keeps the same recovery owner across logout and re-login", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "durable-test-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "durable-session-secret-long-enough-for-production",
+    );
+    const loginRequest = (cookie?: string) =>
+      new Request("https://studio.example.test/api/auth/access", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(cookie ? { cookie } : {}),
+        },
+        body: JSON.stringify({ code: "durable-test-access-code" }),
+      });
+
+    const firstLogin = await accessLogin(loginRequest());
+    const firstSession = responseCookiePair(
+      firstLogin,
+      STUDIO_SESSION_COOKIE,
+    );
+    const recoveryIdentity = responseCookiePair(
+      firstLogin,
+      STUDIO_IDENTITY_COOKIE,
+    );
+    const firstOwner = getStudioSessionIdentity(
+      new Request("https://studio.example.test/studio", {
+        headers: requestCookies(firstSession, recoveryIdentity),
+      }),
+    );
+
+    const logout = await accessLogout(
+      new Request("https://studio.example.test/api/auth/access", {
+        method: "DELETE",
+        headers: requestCookies(firstSession, recoveryIdentity),
+      }),
+    );
+    const logoutCookies = setCookieValues(logout);
+    expect(logoutCookies).toHaveLength(1);
+    expect(logoutCookies[0]).toMatch(
+      new RegExp(`^${STUDIO_SESSION_COOKIE}=.*Max-Age=0`),
+    );
+    expect(logoutCookies[0]).not.toContain(STUDIO_IDENTITY_COOKIE);
+
+    const secondLogin = await accessLogin(loginRequest(recoveryIdentity));
+    expect(
+      setCookieValues(secondLogin).some((cookie) =>
+        cookie.startsWith(`${STUDIO_IDENTITY_COOKIE}=`),
+      ),
+    ).toBe(false);
+    const secondSession = responseCookiePair(
+      secondLogin,
+      STUDIO_SESSION_COOKIE,
+    );
+    const secondOwner = getStudioSessionIdentity(
+      new Request("https://studio.example.test/studio", {
+        headers: requestCookies(secondSession, recoveryIdentity),
+      }),
+    );
+    expect(firstOwner).toMatch(/^[a-f0-9]{64}$/);
+    expect(secondOwner).toBe(firstOwner);
+  });
+
+  it("assigns different owners to different browsers", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "browser-test-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "browser-session-secret-long-enough-for-production",
+    );
+    const loginRequest = () =>
+      new Request("https://studio.example.test/api/auth/access", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: "browser-test-access-code" }),
+      });
+
+    const browserA = await accessLogin(loginRequest());
+    const browserB = await accessLogin(loginRequest());
+    const ownerFor = (response: Response) =>
+      getStudioSessionIdentity(
+        new Request("https://studio.example.test/studio", {
+          headers: requestCookies(
+            responseCookiePair(response, STUDIO_SESSION_COOKIE),
+            responseCookiePair(response, STUDIO_IDENTITY_COOKIE),
+          ),
+        }),
+      );
+    expect(ownerFor(browserA)).toMatch(/^[a-f0-9]{64}$/);
+    expect(ownerFor(browserB)).not.toBe(ownerFor(browserA));
+  });
+
+  it("repairs a mismatched recovery identity from the active signed session", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "mismatch-test-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "mismatch-session-secret-long-enough-for-production",
+    );
+    const loginRequest = (cookie?: string) =>
+      new Request("https://studio.example.test/api/auth/access", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(cookie ? { cookie } : {}),
+        },
+        body: JSON.stringify({ code: "mismatch-test-access-code" }),
+      });
+
+    const browserA = await accessLogin(loginRequest());
+    const browserB = await accessLogin(loginRequest());
+    const sessionA = responseCookiePair(
+      browserA,
+      STUDIO_SESSION_COOKIE,
+    );
+    const identityA = responseCookiePair(
+      browserA,
+      STUDIO_IDENTITY_COOKIE,
+    );
+    const identityB = responseCookiePair(
+      browserB,
+      STUDIO_IDENTITY_COOKIE,
+    );
+    const ownerA = getStudioSessionIdentity(
+      new Request("https://studio.example.test/studio", {
+        headers: requestCookies(sessionA, identityA),
+      }),
+    );
+
+    const repairedStatus = await accessStatus(
+      new Request("https://studio.example.test/api/auth/access", {
+        headers: requestCookies(sessionA, identityB),
+      }),
+    );
+    const repairedIdentity = responseCookiePair(
+      repairedStatus,
+      STUDIO_IDENTITY_COOKIE,
+    );
+    expect(
+      getStudioSessionIdentity(
+        new Request("https://studio.example.test/studio", {
+          headers: requestCookies(sessionA, repairedIdentity),
+        }),
+      ),
+    ).toBe(ownerA);
+
+    const relogin = await accessLogin(
+      loginRequest(requestCookies(sessionA, identityB).cookie),
+    );
+    const repairedSession = responseCookiePair(
+      relogin,
+      STUDIO_SESSION_COOKIE,
+    );
+    const reloginIdentity = responseCookiePair(
+      relogin,
+      STUDIO_IDENTITY_COOKIE,
+    );
+    expect(
+      getStudioSessionIdentity(
+        new Request("https://studio.example.test/studio", {
+          headers: requestCookies(repairedSession, reloginIdentity),
+        }),
+      ),
+    ).toBe(ownerA);
+  });
+
+  it("rejects a tampered recovery identity instead of trusting its subject", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "tamper-test-access-code");
+    vi.stubEnv(
+      "STUDIO_SESSION_SECRET",
+      "tamper-session-secret-long-enough-for-production",
+    );
+    const loginRequest = (cookie?: string) =>
+      new Request("https://studio.example.test/api/auth/access", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(cookie ? { cookie } : {}),
+        },
+        body: JSON.stringify({ code: "tamper-test-access-code" }),
+      });
+
+    const original = await accessLogin(loginRequest());
+    const originalOwner = getStudioSessionIdentity(
+      new Request("https://studio.example.test/studio", {
+        headers: requestCookies(
+          responseCookiePair(original, STUDIO_SESSION_COOKIE),
+          responseCookiePair(original, STUDIO_IDENTITY_COOKIE),
+        ),
+      }),
+    );
+    const originalIdentity = responseCookiePair(
+      original,
+      STUDIO_IDENTITY_COOKIE,
+    );
+    const lastCharacter = originalIdentity.at(-1);
+    const tamperedIdentity = `${originalIdentity.slice(0, -1)}${
+      lastCharacter === "A" ? "B" : "A"
+    }`;
+
+    const afterTamper = await accessLogin(loginRequest(tamperedIdentity));
+    const replacementIdentity = responseCookiePair(
+      afterTamper,
+      STUDIO_IDENTITY_COOKIE,
+    );
+    const replacementSession = responseCookiePair(
+      afterTamper,
+      STUDIO_SESSION_COOKIE,
+    );
+    const replacementOwner = getStudioSessionIdentity(
+      new Request("https://studio.example.test/studio", {
+        headers: requestCookies(replacementSession, replacementIdentity),
+      }),
+    );
+    expect(replacementIdentity).not.toBe(originalIdentity);
+    expect(replacementOwner).toMatch(/^[a-f0-9]{64}$/);
+    expect(replacementOwner).not.toBe(originalOwner);
+  });
+
+  it("migrates a valid v1 session without changing its ledger owner", async () => {
+    const secret = "legacy-session-secret-long-enough-for-production";
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("STUDIO_ACCESS_CODE", "legacy-test-access-code");
+    vi.stubEnv("STUDIO_SESSION_SECRET", secret);
+    const nowSeconds = Math.floor(Date.now() / 1_000);
+    const payload = `v1.${nowSeconds + STUDIO_SESSION_TTL_SECONDS}.${Buffer.alloc(
+      18,
+      7,
+    ).toString("base64url")}`;
+    const signature = createHmac("sha256", secret)
+      .update(payload, "utf8")
+      .digest("base64url");
+    const legacyToken = `${payload}.${signature}`;
+    const legacySession = `${STUDIO_SESSION_COOKIE}=${encodeURIComponent(
+      legacyToken,
+    )}`;
+    const legacyRequest = new Request(
+      "https://studio.example.test/api/auth/access",
+      { headers: requestCookies(legacySession) },
+    );
+    const legacyOwner = getStudioSessionIdentity(legacyRequest);
+    expect(verifySessionToken(legacyToken)).toBe(true);
+
+    const migration = await accessStatus(legacyRequest);
+    expect(migration.status).toBe(200);
+    const upgradedSession = responseCookiePair(
+      migration,
+      STUDIO_SESSION_COOKIE,
+    );
+    const durableIdentity = responseCookiePair(
+      migration,
+      STUDIO_IDENTITY_COOKIE,
+    );
+    expect(decodeURIComponent(upgradedSession)).toContain("v2.");
+    const migratedOwner = getStudioSessionIdentity(
+      new Request("https://studio.example.test/studio", {
+        headers: requestCookies(upgradedSession, durableIdentity),
+      }),
+    );
+    expect(migratedOwner).toBe(legacyOwner);
   });
 });
 
@@ -681,6 +989,7 @@ describe("media ledger projection", () => {
       providerResult: { url: `data:image/png;base64,${"A".repeat(1_000)}` },
       errorCode: null,
       errorMessage: null,
+      revision: 1,
       createdAt: "2026-07-30T00:00:00.000Z",
       updatedAt: "2026-07-30T00:00:01.000Z",
     });

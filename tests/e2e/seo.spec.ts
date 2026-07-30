@@ -8,7 +8,7 @@ test("public acquisition pages expose self-referencing canonicals", async ({
   const pages = [
     {
       path: "/",
-      heading: "AI UGC video generator, grounded in product truth.",
+      heading: "Plan AI UGC video campaigns, grounded in product truth.",
     },
     {
       path: "/ugc-ad-generator",
@@ -87,4 +87,22 @@ test("legacy public routes permanently redirect", async ({ request }) => {
   });
   expect(pricingResponse.status()).toBe(308);
   expect(pricingResponse.headers().location).toBe("/access");
+
+  const attributedWorkflow = await request.get(
+    "/workflows/koc-video?utm_source=legacy&utm_campaign=launch",
+    { maxRedirects: 0 },
+  );
+  expect(attributedWorkflow.status()).toBe(308);
+  expect(attributedWorkflow.headers().location).toBe(
+    "/workflows/ugc-video?utm_source=legacy&utm_campaign=launch",
+  );
+
+  const attributedPricing = await request.get(
+    "/pricing?utm_source=legacy&utm_content=nav",
+    { maxRedirects: 0 },
+  );
+  expect(attributedPricing.status()).toBe(308);
+  expect(attributedPricing.headers().location).toBe(
+    "/access?utm_source=legacy&utm_content=nav",
+  );
 });

@@ -142,11 +142,14 @@ CTA/logo, or music mix is required.
 - Live generation requires an authenticated studio session, explicit deployment
   flag, HTTPS provider, and isolated PostgreSQL ledger.
 - Paid input approval is a short-lived server HMAC tied to the canonical input,
-  session, provider model, and idempotency key.
+  signed recovery subject, provider model, adapter build, and idempotency key.
 - Changing prompt, model, references, ratio, duration, or audio invalidates the
   previous approval.
 - Ambiguous provider submission is recorded as `submit_unknown` and never
   automatically retried.
+- Ledger updates use revision compare-and-set rules. A provider response cannot
+  move a terminal job backward, and a stale provider submission without a
+  durable result becomes `reconciliation_required` instead of being retried.
 - Cancel, failed-only retry, and protected late-result transitions are covered
   by the domain model and tests. Provider cancellation remains deployment
   dependent.

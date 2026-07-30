@@ -28,21 +28,21 @@ export function Hero() {
     <section className="hero">
       <div className="hero-grain" aria-hidden="true" />
       <div className="hero-copy">
-        <p className="hero-series">VIXEL UGC / PRODUCT VIDEO SYSTEM 01</p>
+        <p className="hero-series">VIXEL UGC / PLANNING BETA 01</p>
         <p className="hero-brand">VIXEL UGC</p>
         <h1>
-          AI UGC video generator,
+          Plan AI UGC video campaigns,
           <br />
           grounded in product truth.
         </h1>
         <p className="hero-intro">
           Turn approved product facts and visual references into five creator
-          routes, one reviewed production plan, and traceable 4, 6, or
-          8-second video candidates.
+          routes and one reviewed production plan. Live-ready studios can then
+          submit approved inputs for traceable 4, 6, or 8-second candidates.
         </p>
         <div className="button-row">
           <Link className="button button--citron" href="/studio">
-            Create a UGC video
+            Open the planning studio
             <ArrowRight aria-hidden="true" size={18} />
           </Link>
           <Link className="button button--ghost" href="/workflows/ugc-video">

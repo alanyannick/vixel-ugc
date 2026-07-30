@@ -256,6 +256,58 @@
   line-height: 1.4;
 }
 
+.sessionAccess {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--studio-soft-border);
+}
+
+.sessionAccess > span {
+  display: grid;
+  gap: 3px;
+}
+
+.sessionAccess strong {
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.sessionAccess small {
+  color: var(--studio-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sessionAccess .sessionError {
+  color: #ffc0b5;
+}
+
+.sessionAccess button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-panel);
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sessionAccess button:hover {
+  border-color: #464c40;
+  background: var(--studio-raised);
+}
+
+.sessionAccess button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .sidebarFooter > a {
   display: flex;
   min-height: 44px;
@@ -2054,8 +2106,8 @@
 
 .approvalDialog > header > button {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 0;
   background: transparent;
@@ -2093,14 +2145,17 @@
 .approvalMeta dt {
   margin-bottom: 5px;
   color: var(--studio-dim);
-  font-size: 7px;
+  font-size: 11px;
+  line-height: 1.35;
   text-transform: uppercase;
 }
 
 .approvalMeta dd {
   margin: 0;
-  font-size: 9px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
   font-weight: 650;
+  line-height: 1.45;
 }
 
 .referenceReview {
@@ -2292,6 +2347,12 @@
 
 .gateInputRow button:disabled {
   opacity: 0.55;
+}
+
+.formNotice {
+  color: #dff996;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .gateChecking {

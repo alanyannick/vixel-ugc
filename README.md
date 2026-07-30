@@ -36,9 +36,14 @@ gate, secure HTTPS NewAPI endpoint, isolated PostgreSQL ledger, and
 npm run lint
 npm run typecheck
 npm run test
+npm run test:postgres-ledger
 npm run build
 npm run test:e2e
 ```
+
+The PostgreSQL integration command runs only against the guarded local
+`vixel_ledger_ci` database prepared by
+`npm run test:postgres-ledger:prepare`; normal unit tests skip it safely.
 
 ## Architecture
 
@@ -46,8 +51,9 @@ npm run test:e2e
 - A real domain `ExecutionPlan` in the Studio with stable stage/item IDs,
   revision checks, and separate planner/runtime state.
 - Five-minute server-signed exact-input approval before paid work.
-- PostgreSQL submission ledger with unique submit ownership, session-scoped
-  video tasks, and reload recovery endpoints.
+- PostgreSQL submission ledger with unique submit ownership, a signed
+  browser-recovery identity, monotonic job transitions, and reload recovery
+  endpoints.
 - Provider success and candidate materialization are distinct states.
 - Browser-local project durability with versioned JSON export.
 - Server-only NewAPI adapters.
@@ -56,6 +62,9 @@ Direct HTTPS NewAPI canaries cover text, image generation, image editing, and
 Veo video generation. Production paid media remains off until a dedicated
 database is authorized, migrated, and bound to the deployment. The app fails
 closed when any access, provider, approval, or ledger gate is missing.
+Database setup must apply every file in `supabase/migrations/` in timestamp
+order; the later hardening migration is required even when the base ledger
+migration is already registered.
 
 See [the product blueprint](./docs/PRODUCT_BLUEPRINT.md),
 [the design system](./DESIGN.md), and

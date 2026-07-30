@@ -40,6 +40,18 @@ export type MediaLedgerJob = {
   updatedAt: string;
 };
 
+export type MediaSubmissionReplay = {
+  state:
+    | "in_progress"
+    | "result_available"
+    | "reconciliation_required"
+    | "terminal";
+  entryId: string;
+  status: MediaLedgerJob["status"];
+  taskId: string | null;
+  providerRetryAllowed: false;
+};
+
 async function parseResponse<T>(response: Response): Promise<T> {
   const body = (await response.json().catch(() => null)) as
     | T
@@ -151,6 +163,7 @@ export async function createImageCandidate(input: {
     image?: { url?: string };
     result?: { url?: string };
     job: MediaLedgerJob;
+    submission?: MediaSubmissionReplay;
     provider?: string;
     requestId?: string;
   }>(response);
@@ -166,14 +179,27 @@ export async function createImageCandidate(input: {
     url = recovered.url;
   }
   if (!url) {
+    const reconciliationRequired =
+      job?.status === "submit_unknown" ||
+      job?.status === "reconciliation_required";
+    const failed = job?.status === "failed";
     throw new StudioApiError(
-      job?.status === "submit_unknown"
+      reconciliationRequired
         ? "The image submission is awaiting reconciliation. It will remain recoverable from the server ledger and will not be submitted again automatically."
-        : "The provider completed without returning a usable image.",
-      job?.status === "submit_unknown"
+        : job?.status === "cancelled"
+          ? "The image submission was cancelled before a recoverable result was recorded."
+          : failed
+            ? job.error?.message ??
+              "The image provider rejected this submission."
+            : "The provider completed without returning a usable image.",
+      reconciliationRequired
         ? "SUBMISSION_RECONCILIATION_REQUIRED"
-        : "RESULT_MISSING",
-      job?.status !== "failed",
+        : job?.status === "cancelled"
+          ? "IMAGE_GENERATION_CANCELLED"
+          : failed
+            ? job.error?.code ?? "IMAGE_GENERATION_FAILED"
+            : "RESULT_MISSING",
+      false,
     );
   }
   return {
@@ -259,12 +285,36 @@ export async function submitVideoCandidate(input: {
   const body = await parseResponse<{
     job: MediaLedgerJob;
     result: VideoJobResult | null;
+    submission?: MediaSubmissionReplay;
   }>(response);
   if (!body.result) {
+    const inProgress = body.submission?.state === "in_progress";
+    const reconciliationRequired =
+      body.job.status === "submit_unknown" ||
+      body.job.status === "reconciliation_required";
+    const cancelled = body.job.status === "cancelled";
+    const failed = body.job.status === "failed";
     throw new StudioApiError(
-      "This video submission is already being reconciled. Reload the campaign to recover its ledgered task instead of submitting it again.",
-      "VIDEO_SUBMISSION_PENDING",
-      true,
+      inProgress
+        ? "This paid video submission is still in progress. Its ledger claim is recoverable and the provider will not be called again."
+        : body.job.error?.message ??
+          (reconciliationRequired
+            ? "This video submission requires reconciliation before any retry."
+            : cancelled
+              ? "The video submission was cancelled."
+              : failed
+                ? "The video provider rejected this submission."
+                : "The provider completed without a usable video result."),
+      inProgress
+        ? "VIDEO_SUBMISSION_PENDING"
+        : reconciliationRequired
+          ? "VIDEO_SUBMISSION_RECONCILIATION_REQUIRED"
+          : cancelled
+            ? "VIDEO_JOB_CANCELLED"
+            : failed
+              ? body.job.error?.code ?? "VIDEO_SUBMISSION_FAILED"
+              : "VIDEO_RESULT_MISSING",
+      inProgress,
     );
   }
   return {
@@ -283,9 +333,35 @@ export async function pollVideoCandidate(
     { cache: "no-store", signal },
   );
   const body = await parseResponse<{
-    job: { provider?: string };
-    result: VideoJobResult;
+    job: Pick<MediaLedgerJob, "provider" | "status" | "error">;
+    result: VideoJobResult | null;
   }>(response);
+  if (!body.result) {
+    const code =
+      body.job.status === "cancelled"
+        ? "VIDEO_JOB_CANCELLED"
+        : body.job.status === "failed"
+          ? body.job.error?.code ?? "VIDEO_JOB_FAILED"
+          : body.job.status === "reconciliation_required" ||
+            body.job.status === "submit_unknown"
+          ? "VIDEO_SUBMISSION_RECONCILIATION_REQUIRED"
+          : "VIDEO_RESULT_PENDING";
+    throw new StudioApiError(
+      body.job.error?.message ??
+        (body.job.status === "cancelled"
+          ? "The video job was cancelled."
+          : body.job.status === "failed"
+            ? "The video provider marked the job as failed."
+            : "The video job has no provider result yet."),
+      code,
+      ![
+        "failed",
+        "cancelled",
+        "reconciliation_required",
+        "submit_unknown",
+      ].includes(body.job.status),
+    );
+  }
   return {
     result: body.result,
     provider: body.job.provider ?? "NewAPI",

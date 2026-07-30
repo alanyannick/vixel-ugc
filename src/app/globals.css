@@ -1928,7 +1928,7 @@ h2 em {
   border-bottom: 1px solid rgb(243 240 232 / 18%);
   border-top: 1px solid rgb(243 240 232 / 18%);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin-top: 74px;
 }
 

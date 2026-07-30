@@ -14,9 +14,9 @@ import { softwareSchema } from "@/lib/seo/schema";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "AI UGC video generator for product ads",
+  title: "AI UGC video campaign planning beta",
   description:
-    "Turn product facts and visual references into creator-style AI UGC video ads with five creative routes, exact paid-input approval, and traceable delivery.",
+    "Plan source-grounded AI UGC product-video campaigns with five creative routes and exact paid-input review. Hosted generation requires live provider and ledger readiness.",
   path: "/",
 });
 

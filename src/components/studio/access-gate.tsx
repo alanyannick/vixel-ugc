@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useState } from "react";
+import {
+  createContext,
+  FormEvent,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 
 import { IconMark } from "@/components/studio/icon-mark";
@@ -9,11 +16,35 @@ import styles from "./studio.module.css";
 
 type GateState = "checking" | "open" | "locked";
 
-export function AccessGate({ children }: { children: ReactNode }) {
+export type AccessGateSession = {
+  canSignOut: boolean;
+  signOutError: string;
+  signingOut: boolean;
+  signOut: () => Promise<void>;
+};
+
+const AccessGateSessionContext = createContext<AccessGateSession | null>(null);
+
+export function useAccessGateSession(): AccessGateSession {
+  const session = useContext(AccessGateSessionContext);
+  if (!session) {
+    throw new Error("useAccessGateSession must be used inside AccessGate.");
+  }
+  return session;
+}
+
+export function AccessGate({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [state, setState] = useState<GateState>("checking");
+  const [accessRequired, setAccessRequired] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -37,10 +68,9 @@ export function AccessGate({ children }: { children: ReactNode }) {
           setState("locked");
           return;
         }
+        setAccessRequired(body.required === true);
         setState(
-          body?.authenticated || body?.required === false
-            ? "open"
-            : "locked",
+          body.authenticated || body.required === false ? "open" : "locked",
         );
       })
       .catch(() => {
@@ -64,6 +94,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
     }
     setSubmitting(true);
     setError("");
+    setNotice("");
     try {
       const response = await fetch("/api/auth/access", {
         method: "POST",
@@ -76,6 +107,10 @@ export function AccessGate({ children }: { children: ReactNode }) {
           | null;
         throw new Error(body?.error?.message ?? "That access code is not valid.");
       }
+      const body = (await response.json().catch(() => null)) as
+        | { required?: boolean }
+        | null;
+      setAccessRequired(body?.required !== false);
       setState("open");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Access failed.");
@@ -84,7 +119,45 @@ export function AccessGate({ children }: { children: ReactNode }) {
     }
   }
 
-  if (state === "open") return children;
+  async function signOut() {
+    if (!accessRequired || signingOut) return;
+    setSigningOut(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/auth/access", { method: "DELETE" });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as
+          | { error?: { message?: string } }
+          | null;
+        throw new Error(body?.error?.message ?? "The studio could not sign out.");
+      }
+      setCode("");
+      setNotice(
+        "Signed out. Your paid-job recovery identity stays on this browser so prior jobs can be recovered after you sign in again.",
+      );
+      setState("locked");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Sign out failed.");
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
+  if (state === "open") {
+    return (
+      <AccessGateSessionContext.Provider
+        value={{
+          canSignOut: accessRequired,
+          signOutError: error,
+          signingOut,
+          signOut,
+        }}
+      >
+        {children}
+      </AccessGateSessionContext.Provider>
+    );
+  }
 
   if (state === "checking") {
     return (
@@ -129,6 +202,11 @@ export function AccessGate({ children }: { children: ReactNode }) {
             </button>
           </div>
           {error ? <p className={styles.formError}>{error}</p> : null}
+          {notice ? (
+            <p className={styles.formNotice} role="status">
+              {notice}
+            </p>
+          ) : null}
         </form>
       </section>
     </div>

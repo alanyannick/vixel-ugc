@@ -5,7 +5,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const entries = [
     {
       path: "/",
-      lastModified: "2026-07-30",
+      lastModified: "2026-07-31",
       changeFrequency: "weekly" as const,
       priority: 1,
     },
@@ -41,19 +41,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       path: "/access",
-      lastModified: "2026-07-30",
+      lastModified: "2026-07-31",
       changeFrequency: "monthly" as const,
       priority: 0.7,
     },
     {
       path: "/faq",
-      lastModified: "2026-07-30",
+      lastModified: "2026-07-31",
       changeFrequency: "monthly" as const,
       priority: 0.7,
     },
     {
       path: "/privacy",
-      lastModified: "2026-07-30",
+      lastModified: "2026-07-31",
       changeFrequency: "yearly" as const,
       priority: 0.3,
     },

@@ -146,6 +146,11 @@ export default function PricingPage() {
             Ambiguous paid submissions are never auto-retried; the server ledger
             returns the existing job state.
           </p>
+          <p>
+            <span>04</span>
+            Database-enforced daily submission caps limit provider-cost
+            exposure across browsers and deployments.
+          </p>
         </div>
       </section>
     </>

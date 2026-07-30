@@ -26,7 +26,7 @@ Product claims require a supplied source. Vixel separates visible facts, support
 
 ## Paid-generation policy
 
-Live generation requires a secure HTTPS provider, an isolated PostgreSQL ledger, an authenticated studio session, a deployment flag, and a short-lived server signature tied to the canonical input, provider model, session, and idempotency key. Changing prompt, model, references, aspect ratio, duration, or audio requires a new review. Deployment capability is disclosed by /api/health; unavailable or incomplete deployments remain fail-closed. Cancellation and protected-late-result transitions are part of the tested domain state machine.
+Live generation requires a secure HTTPS provider, an isolated PostgreSQL ledger, an authenticated studio session, a deployment flag, and a short-lived server signature tied to the canonical input, provider model, adapter build, signed recovery identity, and idempotency key. Changing prompt, model, references, aspect ratio, duration, or audio requires a new review. Ledger transitions use revision compare-and-set rules; ambiguous or stale submissions require reconciliation and are never automatically retried. Database-backed submission limits cap exposure. Deployment capability is disclosed by /api/health, whose ledger check verifies a real connection, schema, RLS policy, and restricted runtime grants; unavailable or incomplete deployments remain fail-closed.
 
 ## Primary pages
 

@@ -63,7 +63,8 @@ Error 13: an unknown error occurred
 ### Context
 
 - Attempted to convert three project-bound ImageGen PNG assets to WebP.
-- Source PNG files were copied successfully and remain intact in `public/media/`.
+- Source PNG files were copied successfully at the time, then removed after the
+  verified WebP replacements shipped.
 - Environment: macOS, `sips` system binary.
 
 ### Suggested Fix
@@ -74,7 +75,7 @@ conversion, then verify dimensions and file sizes.
 ### Metadata
 
 - Reproducible: yes
-- Related Files: public/media/koc-serum-creator.png
+- Related Files: public/media/koc-serum-creator.webp
 
 ### Resolution
 
