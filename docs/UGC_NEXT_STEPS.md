@@ -12,7 +12,7 @@ gates below are complete.
 
 ## P0 — Make `main` the single production source
 
-- [ ] Keep the Vercel project `alanyannicks-projects/vixel-koc` connected to
+- [x] Keep the Vercel project `alanyannicks-projects/vixel-koc` connected to
   `alanyannick/vixel-ugc` with production branch `main`.
 - [ ] Verify a push to `main` creates a Vercel production deployment whose Git
   commit SHA matches GitHub `main`.
