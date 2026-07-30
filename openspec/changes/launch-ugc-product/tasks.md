@@ -63,6 +63,6 @@
 
 - [x] 9.1 Pass lint, types, unit, integration, production build, and single-worker browser tests
 - [ ] 9.2 Pass Preview waitlist, auth, admin, email, billing, and fail-closed generation smoke
-- [ ] 9.3 Promote the verified commit to `main` and pass Production smoke
+- [x] 9.3 Promote the verified commit to `main` and pass Production smoke
 - [x] 9.4 Update runbooks, environment example, workspace canonical docs, and rollback notes
 - [ ] 9.5 Enable paid generation only after authorized provider, ledger, recovery, and entitlement proofs
