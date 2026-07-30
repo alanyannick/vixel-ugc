@@ -28,9 +28,14 @@ paid generation.
 ### Supabase
 
 1. Use project `vixel-ugc` and apply every committed migration in order.
-2. Use a non-owner application login through the pooler. The login must inherit
-   `vixel_ugc_runtime` and `vixel_koc_runtime` and must not have superuser,
-   `BYPASSRLS`, schema `CREATE`, or broad `DELETE`.
+2. Use a non-owner application login through the IPv4 shared transaction
+   pooler (`aws-[region].pooler.supabase.com:6543`) for Vercel. The login must
+   inherit `vixel_ugc_runtime` and `vixel_koc_runtime` and must not have
+   superuser, `BYPASSRLS`, schema `CREATE`, or broad `DELETE`. With
+   node-postgres 8.22+, append
+   `?sslmode=require&uselibpqcompat=true` unless a Supabase CA bundle is
+   supplied separately; otherwise `sslmode=require` is interpreted as
+   `verify-full` and the shared pooler's private CA chain is rejected.
 3. Set the site URL to `https://ugc.vixelai.com` and allow the production and
    Vercel Preview callback patterns.
 4. Configure custom SMTP with a dedicated Resend SMTP credential.
