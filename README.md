@@ -6,12 +6,12 @@ and protected image/video candidates.
 
 ## Production
 
-The canonical production target is
-[ugc.vixelai.com](https://ugc.vixelai.com). Until the domain cutover is
-completed, the last known-good private beta remains at
-[vixel-koc.vercel.app](https://vixel-koc.vercel.app). Access credentials stay
-out of the repository. Live paid generation remains fail-closed until the
-isolated production database and deployment settings are ready.
+The canonical production surface is
+[ugc.vixelai.com](https://ugc.vixelai.com). The legacy
+[vixel-koc.vercel.app](https://vixel-koc.vercel.app) origin permanently
+redirects to the canonical host. Access credentials stay out of the
+repository. Live paid generation remains fail-closed until the isolated
+production database and deployment settings are ready.
 
 See the checked-in [release evidence](./docs/evidence/README.md) for immutable
 deployment metadata, sanitized API results, security headers, and desktop/mobile
