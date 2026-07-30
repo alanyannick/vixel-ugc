@@ -4,10 +4,10 @@
 
 - Canonical URL: `https://ugc.vixelai.com`
 - Vercel project: `alanyannicks-projects/vixel-koc`
-- Verified deployment: `dpl_Db2QFcdMMY1ijx6r1Qqm4L3dN3Us`
+- Verified deployment: `dpl_BmdkYn8nvMgxBcJDkqrdRhDgHCQE`
 - Deployment state: `production / READY`
-- Verified at: `2026-07-30 23:20 CST`
-- Runtime source commit: `d5f78ae942a24fa0cbac20f430ff047d81130054`
+- Verified at: `2026-07-30 23:58 CST`
+- Runtime source commit: `4c78cc4bcb3a8b530b1e09cc0c82231a2828864d`
 - Pull request: `alanyannick/vixel-ugc#1`
 
 The deployment is public on the custom domain. The legacy
@@ -74,11 +74,13 @@ status=ok
 liveness=true
 readiness=true
 studioAccess=ready
-provider=disabled
+provider=ready
 ledger=not_required
 liveGeneration=false
 databaseConfigured=false
-commit=d5f78ae942a24fa0cbac20f430ff047d81130054
+providerConfigured=true
+providerTransportSecure=true
+commit=4c78cc4bcb3a8b530b1e09cc0c82231a2828864d
 ```
 
 Verified response policy:
@@ -102,9 +104,10 @@ identified above.
 ## Deliberate production boundary
 
 Direct HTTPS NewAPI canaries passed for text (`gpt-5.4-mini`), image generation
-and editing (`gpt-image-2`), and Veo video generation. The public deployment
-keeps `ENABLE_LIVE_GENERATION=false` until a dedicated Supabase project is
-explicitly authorized, created, migrated, and bound to Vercel. This is a
-fail-closed production boundary: the paid control plane is implemented and
-tested, but this evidence does not claim live production spend or a production
-ledger.
+and editing (`gpt-image-2`), and Veo video generation. Those HTTPS provider
+variables are now present on the public deployment, while
+`ENABLE_LIVE_GENERATION=false` remains enforced until a dedicated Supabase
+project is explicitly authorized, created, migrated, and bound to Vercel. This
+is a fail-closed production boundary: the paid control plane is implemented
+and tested, but this evidence does not claim live production spend or a
+production ledger.

@@ -1,8 +1,8 @@
 {
-  "checkedAt": "2026-07-30T15:20:00.000Z",
+  "checkedAt": "2026-07-30T15:58:00.000Z",
   "base": "https://ugc.vixelai.com",
-  "deploymentId": "dpl_Db2QFcdMMY1ijx6r1Qqm4L3dN3Us",
-  "sourceCommit": "d5f78ae942a24fa0cbac20f430ff047d81130054",
+  "deploymentId": "dpl_BmdkYn8nvMgxBcJDkqrdRhDgHCQE",
+  "sourceCommit": "4c78cc4bcb3a8b530b1e09cc0c82231a2828864d",
   "deployment": {
     "target": "production",
     "state": "READY",
@@ -14,8 +14,10 @@
     "liveness": true,
     "readiness": true,
     "studioAccess": "ready",
-    "provider": "disabled",
+    "provider": "ready",
     "ledger": "not_required",
+    "providerConfigured": true,
+    "providerTransportSecure": true,
     "liveGeneration": false,
     "databaseConfigured": false
   },
@@ -70,7 +72,7 @@
   },
   "notes": [
     "No secret, cookie, access code, provider key, database URL, or bypass token is stored.",
-    "Direct NewAPI canaries passed outside production; production paid generation remains disabled until the dedicated database is authorized and connected.",
+    "Direct NewAPI canaries passed and the production provider variables are configured; production paid generation remains disabled until the dedicated database is authorized and connected.",
     "Production PNG files in this directory are retained only as the pre-cutover KOC visual baseline."
   ]
 }
