@@ -7,7 +7,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Privacy",
   description:
-    "Vixel KOC Studio privacy information for campaign data, studio sessions, provider submissions, logs, and user controls.",
+    "Vixel UGC Studio privacy information for campaign data, studio sessions, provider submissions, logs, and user controls.",
   path: "/privacy",
 });
 
@@ -18,7 +18,7 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          This notice describes the current Vixel KOC Studio preview. It covers
+          This notice describes the current Vixel UGC Studio beta. It covers
           the public website, browser-based campaign workspace, studio access
           session, and configured media-generation routes.
         </p>
@@ -55,7 +55,7 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          The preview keeps campaign planning state in your browser. You can
+          The beta keeps campaign planning state in your browser. You can
           export that state as a JSON file and clear it through your browser
           storage controls.
         </p>
@@ -86,7 +86,7 @@ const sections: LegalSection[] = [
         <p>
           Provider credentials stay on the server. Provider handling and
           retention are also governed by the provider terms selected by the
-          deployment operator. This hosted preview keeps provider submission
+          deployment operator. This hosted beta keeps provider submission
           disabled until a secure provider and isolated ledger are configured.
         </p>
       </>
@@ -129,8 +129,9 @@ export default function PrivacyPage() {
       <LegalPage
         label="Trust / Privacy"
         title="Privacy notice"
-        introduction="A plain-language account of what the current preview keeps in your browser, what reaches a configured provider, and what remains under your control."
+        introduction="A plain-language account of what the current beta keeps in your browser, what reaches a configured provider, and what remains under your control."
         updated="July 30, 2026"
+        updatedIso="2026-07-30"
         sections={sections}
       />
     </>

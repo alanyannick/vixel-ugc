@@ -1,16 +1,17 @@
-# Vixel KOC Studio
+# Vixel UGC Studio
 
-Vixel KOC Studio turns grounded product references into reviewable creator
+Vixel UGC Studio turns grounded product references into reviewable AI UGC
 campaigns: five hook routes, one explicit decision, a durable execution plan,
 and protected image/video candidates.
 
 ## Production
 
-The private planning preview is deployed at
-[vixel-koc.vercel.app](https://vixel-koc.vercel.app). The access code is kept
-out of the repository and distributed separately. Live paid generation remains
-fail-closed; planning, source grounding, review, local recovery, and campaign
-export are available.
+The canonical production target is
+[ugc.vixelai.com](https://ugc.vixelai.com). Until the domain cutover is
+completed, the last known-good private beta remains at
+[vixel-koc.vercel.app](https://vixel-koc.vercel.app). Access credentials stay
+out of the repository. Live paid generation remains fail-closed until the
+isolated production database and deployment settings are ready.
 
 See the checked-in [release evidence](./docs/evidence/README.md) for immutable
 deployment metadata, sanitized API results, security headers, and desktop/mobile
@@ -51,11 +52,13 @@ npm run test:e2e
 - Browser-local project durability with versioned JSON export.
 - Server-only NewAPI adapters.
 
-The checked-in Vercel release is intentionally a protected planning preview:
-paid generation remains off because the available NewAPI endpoint is plaintext
-HTTP and no explicitly isolated KOC database has been authorized. The app
-fails closed rather than sending a provider key or paid input over that link.
+Direct HTTPS NewAPI canaries cover text, image generation, image editing, and
+Veo video generation. Production paid media remains off until a dedicated
+database is authorized, migrated, and bound to the deployment. The app fails
+closed when any access, provider, approval, or ledger gate is missing.
 
 See [the product blueprint](./docs/PRODUCT_BLUEPRINT.md),
 [the design system](./DESIGN.md), and
-[the launch checklist](./VIXEL_KOC_LAUNCH_BLUEPRINT.md).
+[the launch checklist](./VIXEL_KOC_LAUNCH_BLUEPRINT.md). The legacy
+`vixel-koc-campaign` export identifier remains intentionally stable so existing
+campaign files continue to import.

@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
 
-const fallbackUrl = "https://vixel-koc.vercel.app";
+const canonicalUrl = "https://ugc.vixelai.com";
 
 export const siteConfig = {
-  name: "Vixel KOC Studio",
-  shortName: "Vixel KOC",
+  name: "Vixel UGC Studio",
+  shortName: "Vixel UGC",
   description:
-    "A source-grounded AI workspace for planning and producing creator-native KOC and UGC product videos.",
-  url: process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || fallbackUrl,
+    "A source-grounded AI UGC video generator for planning and producing creator-style product ads.",
+  url: canonicalUrl,
   locale: "en_US",
   keywords: [
+    "AI UGC video generator",
+    "UGC ad generator",
+    "AI product video generator",
+    "creator-style video ads",
     "KOC video generator",
-    "UGC ad creator",
-    "AI product video",
-    "creator marketing workflow",
     "product truth",
-    "TikTok ad creator",
-    "Reels product video",
-    "Xiaohongshu content",
+    "TikTok UGC ads",
+    "Reels video ads",
   ],
 } as const;
 

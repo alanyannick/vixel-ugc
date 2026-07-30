@@ -145,7 +145,7 @@ function derivePrompt(campaign: CampaignState) {
     (item) => item.id === campaign.selectedPersonaId,
   );
   return [
-    `Create an authentic 9:16 KOC creator frame for ${campaign.input.productName}.`,
+    `Create a 9:16 creator-style AI UGC frame for ${campaign.input.productName}.`,
     persona ? `Creator: ${persona.description}. Voice and posture: ${persona.voice}.` : "",
     hook ? `Opening beat: ${hook.script}` : "",
     `Visible facts only: ${campaign.input.facts.filter(Boolean).join("; ")}.`,
@@ -872,7 +872,7 @@ export function StudioWorkspace() {
     anchorLockRef.current = true;
     const durationSec = campaign.input.durationSec;
     const prompt = [
-      `Create one continuous ${durationSec}-second 9:16 KOC product video for ${campaign.input.productName}.`,
+      `Create one continuous ${durationSec}-second 9:16 creator-style AI UGC product video for ${campaign.input.productName}.`,
       `Opening dialogue: ${selectedHook.script}`,
       `Creator: ${selectedPersona.description}. Delivery: ${selectedPersona.voice}.`,
       `Product facts allowed: ${campaign.input.facts.filter(Boolean).join("; ")}.`,
@@ -1190,7 +1190,7 @@ export function StudioWorkspace() {
         aria-label="Studio navigation"
       >
         <div className={styles.brandRow}>
-          <Link href="/" aria-label="Vixel KOC home" className={styles.brand}>
+          <Link href="/" aria-label="Vixel UGC home" className={styles.brand}>
             <IconMark className={styles.brandMark} />
             <span>VIXEL</span>
           </Link>
@@ -1473,7 +1473,7 @@ export function StudioWorkspace() {
                     (current) => {
                       const next = {
                         ...current,
-                        name: `${input.productName} · KOC routes`,
+                        name: `${input.productName} · UGC routes`,
                         input,
                         brief: result.brief,
                         selectedHookId: result.brief.recommendedHookId,

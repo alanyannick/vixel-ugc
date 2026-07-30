@@ -90,7 +90,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
     return (
       <div className={styles.gatePage} data-studio-shell>
         <IconMark className={styles.gateMark} />
-        <p className={styles.gateEyebrow}>Vixel KOC Studio</p>
+        <p className={styles.gateEyebrow}>Vixel UGC Studio</p>
         <p className={styles.gateChecking}>Checking studio access…</p>
       </div>
     );
@@ -103,13 +103,13 @@ export function AccessGate({ children }: { children: ReactNode }) {
           <IconMark className={styles.gateMark} />
           <span className={styles.gateLock}>
             <LockKeyhole size={16} />
-            Private preview
+            Private beta
           </span>
         </div>
-        <p className={styles.gateEyebrow}>Vixel KOC Studio</p>
+        <p className={styles.gateEyebrow}>Vixel UGC Studio</p>
         <h1 id="gate-title">The campaign room is protected.</h1>
         <p>
-          Enter the preview code to inspect the creative router and run
+          Enter the beta access code to inspect the creative router and run
           source-grounded generation.
         </p>
         <form onSubmit={submit} className={styles.gateForm}>
@@ -120,7 +120,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
               autoComplete="one-time-code"
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              placeholder="Enter preview code"
+              placeholder="Enter beta access code"
               type="password"
             />
             <button type="submit" disabled={submitting}>

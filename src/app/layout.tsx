@@ -7,7 +7,6 @@ import { SiteHeader } from "@/components/site-header";
 import { StructuredData } from "@/components/marketing/structured-data";
 import {
   organizationSchema,
-  softwareSchema,
   websiteSchema,
 } from "@/lib/seo/schema";
 import { siteConfig } from "@/lib/seo/site";
@@ -15,8 +14,8 @@ import { siteConfig } from "@/lib/seo/site";
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Vixel KOC Studio — Product truth, creator native",
-    template: "%s · Vixel KOC Studio",
+    default: "Vixel UGC Studio — AI UGC video generator",
+    template: "%s · Vixel UGC Studio",
   },
   description: siteConfig.description,
   keywords: [...siteConfig.keywords],
@@ -25,14 +24,11 @@ export const metadata: Metadata = {
   creator: "Vixel",
   publisher: "Vixel",
   category: "Creative production",
-  alternates: {
-    canonical: siteConfig.url,
-  },
   openGraph: {
     type: "website",
     locale: siteConfig.locale,
     url: siteConfig.url,
-    title: "Vixel KOC Studio — Product truth, creator native",
+    title: "Vixel UGC Studio — AI UGC video generator",
     description: siteConfig.description,
     siteName: siteConfig.name,
     images: [
@@ -40,13 +36,13 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Vixel KOC Studio campaign workflow",
+        alt: "Vixel UGC Studio campaign workflow",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Vixel KOC Studio — Product truth, creator native",
+    title: "Vixel UGC Studio — AI UGC video generator",
     description: siteConfig.description,
     images: ["/opengraph-image"],
   },
@@ -82,7 +78,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <StructuredData
-          data={[organizationSchema, websiteSchema, softwareSchema]}
+          data={[organizationSchema, websiteSchema]}
         />
         <SiteHeader />
         <main id="main-content">{children}</main>

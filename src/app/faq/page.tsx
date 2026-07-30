@@ -9,22 +9,28 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Frequently asked questions",
   description:
-    "Answers about Vixel KOC Studio, product claims, KOC and UGC workflows, live generation, campaign storage, and provider data.",
+    "Answers about Vixel UGC Studio, AI UGC and KOC, product claims, live generation, campaign storage, and provider data.",
   path: "/faq",
 });
 
 const faqItems = [
   {
     id: "what-is-vixel",
-    question: "What is Vixel KOC Studio?",
+    question: "What is Vixel UGC Studio?",
     answer:
-      "Vixel is a campaign workspace for planning and producing creator-native KOC and UGC product videos. It turns source-backed product facts into five creative routes, one reviewed plan, paid media jobs, and traceable candidates.",
+      "Vixel is an AI UGC campaign workspace for planning and producing creator-style product videos. It turns source-backed product facts into five creative routes, one reviewed plan, paid media jobs, and traceable candidates.",
+  },
+  {
+    id: "what-is-ai-ugc",
+    question: "What does AI UGC mean?",
+    answer:
+      "AI UGC is creator-style advertising media produced with generative AI. It can use the direct visual language of filmed UGC, but it should not be represented as a real customer's unscripted endorsement.",
   },
   {
     id: "koc-vs-ugc",
-    question: "What is the difference between KOC and UGC here?",
+    question: "How are AI UGC and KOC different?",
     answer:
-      "Vixel uses KOC to describe credible, product-experience-led creator content and UGC as the broader creator-made format. The workflow supports both; the important boundary is that every product claim remains grounded in supplied evidence.",
+      "AI UGC describes a production method. KOC means key opinion consumer and describes a creator or distribution role associated with credible consumer-scale influence. Vixel can use KOC-inspired creative direction without claiming that generated talent is a real KOC.",
   },
   {
     id: "product-claims",
@@ -36,7 +42,7 @@ const faqItems = [
     id: "live-generation",
     question: "When does live generation happen?",
     answer:
-      "Only when the deployment has live generation enabled, an HTTPS provider and isolated PostgreSQL ledger are ready, the user has an authenticated studio session, and the server has signed the exact paid input. Selecting a route by itself does not submit a provider job. The hosted preview keeps this capability off until all of those gates are present.",
+      "Selecting a route does not start generation. In an enabled studio, you first review and lock the exact input without provider spend, then separately confirm one potentially billable submission.",
   },
   {
     id: "paid-input",
@@ -48,19 +54,31 @@ const faqItems = [
     id: "storage",
     question: "Where is campaign data stored?",
     answer:
-      "In the current preview, campaign planning state is kept in the browser and can be exported as JSON. Inputs submitted for generation pass through the server to the configured provider; provider credentials are never sent to the browser.",
+      "In the current beta, campaign planning state is kept in the browser and can be exported as JSON. Approved generation inputs pass through the server to the configured provider; provider credentials are never sent to the browser.",
   },
   {
-    id: "late-results",
-    question: "What happens to late provider results?",
+    id: "outputs",
+    question: "What does the current workflow generate?",
     answer:
-      "The domain state machine treats a result that arrives after a cancellation tombstone as a protected candidate and never auto-adopts it. The current hosted preview does not expose provider cancellation while paid generation is disabled.",
+      "The Director creates five hook routes and three creator personas. In an enabled studio, the media workflow can produce one reviewed visual anchor and a 9:16 video candidate with a 4, 6, or 8-second duration.",
+  },
+  {
+    id: "publishing",
+    question: "Does Vixel publish ads to social platforms?",
+    answer:
+      "No. Vixel produces reviewable campaign plans and media candidates. You remain responsible for final brand, legal, disclosure, and platform review before exporting and publishing anything.",
   },
   {
     id: "export",
     question: "Can I export and restore a campaign?",
     answer:
       "Yes. The campaign can be exported as a structured JSON file and restored later, including product facts, selected route, plan state, and available receipts.",
+  },
+  {
+    id: "brand",
+    question: "Is this studio part of a similarly named mobile app?",
+    answer:
+      "No. Vixel UGC Studio is an independently operated web product and is not affiliated with third-party mobile applications using a similar name.",
   },
 ] as const;
 
@@ -85,11 +103,11 @@ export default function FaqPage() {
             <em>creative work begins.</em>
           </>
         }
-        body="How the router behaves, when paid work starts, what gets stored, and why candidates never rewrite campaign truth."
+        body="What you need to start, what gets generated, when provider spend begins, and how product claims and campaign data stay under review."
         aside={
           <div className="faq-aside">
             <span>Need the sequence?</span>
-            <Link href="/workflows/koc-video">
+            <Link href="/workflows/ugc-video">
               Read the four-stage workflow
               <ArrowRight aria-hidden="true" size={16} />
             </Link>
@@ -99,7 +117,9 @@ export default function FaqPage() {
 
       <section className="faq-section paper-section">
         <div className="faq-index">
-          <span className="section-label section-label--ink">Eight answers</span>
+          <span className="section-label section-label--ink">
+            {faqItems.length} direct answers
+          </span>
           <p>
             Every answer describes the current product boundary. Provider
             availability may differ by deployment.

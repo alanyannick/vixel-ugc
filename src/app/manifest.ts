@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Vixel KOC Studio",
-    short_name: "Vixel KOC",
+    name: "Vixel UGC Studio",
+    short_name: "Vixel UGC",
     description:
-      "A source-grounded workspace for creator-native KOC and UGC product video.",
+      "A source-grounded AI UGC video generator for creator-style product ads.",
     start_url: "/studio",
     display: "standalone",
     background_color: "#090a08",

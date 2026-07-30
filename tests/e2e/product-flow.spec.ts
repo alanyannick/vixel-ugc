@@ -8,12 +8,12 @@ test("marketing page communicates the source-grounded workflow", async ({
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Product truth, creator native.",
+      name: "AI UGC video generator, grounded in product truth.",
     }),
   ).toBeVisible();
   if (testInfo.project.name.includes("mobile")) {
     await expect(
-      page.getByRole("link", { name: "Start a campaign" }),
+      page.getByRole("link", { name: "Create a UGC video" }).first(),
     ).toBeVisible();
   } else {
     const stages = page.getByLabel("Campaign stages");

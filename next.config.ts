@@ -54,6 +54,21 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "vixel-koc.vercel.app",
+          },
+        ],
+        destination: "https://ugc.vixelai.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

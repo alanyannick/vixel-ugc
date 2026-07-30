@@ -62,13 +62,20 @@ async function parseResponse<T>(response: Response): Promise<T> {
 export async function createCreativeBrief(
   input: CampaignInput,
 ): Promise<{ brief: CreativeBrief; provider: string; requestId?: string }> {
+  const {
+    productImageDataUrl,
+    creatorImageDataUrl,
+    ...briefInput
+  } = input;
   const response = await fetch("/api/creative/brief", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      ...input,
+      ...briefInput,
       category: input.category.trim() || undefined,
       creatorDescription: input.creatorDescription?.trim() || undefined,
+      productImageAttached: Boolean(productImageDataUrl),
+      creatorImageAttached: Boolean(creatorImageDataUrl),
     }),
   });
   const result = await parseResponse<{

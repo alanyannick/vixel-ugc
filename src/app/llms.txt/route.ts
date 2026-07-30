@@ -2,9 +2,9 @@ import { siteConfig } from "@/lib/seo/site";
 
 export const dynamic = "force-static";
 
-const content = `# Vixel KOC Studio
+const content = `# Vixel UGC Studio
 
-> Vixel KOC Studio is a source-grounded AI campaign workspace for planning and producing creator-native KOC and UGC product video.
+> Vixel UGC Studio is a source-grounded AI UGC video generator for planning and producing creator-style product ads.
 
 Canonical site: ${siteConfig.url}
 
@@ -15,9 +15,10 @@ Canonical site: ${siteConfig.url}
 - Routes work through Brief, conditional Assets, Production, and conditional Post.
 - Requires one route choice before the plan advances.
 - Requires explicit approval of the exact paid input before live generation.
+- Supports 9:16 video plans with canonical 4, 6, or 8-second durations.
 - Preserves provider results as immutable candidates with lineage.
 - Records adoption and campaign mutations as receipts.
-- Supports browser-local campaign state plus JSON export and restore in the current preview.
+- Supports browser-local campaign state plus JSON export and restore in the current beta.
 
 ## Product-truth policy
 
@@ -25,21 +26,26 @@ Product claims require a supplied source. Vixel separates visible facts, support
 
 ## Paid-generation policy
 
-Live generation requires a secure HTTPS provider, an isolated PostgreSQL ledger, an authenticated studio session, a deployment flag, and a short-lived server signature tied to the canonical input, provider model, session, and idempotency key. Changing prompt, model, references, aspect ratio, duration, or audio requires a new review. Deployment capability is disclosed by /api/health; the hosted preview keeps paid generation disabled until every gate is ready. Cancellation and protected-late-result transitions are part of the tested domain state machine but provider cancellation is not exposed in the current hosted preview.
+Live generation requires a secure HTTPS provider, an isolated PostgreSQL ledger, an authenticated studio session, a deployment flag, and a short-lived server signature tied to the canonical input, provider model, session, and idempotency key. Changing prompt, model, references, aspect ratio, duration, or audio requires a new review. Deployment capability is disclosed by /api/health; unavailable or incomplete deployments remain fail-closed. Cancellation and protected-late-result transitions are part of the tested domain state machine.
 
 ## Primary pages
 
 - Home: ${siteConfig.url}/
-- KOC workflow: ${siteConfig.url}/workflows/koc-video
+- UGC ad generator: ${siteConfig.url}/ugc-ad-generator
+- AI UGC guide: ${siteConfig.url}/what-is-ai-ugc
+- UGC vs KOC guide: ${siteConfig.url}/guides/ugc-vs-koc
+- UGC workflow: ${siteConfig.url}/workflows/ugc-video
 - Product truth standard: ${siteConfig.url}/product-truth
-- Studio access: ${siteConfig.url}/pricing
+- Studio access: ${siteConfig.url}/access
 - FAQ: ${siteConfig.url}/faq
 - Privacy: ${siteConfig.url}/privacy
 - Terms: ${siteConfig.url}/terms
 
 ## Terminology
 
-- KOC: creator content led by credible product experience and native platform expression.
+- AI UGC: creator-style advertising media produced with generative AI rather than filmed by a customer.
+- UGC: the broader user-generated-content format whose visual language informs creator-style ads.
+- KOC: a key opinion consumer; a consumer-scale creator framing products through credible experience, especially in Asian marketing contexts.
 - Route: a distinct hook, persona, product action, and creative direction.
 - Candidate: an immutable provider result awaiting review.
 - Adoption: the explicit act of bringing a candidate into the campaign.
@@ -47,7 +53,11 @@ Live generation requires a secure HTTPS provider, an isolated PostgreSQL ledger,
 
 ## Non-goals
 
-Vixel does not auto-publish social posts, serve as a general-purpose chat tool, invent product claims, or silently adopt generated results.
+Vixel does not auto-publish social posts, serve as a general-purpose chat tool, invent product claims, present generated talent as a real customer endorsement, or silently adopt generated results.
+
+## Brand clarification
+
+Vixel UGC Studio is an independently operated web product. It is not affiliated with third-party applications using a similar name.
 `;
 
 export function GET() {

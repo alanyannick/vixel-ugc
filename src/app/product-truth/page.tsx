@@ -10,7 +10,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Product truth standard",
   description:
-    "How Vixel separates visible facts, source-backed claims, creative expression, and unsupported claims in KOC and UGC production.",
+    "How Vixel separates visible facts, source-backed claims, creative expression, and unsupported claims in AI UGC production.",
   path: "/product-truth",
 });
 
@@ -154,7 +154,7 @@ export default function ProductTruthPage() {
           <li>Auto-adopting a late or unexpected provider result.</li>
           <li>Sending changed paid inputs without a fresh approval.</li>
         </ul>
-        <Link className="text-link text-link--light" href="/workflows/koc-video">
+        <Link className="text-link text-link--light" href="/workflows/ugc-video">
           Follow the production workflow
           <ArrowRight aria-hidden="true" size={16} />
         </Link>

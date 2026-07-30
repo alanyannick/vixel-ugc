@@ -7,18 +7,18 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Terms",
   description:
-    "Terms for using the Vixel KOC Studio preview, including source responsibility, generated candidates, paid providers, and acceptable use.",
+    "Terms for using the Vixel UGC Studio beta, including source responsibility, generated candidates, paid providers, and acceptable use.",
   path: "/terms",
 });
 
 const sections: LegalSection[] = [
   {
-    id: "preview",
-    title: "Preview service",
+    id: "beta",
+    title: "Beta service",
     content: (
       <>
         <p>
-          Vixel KOC Studio is currently a preview creative-production
+          Vixel UGC Studio is currently a beta creative-production
           workspace. Features, providers, output formats, and availability may
           change as the product matures.
         </p>
@@ -85,10 +85,11 @@ const sections: LegalSection[] = [
     title: "Availability and recovery",
     content: (
       <p>
-        The preview is provided without a service-level commitment. Export
+        The beta is provided without a service-level commitment. Export
         important campaign state. We design the workflow to preserve paid
-        results and support reload recovery, but preview software may still
-        contain errors.
+        results and support reload recovery, but beta software may still
+        contain errors. This independently operated web studio is not affiliated
+        with third-party mobile applications using a similar name.
       </p>
     ),
   },
@@ -117,8 +118,9 @@ export default function TermsPage() {
       <LegalPage
         label="Trust / Terms"
         title="Terms of use"
-        introduction="The working agreement for a preview product: supply materials you can use, review every claim, and treat generated media as a candidate—not an automatic truth."
+        introduction="The working agreement for a beta product: supply materials you can use, review every claim, and treat generated media as a candidate—not an automatic truth."
         updated="July 30, 2026"
+        updatedIso="2026-07-30"
         sections={sections}
       />
     </>

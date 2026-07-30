@@ -16,7 +16,7 @@ export const websiteSchema = {
   url: siteConfig.url,
   description: siteConfig.description,
   publisher: { "@id": `${siteConfig.url}/#organization` },
-  inLanguage: ["en", "zh"],
+  inLanguage: "en",
 };
 
 export const softwareSchema = {
@@ -24,20 +24,70 @@ export const softwareSchema = {
   "@type": "SoftwareApplication",
   "@id": `${siteConfig.url}/#software`,
   name: siteConfig.name,
+  alternateName: ["Vixel UGC", "Vixel AI UGC Studio"],
   url: siteConfig.url,
   applicationCategory: "BusinessApplication",
-  applicationSubCategory: "Creative production workspace",
+  applicationSubCategory: "AI UGC video generator",
   operatingSystem: "Web",
   description: siteConfig.description,
   featureList: [
     "Source-backed product claim ledger",
     "Five creative hook routes and three creator personas",
+    "4, 6, or 8-second vertical product video workflow",
     "Explicit approval before paid generation",
     "Candidate lineage and adoption receipts",
     "Campaign export and reload recovery",
   ],
+  brand: { "@id": `${siteConfig.url}/#organization` },
   publisher: { "@id": `${siteConfig.url}/#organization` },
 };
+
+export function articleSchema(input: {
+  headline: string;
+  description: string;
+  path: string;
+  datePublished: string;
+  dateModified: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "@id": `${absoluteUrl(input.path)}#article`,
+    headline: input.headline,
+    description: input.description,
+    url: absoluteUrl(input.path),
+    mainEntityOfPage: absoluteUrl(input.path),
+    isPartOf: { "@id": `${siteConfig.url}/#website` },
+    datePublished: input.datePublished,
+    dateModified: input.dateModified,
+    author: { "@id": `${siteConfig.url}/#organization` },
+    publisher: { "@id": `${siteConfig.url}/#organization` },
+    inLanguage: "en",
+  };
+}
+
+export function howToSchema(input: {
+  name: string;
+  description: string;
+  path: string;
+  steps: ReadonlyArray<{ name: string; text: string }>;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "@id": `${absoluteUrl(input.path)}#howto`,
+    name: input.name,
+    description: input.description,
+    url: absoluteUrl(input.path),
+    inLanguage: "en",
+    step: input.steps.map((step, index) => ({
+      "@type": "HowToStep",
+      position: index + 1,
+      name: step.name,
+      text: step.text,
+    })),
+  };
+}
 
 export function breadcrumbSchema(
   items: Array<{ name: string; path: string }>,

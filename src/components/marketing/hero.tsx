@@ -28,23 +28,24 @@ export function Hero() {
     <section className="hero">
       <div className="hero-grain" aria-hidden="true" />
       <div className="hero-copy">
-        <p className="hero-series">VIXEL KOC / CREATIVE SYSTEM 01</p>
-        <p className="hero-brand">VIXEL KOC</p>
+        <p className="hero-series">VIXEL UGC / PRODUCT VIDEO SYSTEM 01</p>
+        <p className="hero-brand">VIXEL UGC</p>
         <h1>
-          Product truth,
+          AI UGC video generator,
           <br />
-          creator native.
+          grounded in product truth.
         </h1>
         <p className="hero-intro">
-          Turn a product brief into five distinct KOC routes, one approved
-          production plan, and candidates you can trace back to the source.
+          Turn approved product facts and visual references into five creator
+          routes, one reviewed production plan, and traceable 4, 6, or
+          8-second video candidates.
         </p>
         <div className="button-row">
           <Link className="button button--citron" href="/studio">
-            Start a campaign
+            Create a UGC video
             <ArrowRight aria-hidden="true" size={18} />
           </Link>
-          <Link className="button button--ghost" href="/workflows/koc-video">
+          <Link className="button button--ghost" href="/workflows/ugc-video">
             See how it works
           </Link>
         </div>
@@ -79,7 +80,7 @@ export function Hero() {
 
       <a className="hero-scroll" href="#routes" aria-label="Explore the product">
         <ArrowDown aria-hidden="true" size={16} />
-        Scroll to route
+        Explore the workflow
       </a>
     </section>
   );
