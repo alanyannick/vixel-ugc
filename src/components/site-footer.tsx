@@ -1,13 +1,15 @@
 import Link from "next/link";
 
 const productLinks = [
-  { href: "/workflows/koc-video", label: "KOC workflow" },
+  { href: "/ugc-ad-generator", label: "UGC ad generator" },
+  { href: "/workflows/ugc-video", label: "UGC workflow" },
+  { href: "/what-is-ai-ugc", label: "What is AI UGC?" },
   { href: "/product-truth", label: "Product truth" },
-  { href: "/pricing", label: "Access" },
-  { href: "/studio", label: "Studio" },
 ] as const;
 
 const companyLinks = [
+  { href: "/guides/ugc-vs-koc", label: "UGC vs KOC" },
+  { href: "/access", label: "Beta access" },
   { href: "/faq", label: "FAQ" },
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
@@ -19,11 +21,11 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="footer-statement">
         <Link className="footer-brand" href="/">
-          Vixel KOC
+          Vixel UGC
         </Link>
         <p>
-          Creator-native video, grounded in what your product can actually
-          prove.
+          Creator-style AI video ads, grounded in what your product can
+          actually prove.
         </p>
       </div>
 
@@ -48,8 +50,12 @@ export function SiteFooter() {
 
       <div className="footer-base">
         <p>© {new Date().getFullYear()} Vixel. Built for reviewed creative work.</p>
-        <p>English · 中文 briefs</p>
+        <p>English interface · English and 中文 briefs</p>
       </div>
+      <p className="footer-disclaimer">
+        This web studio is independently operated and is not affiliated with
+        third-party applications using a similar name.
+      </p>
     </footer>
   );
 }

@@ -8,9 +8,9 @@ type FinalCtaProps = {
 };
 
 export function FinalCta({
-  eyebrow = "A better first cut starts before generation.",
-  title = "Build the route. Approve the input. Keep the receipt.",
-  body = "Open the studio with a demo campaign ready, or start from your own product facts.",
+  eyebrow = "A better UGC ad starts before generation.",
+  title = "Ground the product. Choose the route. Keep the receipt.",
+  body = "Open the studio with a demo campaign ready, or build from your own approved product facts.",
 }: FinalCtaProps) {
   return (
     <section className="final-cta">
@@ -19,10 +19,10 @@ export function FinalCta({
       <p>{body}</p>
       <div className="button-row">
         <Link className="button button--citron" href="/studio">
-          Open Vixel Studio
+          Create a UGC video
           <ArrowRight aria-hidden="true" size={18} />
         </Link>
-        <Link className="text-link text-link--light" href="/workflows/koc-video">
+        <Link className="text-link text-link--light" href="/workflows/ugc-video">
           Read the workflow
           <span aria-hidden="true">↗</span>
         </Link>

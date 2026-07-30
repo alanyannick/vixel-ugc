@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Vixel KOC Studio — Product truth, creator native";
+export const alt = "Vixel UGC Studio — AI UGC ads grounded in product truth";
 export const size = {
   width: 1200,
   height: 630,
@@ -63,7 +63,7 @@ export default function OpenGraphImage() {
           >
             VX
           </div>
-          VIXEL KOC
+          VIXEL UGC
         </div>
         <div style={{ display: "flex", flexDirection: "column", position: "relative" }}>
           <div
@@ -76,7 +76,7 @@ export default function OpenGraphImage() {
               textTransform: "uppercase",
             }}
           >
-            Creative production system 01
+            AI UGC video system 01
           </div>
           <div
             style={{
@@ -88,9 +88,9 @@ export default function OpenGraphImage() {
               maxWidth: 900,
             }}
           >
-            Product truth,
+            Creator-style ads,
             <br />
-            creator native.
+            grounded in product truth.
           </div>
         </div>
         <div
@@ -105,7 +105,7 @@ export default function OpenGraphImage() {
           }}
         >
           <span>Source → Route → Approve → Generate → Adopt</span>
-          <span style={{ color: "#c7f43d" }}>vixel-koc.vercel.app</span>
+          <span style={{ color: "#c7f43d" }}>ugc.vixelai.com</span>
         </div>
       </div>
     ),

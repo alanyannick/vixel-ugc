@@ -1,4 +1,4 @@
-# Vixel KOC Studio Design Audit
+# Vixel UGC Studio Design Audit
 
 ## Baseline
 

@@ -20,9 +20,11 @@ import {
   claimMediaSubmission,
   completeMediaSubmission,
   failMediaSubmission,
+  isTerminalMediaLedgerStatus,
   MediaLedgerError,
   paidControlPlaneReadiness,
   publicLedgerEntry,
+  publicSubmissionReplay,
   type MediaLedgerStatus,
 } from "@/lib/server/ledger";
 import {
@@ -43,6 +45,15 @@ function ledgerErrorResponse(
   error: MediaLedgerError,
   requestId: string,
 ): Response {
+  if (error.code === "paid_submission_quota_exceeded") {
+    return apiError(
+      429,
+      error.code,
+      error.message,
+      true,
+      requestId,
+    );
+  }
   const conflict = ["idempotency_conflict", "approval_reused"].includes(
     error.code,
   );
@@ -189,9 +200,14 @@ export async function POST(request: Request): Promise<Response> {
         requestId,
         replayed: true,
         job: publicLedgerEntry(claim.entry),
+        submission: publicSubmissionReplay(claim.entry),
         result: claim.entry.providerResult,
       },
-      { status: claim.entry.status === "succeeded" ? 200 : 202 },
+      {
+        status: isTerminalMediaLedgerStatus(claim.entry.status)
+          ? 200
+          : 202,
+      },
     );
   }
 
@@ -206,6 +222,8 @@ export async function POST(request: Request): Promise<Response> {
       entry = await completeMediaSubmission({
         entryId: claim.entry.id,
         sessionIdentity,
+        expectedStatus: claim.entry.status,
+        expectedRevision: claim.entry.revision,
         status: statusFor(submitted.result.status),
         providerTaskId: submitted.result.taskId,
         providerResult: submitted.result,
@@ -226,9 +244,9 @@ export async function POST(request: Request): Promise<Response> {
         requestId,
         replayed: false,
         job: publicLedgerEntry(entry),
-        result: submitted.result,
+        result: entry.providerResult,
       },
-      { status: submitted.result.status === "succeeded" ? 200 : 202 },
+      { status: entry.status === "succeeded" ? 200 : 202 },
     );
   } catch (error) {
     const providerError =
@@ -243,6 +261,8 @@ export async function POST(request: Request): Promise<Response> {
       await failMediaSubmission({
         entryId: claim.entry.id,
         sessionIdentity,
+        expectedStatus: claim.entry.status,
+        expectedRevision: claim.entry.revision,
         status: providerError.retryable ? "submit_unknown" : "failed",
         errorCode: providerError.code,
         errorMessage: providerError.message,

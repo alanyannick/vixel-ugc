@@ -61,7 +61,7 @@ describe("campaign JSON recovery", () => {
             },
           }),
         ),
-      ).toThrow("not a valid Vixel KOC campaign export");
+      ).toThrow("not a valid Vixel UGC campaign export");
     },
   );
 
@@ -74,7 +74,7 @@ describe("campaign JSON recovery", () => {
           campaign: demoCampaign,
         }),
       ),
-    ).toThrow("not a valid Vixel KOC campaign export");
+    ).toThrow("not a valid Vixel UGC campaign export");
   });
 
   it("rejects a creative brief that no longer has five routes", () => {
@@ -96,7 +96,7 @@ describe("campaign JSON recovery", () => {
           campaign: broken,
         }),
       ),
-    ).toThrow("not a valid Vixel KOC campaign export");
+    ).toThrow("not a valid Vixel UGC campaign export");
   });
 
   it("rejects malformed JSON without leaking parser details", () => {

@@ -1,8 +1,8 @@
 {
-  "name": "vixel-koc-studio",
+  "name": "vixel-ugc-studio",
   "version": "0.1.0",
   "private": true,
-  "description": "A source-grounded KOC and UGC campaign studio powered by a durable creative router.",
+  "description": "A source-grounded AI UGC campaign studio powered by a durable creative router.",
   "engines": {
     "node": ">=22.14.0"
   },
@@ -14,7 +14,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:postgres-ledger": "VIXEL_POSTGRES_INTEGRATION=1 vitest run tests/integration/postgres-ledger.integration.test.ts",
+    "test:postgres-ledger:prepare": "node scripts/prepare-postgres-ledger-integration.mjs",
     "test:e2e": "playwright test",
+    "posttest:e2e": "next typegen",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {

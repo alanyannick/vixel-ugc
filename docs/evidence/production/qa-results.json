@@ -1,282 +1,78 @@
 {
-  "checkedAt": "2026-07-29T19:39:24.970Z",
-  "base": "https://vixel-koc.vercel.app",
-  "deploymentId": "dpl_GXHZV4epJLWfPhLucjA9g28x4ucC",
-  "sourceCommit": "fdde50b",
-  "desktop": {
-    "consoleErrors": [],
-    "pageErrors": [],
-    "requestFailures": [],
-    "httpErrors": [],
-    "watchedResponses": [
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/workflows/koc-video"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/product-truth"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/pricing"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/faq"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg",
-        "resourceType": "fetch",
-        "pageUrl": "https://vixel-koc.vercel.app/faq"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/studio"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/api/media/jobs",
-        "resourceType": "fetch",
-        "pageUrl": "https://vixel-koc.vercel.app/studio"
-      }
-    ],
-    "marketing": [
-      {
-        "path": "/",
-        "status": 200,
-        "title": "Product truth, creator native",
-        "h1": "Product truth,creator native.",
-        "overflow": {
-          "scrollWidth": 1440,
-          "clientWidth": 1440,
-          "horizontal": false
-        }
-      },
-      {
-        "path": "/workflows/koc-video",
-        "status": 200,
-        "title": "KOC video workflow · Vixel KOC Studio",
-        "h1": "From grounded briefto publishable candidate.",
-        "overflow": {
-          "scrollWidth": 1440,
-          "clientWidth": 1440,
-          "horizontal": false
-        }
-      },
-      {
-        "path": "/product-truth",
-        "status": 200,
-        "title": "Product truth standard · Vixel KOC Studio",
-        "h1": "Creative freedom needsa fixed point.",
-        "overflow": {
-          "scrollWidth": 1440,
-          "clientWidth": 1440,
-          "horizontal": false
-        }
-      },
-      {
-        "path": "/pricing",
-        "status": 200,
-        "title": "Studio access · Vixel KOC Studio",
-        "h1": "Plan freely.Generate deliberately.",
-        "overflow": {
-          "scrollWidth": 1440,
-          "clientWidth": 1440,
-          "horizontal": false
-        }
-      },
-      {
-        "path": "/faq",
-        "status": 200,
-        "title": "Frequently asked questions · Vixel KOC Studio",
-        "h1": "Clear answers beforecreative work begins.",
-        "overflow": {
-          "scrollWidth": 1440,
-          "clientWidth": 1440,
-          "horizontal": false
-        }
-      }
-    ],
-    "homeReveal": {
-      "count": 10,
-      "sampled": 10,
-      "visibleSamples": 8,
-      "minimumSampleOpacity": 0.639292
-    },
-    "iconStatus": 200,
-    "studio": {
-      "boardVisible": true,
-      "directorToggleVisible": true,
-      "demoCopyPresent": true,
-      "planRail": {
-        "scrollWidth": 867,
-        "clientWidth": 867,
-        "overflowX": "visible",
-        "scrollSnapType": "none"
-      },
-      "overflow": {
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "horizontal": false
-      }
-    },
-    "directorOpen": true
+  "checkedAt": "2026-07-30T15:58:00.000Z",
+  "base": "https://ugc.vixelai.com",
+  "deploymentId": "dpl_BmdkYn8nvMgxBcJDkqrdRhDgHCQE",
+  "sourceCommit": "4c78cc4bcb3a8b530b1e09cc0c82231a2828864d",
+  "deployment": {
+    "target": "production",
+    "state": "READY",
+    "publicCustomDomain": true,
+    "legacyOriginRedirect": true
   },
-  "mobile": {
-    "consoleErrors": [],
-    "pageErrors": [],
-    "requestFailures": [],
-    "httpErrors": [],
-    "watchedResponses": [
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/workflows/koc-video"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/product-truth"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/pricing"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/faq"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg",
-        "resourceType": "fetch",
-        "pageUrl": "https://vixel-koc.vercel.app/faq"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/icon.svg?icon.1zfdfx07csbne.svg",
-        "resourceType": "other",
-        "pageUrl": "https://vixel-koc.vercel.app/studio"
-      },
-      {
-        "status": 200,
-        "url": "https://vixel-koc.vercel.app/api/media/jobs",
-        "resourceType": "fetch",
-        "pageUrl": "https://vixel-koc.vercel.app/studio"
-      }
-    ],
-    "marketing": [
-      {
-        "path": "/",
-        "status": 200,
-        "title": "Product truth, creator native",
-        "h1": "Product truth,creator native.",
-        "overflow": {
-          "scrollWidth": 390,
-          "clientWidth": 390,
-          "horizontal": false
-        }
-      },
-      {
-        "path": "/workflows/koc-video",
-        "status": 200,
-        "title": "KOC video workflow · Vixel KOC Studio",
-        "h1": "From grounded briefto publishable candidate.",
-        "overflow": {
-          "scrollWidth": 390,
-          "clientWidth": 390,
-          "horizontal": false
-        }
-      },
-      {
-        "path": "/product-truth",
-        "status": 200,
-        "title": "Product truth standard · Vixel KOC Studio",
-        "h1": "Creative freedom needsa fixed point.",
-        "overflow": {
-          "scrollWidth": 390,
-          "clientWidth": 390,
-          "horizontal": false
-        }
-      },
-      {
-        "path": "/pricing",
-        "status": 200,
-        "title": "Studio access · Vixel KOC Studio",
-        "h1": "Plan freely.Generate deliberately.",
-        "overflow": {
-          "scrollWidth": 390,
-          "clientWidth": 390,
-          "horizontal": false
-        }
-      },
-      {
-        "path": "/faq",
-        "status": 200,
-        "title": "Frequently asked questions · Vixel KOC Studio",
-        "h1": "Clear answers beforecreative work begins.",
-        "overflow": {
-          "scrollWidth": 390,
-          "clientWidth": 390,
-          "horizontal": false
-        }
-      }
-    ],
-    "homeReveal": {
-      "count": 10,
-      "sampled": 10,
-      "visibleSamples": 10,
-      "minimumSampleOpacity": 0.992705
+  "health": {
+    "status": "ok",
+    "liveness": true,
+    "readiness": true,
+    "studioAccess": "ready",
+    "provider": "ready",
+    "ledger": "not_required",
+    "providerConfigured": true,
+    "providerTransportSecure": true,
+    "liveGeneration": false,
+    "databaseConfigured": false
+  },
+  "http": {
+    "/": 200,
+    "/ugc-ad-generator": 200,
+    "/what-is-ai-ugc": 200,
+    "/guides/ugc-vs-koc": 200,
+    "/workflows/ugc-video": 200,
+    "/product-truth": 200,
+    "/access": 200,
+    "/faq": 200,
+    "/privacy": 200,
+    "/terms": 200,
+    "/studio": 200,
+    "/api/health": 200,
+    "/robots.txt": 200,
+    "/sitemap.xml": 200,
+    "/llms.txt": 200,
+    "/manifest.webmanifest": 200,
+    "/opengraph-image": 200
+  },
+  "redirects": {
+    "/workflows/koc-video": {
+      "status": 308,
+      "location": "/workflows/ugc-video"
     },
-    "iconStatus": 200,
-    "studio": {
-      "boardVisible": true,
-      "directorToggleVisible": true,
-      "demoCopyPresent": true,
-      "planRail": {
-        "scrollWidth": 454,
-        "clientWidth": 390,
-        "overflowX": "auto",
-        "scrollSnapType": "x"
-      },
-      "overflow": {
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "horizontal": false
-      }
+    "/pricing": {
+      "status": 308,
+      "location": "/access"
     },
-    "routesVisible": true,
-    "candidatesVisible": true,
-    "directorOpen": true
-  }
+    "https://vixel-koc.vercel.app/what-is-ai-ugc": {
+      "status": 308,
+      "location": "https://ugc.vixelai.com/what-is-ai-ugc"
+    }
+  },
+  "browser": {
+    "productionAcquisitionAndSeo": {
+      "desktopChrome": "4/4 PASS",
+      "mobileChrome": "4/4 PASS"
+    },
+    "canonicalOrigin": "https://ugc.vixelai.com",
+    "homepageH1": "AI UGC video generator, grounded in product truth.",
+    "studioRobots": "noindex, nofollow"
+  },
+  "security": {
+    "hsts": "max-age=63072000; includeSubDomains; preload",
+    "xFrameOptions": "DENY",
+    "xContentTypeOptions": "nosniff",
+    "crossOriginOpenerPolicy": "same-origin",
+    "crossOriginResourcePolicy": "same-origin"
+  },
+  "notes": [
+    "No secret, cookie, access code, provider key, database URL, or bypass token is stored.",
+    "Direct NewAPI canaries passed and the production provider variables are configured; production paid generation remains disabled until the dedicated database is authorized and connected.",
+    "Production PNG files in this directory are retained only as the pre-cutover KOC visual baseline."
+  ]
 }

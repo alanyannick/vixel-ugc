@@ -11,6 +11,7 @@ type LegalPageProps = {
   title: string;
   introduction: string;
   updated: string;
+  updatedIso: string;
   sections: LegalSection[];
 };
 
@@ -19,6 +20,7 @@ export function LegalPage({
   title,
   introduction,
   updated,
+  updatedIso,
   sections,
 }: LegalPageProps) {
   return (
@@ -27,7 +29,7 @@ export function LegalPage({
         <span className="section-label section-label--ink">{label}</span>
         <h1>{title}</h1>
         <p>{introduction}</p>
-        <time dateTime="2026-07-30">Last updated {updated}</time>
+        <time dateTime={updatedIso}>Last updated {updated}</time>
       </header>
       <div className="legal-layout">
         <nav aria-label={`${title} sections`}>

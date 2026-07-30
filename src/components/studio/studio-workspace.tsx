@@ -15,6 +15,7 @@ import {
   GalleryVerticalEnd,
   ImagePlus,
   LayoutGrid,
+  LogOut,
   Menu,
   MessageSquareText,
   PanelRightClose,
@@ -36,6 +37,7 @@ import {
   useState,
 } from "react";
 
+import { useAccessGateSession } from "@/components/studio/access-gate";
 import { IconMark } from "@/components/studio/icon-mark";
 import {
   approveMediaInput,
@@ -145,7 +147,7 @@ function derivePrompt(campaign: CampaignState) {
     (item) => item.id === campaign.selectedPersonaId,
   );
   return [
-    `Create an authentic 9:16 KOC creator frame for ${campaign.input.productName}.`,
+    `Create a 9:16 creator-style AI UGC frame for ${campaign.input.productName}.`,
     persona ? `Creator: ${persona.description}. Voice and posture: ${persona.voice}.` : "",
     hook ? `Opening beat: ${hook.script}` : "",
     `Visible facts only: ${campaign.input.facts.filter(Boolean).join("; ")}.`,
@@ -309,6 +311,12 @@ function paidMediaInput(approval: NonNullable<PaidApproval>) {
 }
 
 export function StudioWorkspace() {
+  const {
+    canSignOut,
+    signOut: onSignOut,
+    signOutError,
+    signingOut,
+  } = useAccessGateSession();
   const [campaign, setCampaign] = useState<CampaignState>(demoCampaign);
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<View>("board");
@@ -679,8 +687,63 @@ export function StudioWorkspace() {
                   : current.receipts,
             };
           });
-        } catch {
-          if (!stopped) hadPollingFailure = true;
+        } catch (caught) {
+          if (stopped) return;
+          if (caught instanceof StudioApiError && !caught.retryable) {
+            const terminalStatus =
+              caught.code === "VIDEO_JOB_CANCELLED"
+                ? ("cancelled" as const)
+                : caught.code ===
+                    "VIDEO_SUBMISSION_RECONCILIATION_REQUIRED"
+                  ? ("reconciliation_required" as const)
+                  : ("failed" as const);
+            updateCampaign((current) => {
+              const currentJob = current.jobs.find(
+                (item) => item.id === job.id,
+              );
+              if (
+                !currentJob ||
+                (currentJob.status !== "queued" &&
+                  currentJob.status !== "processing")
+              ) {
+                return current;
+              }
+              const updatedAt = new Date().toISOString();
+              return {
+                ...current,
+                jobs: current.jobs.map((item) =>
+                  item.id === job.id
+                    ? {
+                        ...item,
+                        status: terminalStatus,
+                        error: caught.message,
+                        updatedAt,
+                      }
+                    : item,
+                ),
+                executionPlan:
+                  terminalStatus === "reconciliation_required"
+                    ? current.executionPlan
+                    : advanceExecutionPlan(
+                        current.executionPlan,
+                        "video_failed",
+                      ),
+                receipts: [
+                  nowReceipt(
+                    terminalStatus === "reconciliation_required"
+                      ? "Video reconciliation required"
+                      : terminalStatus === "cancelled"
+                        ? "Video generation cancelled"
+                        : "Video generation failed",
+                    caught.message,
+                  ),
+                  ...current.receipts,
+                ],
+              };
+            });
+            continue;
+          }
+          hadPollingFailure = true;
         }
       }
 
@@ -872,7 +935,7 @@ export function StudioWorkspace() {
     anchorLockRef.current = true;
     const durationSec = campaign.input.durationSec;
     const prompt = [
-      `Create one continuous ${durationSec}-second 9:16 KOC product video for ${campaign.input.productName}.`,
+      `Create one continuous ${durationSec}-second 9:16 creator-style AI UGC product video for ${campaign.input.productName}.`,
       `Opening dialogue: ${selectedHook.script}`,
       `Creator: ${selectedPersona.description}. Delivery: ${selectedPersona.voice}.`,
       `Product facts allowed: ${campaign.input.facts.filter(Boolean).join("; ")}.`,
@@ -1190,7 +1253,7 @@ export function StudioWorkspace() {
         aria-label="Studio navigation"
       >
         <div className={styles.brandRow}>
-          <Link href="/" aria-label="Vixel KOC home" className={styles.brand}>
+          <Link href="/" aria-label="Vixel UGC home" className={styles.brand}>
             <IconMark className={styles.brandMark} />
             <span>VIXEL</span>
           </Link>
@@ -1299,6 +1362,27 @@ export function StudioWorkspace() {
               <small>Campaign state is saved in this browser</small>
             </span>
           </div>
+          {canSignOut ? (
+            <div className={styles.sessionAccess}>
+              <span>
+                <strong>Private beta session</strong>
+                <small>Sign out keeps paid-job recovery on this browser</small>
+              </span>
+              <button
+                type="button"
+                disabled={signingOut}
+                onClick={() => void onSignOut()}
+              >
+                <LogOut size={15} />
+                {signingOut ? "Signing out…" : "Sign out"}
+              </button>
+              {signOutError ? (
+                <small className={styles.sessionError} role="alert">
+                  {signOutError}
+                </small>
+              ) : null}
+            </div>
+          ) : null}
           <Link href="/product-truth">
             Product truth guide
             <ArrowRight size={15} />
@@ -1473,7 +1557,7 @@ export function StudioWorkspace() {
                     (current) => {
                       const next = {
                         ...current,
-                        name: `${input.productName} · KOC routes`,
+                        name: `${input.productName} · UGC routes`,
                         input,
                         brief: result.brief,
                         selectedHookId: result.brief.recommendedHookId,

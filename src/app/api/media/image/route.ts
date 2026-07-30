@@ -23,6 +23,7 @@ import {
   MediaLedgerError,
   paidControlPlaneReadiness,
   publicLedgerEntry,
+  publicSubmissionReplay,
 } from "@/lib/server/ledger";
 import {
   IdempotencyKeyConflictError,
@@ -44,6 +45,15 @@ function ledgerErrorResponse(
   error: MediaLedgerError,
   requestId: string,
 ): Response {
+  if (error.code === "paid_submission_quota_exceeded") {
+    return apiError(
+      429,
+      error.code,
+      error.message,
+      true,
+      requestId,
+    );
+  }
   const conflict = ["idempotency_conflict", "approval_reused"].includes(
     error.code,
   );
@@ -187,6 +197,7 @@ export async function POST(request: Request): Promise<Response> {
       requestId,
       replayed: true,
       job: publicLedgerEntry(claim.entry),
+      submission: publicSubmissionReplay(claim.entry),
       result: claim.entry.providerResult,
     });
   }
@@ -206,6 +217,8 @@ export async function POST(request: Request): Promise<Response> {
       entry = await completeMediaSubmission({
         entryId: claim.entry.id,
         sessionIdentity,
+        expectedStatus: claim.entry.status,
+        expectedRevision: claim.entry.revision,
         status: "succeeded",
         providerResult: generated.result,
       });
@@ -228,7 +241,7 @@ export async function POST(request: Request): Promise<Response> {
         mode: generated.mode,
         attempts: generated.attempts,
       },
-      result: generated.result,
+      result: entry.providerResult,
     });
   } catch (error) {
     const providerError =
@@ -243,6 +256,8 @@ export async function POST(request: Request): Promise<Response> {
       await failMediaSubmission({
         entryId: claim.entry.id,
         sessionIdentity,
+        expectedStatus: claim.entry.status,
+        expectedRevision: claim.entry.revision,
         status: providerError.retryable ? "submit_unknown" : "failed",
         errorCode: providerError.code,
         errorMessage: providerError.message,

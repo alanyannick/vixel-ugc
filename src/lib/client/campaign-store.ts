@@ -458,7 +458,7 @@ export function parseCampaignExport(raw: string): CampaignState {
     })
     .safeParse(decoded);
   if (!envelope.success) {
-    throw new Error("This file is not a valid Vixel KOC campaign export.");
+    throw new Error("This file is not a valid Vixel UGC campaign export.");
   }
   return envelope.data.campaign;
 }
@@ -468,7 +468,7 @@ export function newCampaign(): CampaignState {
   return {
     id: `campaign-${crypto.randomUUID()}`,
     revision: 1,
-    name: "Untitled KOC campaign",
+    name: "Untitled UGC campaign",
     createdAt: now,
     updatedAt: now,
     input: {

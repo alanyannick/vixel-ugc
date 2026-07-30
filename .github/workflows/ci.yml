@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: vixel_ledger_ci
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d vixel_ledger_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare isolated PostgreSQL ledger
+        run: npm run test:postgres-ledger:prepare
+        env:
+          LEDGER_TEST_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/vixel_ledger_ci
+          LEDGER_TEST_RUNTIME_PASSWORD: vixel-ledger-ci-runtime-only
+
+      - name: Verify PostgreSQL ledger and runtime grants
+        run: npm run test:postgres-ledger
+        env:
+          DATABASE_APP_URL: postgresql://vixel_koc_ci_runtime:vixel-ledger-ci-runtime-only@127.0.0.1:5432/vixel_ledger_ci
+          LEDGER_TEST_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/vixel_ledger_ci
+
+      - name: Install Chrome for Playwright
+        run: npx playwright install --with-deps chrome
+
+      - name: Run static, unit, and build checks
+        run: npm run check
+
+      - name: Run desktop and mobile product flows
+        run: npm run test:e2e

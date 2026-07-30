@@ -1,8 +1,8 @@
-# Vixel KOC Studio Product Blueprint
+# Vixel UGC Studio Product Blueprint
 
 ## 1. Product Definition
 
-Vixel KOC Studio is an AI campaign workspace for teams that need creator-style
+Vixel UGC Studio is an AI campaign workspace for teams that need creator-style
 product videos without losing product truth, human credibility, or platform
 native expression.
 
@@ -21,7 +21,8 @@ source
 ```
 
 The first target user is a growth marketer, creative strategist, or founder
-creating short KOC/UGC concepts for TikTok, Reels, Shorts, or Xiaohongshu.
+creating short AI UGC concepts for TikTok, Reels, Shorts, or Xiaohongshu. KOC
+remains a secondary creative and distribution concept, not the product brand.
 
 ## 2. Product Bar
 
@@ -43,10 +44,12 @@ invented claim is a product failure.
 ```text
 Public
 ├── Home
-├── KOC workflow
+├── AI UGC workflow
+├── What is AI UGC?
+├── UGC vs KOC guide
 ├── Product truth guide
 ├── FAQ
-├── Pricing
+├── Beta access
 ├── Privacy
 └── Terms
 
@@ -75,7 +78,7 @@ The Director chooses one of three internal paths:
 Router, Planner, and Executor are not separate characters. They are typed
 responsibilities behind one surface.
 
-## 5. KOC Workflow
+## 5. AI UGC Workflow
 
 ### Brief
 
@@ -113,7 +116,7 @@ Outputs:
 - product action
 - scene and shot direction
 - native dialogue/sound path
-- one continuous clip for suitable outputs of 15 seconds or less
+- one continuous 4, 6, or 8-second clip
 - actual media work items, not only a document
 
 ### Post
@@ -139,14 +142,17 @@ CTA/logo, or music mix is required.
 - Live generation requires an authenticated studio session, explicit deployment
   flag, HTTPS provider, and isolated PostgreSQL ledger.
 - Paid input approval is a short-lived server HMAC tied to the canonical input,
-  session, provider model, and idempotency key.
+  signed recovery subject, provider model, adapter build, and idempotency key.
 - Changing prompt, model, references, ratio, duration, or audio invalidates the
   previous approval.
 - Ambiguous provider submission is recorded as `submit_unknown` and never
   automatically retried.
+- Ledger updates use revision compare-and-set rules. A provider response cannot
+  move a terminal job backward, and a stale provider submission without a
+  durable result becomes `reconciliation_required` instead of being retried.
 - Cancel, failed-only retry, and protected late-result transitions are covered
-  by the domain model and tests. Provider cancellation is not exposed while the
-  hosted preview has live generation disabled.
+  by the domain model and tests. Provider cancellation remains deployment
+  dependent.
 
 ## 8. Non-goals
 

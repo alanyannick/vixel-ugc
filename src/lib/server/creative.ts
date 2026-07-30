@@ -2,7 +2,6 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
-import { imageDataUrlSchema } from "./data-url";
 import { getServerRuntimeConfig } from "./env";
 
 export const creativeBriefRequestSchema = z.object({
@@ -22,8 +21,8 @@ export const creativeBriefRequestSchema = z.object({
     .optional(),
   format: z.string().trim().min(1).max(120).optional(),
   creatorDescription: z.string().trim().min(1).max(800).optional(),
-  productImageDataUrl: imageDataUrlSchema.optional(),
-  creatorImageDataUrl: imageDataUrlSchema.optional(),
+  productImageAttached: z.boolean().optional(),
+  creatorImageAttached: z.boolean().optional(),
 });
 
 export type CreativeBriefRequest = z.infer<typeof creativeBriefRequestSchema>;
@@ -364,8 +363,8 @@ function promptFor(input: CreativeBriefRequest): string {
       durationSec: input.durationSec,
       format: input.format,
       creatorDescription: input.creatorDescription,
-      productImageAttached: Boolean(input.productImageDataUrl),
-      creatorImageAttached: Boolean(input.creatorImageDataUrl),
+      productImageAttached: Boolean(input.productImageAttached),
+      creatorImageAttached: Boolean(input.creatorImageAttached),
     })}`,
   ].join("\n\n");
 }

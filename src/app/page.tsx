@@ -4,23 +4,28 @@ import Link from "next/link";
 import { ArrowRight, Check, ShieldCheck } from "lucide-react";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { Hero } from "@/components/marketing/hero";
+import { PositioningBand } from "@/components/marketing/positioning-band";
 import { RouteProof } from "@/components/marketing/route-proof";
 import { SectionHeading } from "@/components/marketing/section-heading";
+import { StructuredData } from "@/components/marketing/structured-data";
 import { TracePanel } from "@/components/marketing/trace-panel";
 import { WorkflowSequence } from "@/components/marketing/workflow-sequence";
+import { softwareSchema } from "@/lib/seo/schema";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Product truth, creator native",
+  title: "AI UGC video campaign planning beta",
   description:
-    "Plan creator-native KOC and UGC product videos with source-backed claims, five distinct hooks, explicit paid-input approval, and traceable candidates.",
+    "Plan source-grounded AI UGC product-video campaigns with five creative routes and exact paid-input review. Hosted generation requires live provider and ledger readiness.",
   path: "/",
 });
 
 export default function HomePage() {
   return (
     <>
+      <StructuredData data={softwareSchema} />
       <Hero />
+      <PositioningBand />
 
       <section className="paper-section route-section" id="routes">
         <SectionHeading
@@ -33,7 +38,7 @@ export default function HomePage() {
               <em>One decision.</em>
             </>
           }
-          description="The Director expands a grounded brief into meaningfully different hooks, then waits for your choice before paid work begins."
+          description="The Director expands a source-grounded product brief into meaningfully different UGC hooks, then waits for your choice before paid work begins."
           inverted
         />
         <RouteProof />
@@ -53,8 +58,8 @@ export default function HomePage() {
           description="One visible Director routes the work. Each stage has a clear owner, checkpoint, output, and recovery path."
         />
         <WorkflowSequence />
-        <Link className="text-link text-link--light workflow-link" href="/workflows/koc-video">
-          Explore the full KOC video workflow
+        <Link className="text-link text-link--light workflow-link" href="/workflows/ugc-video">
+          Explore the full AI UGC video workflow
           <ArrowRight aria-hidden="true" size={16} />
         </Link>
       </section>

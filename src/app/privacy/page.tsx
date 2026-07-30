@@ -7,7 +7,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Privacy",
   description:
-    "Vixel KOC Studio privacy information for campaign data, studio sessions, provider submissions, logs, and user controls.",
+    "Vixel UGC Studio privacy information for campaign data, studio sessions, provider submissions, logs, and user controls.",
   path: "/privacy",
 });
 
@@ -18,7 +18,7 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          This notice describes the current Vixel KOC Studio preview. It covers
+          This notice describes the current Vixel UGC Studio beta. It covers
           the public website, browser-based campaign workspace, studio access
           session, and configured media-generation routes.
         </p>
@@ -55,19 +55,24 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          The preview keeps campaign planning state in your browser. You can
+          The beta keeps campaign planning state in your browser. You can
           export that state as a JSON file and clear it through your browser
           storage controls.
         </p>
         <p>
           When studio access protection is configured, the server uses an
-          HttpOnly session cookie. It is not intended for advertising tracking.
+          HttpOnly seven-day session cookie and a separate signed,
+          pseudonymous recovery cookie that can remain in the browser for up
+          to twelve months. The recovery cookie lets the same browser find
+          prior paid jobs after logout and re-login; neither cookie is used for
+          advertising tracking.
         </p>
         <p>
           A live-generation deployment also keeps a durable media ledger with a
-          pseudonymous session hash, exact-input signature, provider model and
+          pseudonymous recovery identifier, exact-input signature, provider model and
           task ID, job status, result claim, and sanitized error state. The raw
-          session cookie and provider secret are not written to that ledger.
+          cookies, access code, and provider secret are not written to that
+          ledger.
         </p>
       </>
     ),
@@ -86,7 +91,7 @@ const sections: LegalSection[] = [
         <p>
           Provider credentials stay on the server. Provider handling and
           retention are also governed by the provider terms selected by the
-          deployment operator. This hosted preview keeps provider submission
+          deployment operator. This hosted beta keeps provider submission
           disabled until a secure provider and isolated ledger are configured.
         </p>
       </>
@@ -100,6 +105,10 @@ const sections: LegalSection[] = [
         <li>Review exact paid inputs before submission.</li>
         <li>Export campaign state for your own records.</li>
         <li>Clear local campaign data through browser controls.</li>
+        <li>
+          Clear site cookies in your browser to remove the local recovery
+          credential.
+        </li>
         <li>Do not adopt a generated candidate you do not want to use.</li>
       </ul>
     ),
@@ -129,8 +138,9 @@ export default function PrivacyPage() {
       <LegalPage
         label="Trust / Privacy"
         title="Privacy notice"
-        introduction="A plain-language account of what the current preview keeps in your browser, what reaches a configured provider, and what remains under your control."
-        updated="July 30, 2026"
+        introduction="A plain-language account of what the current beta keeps in your browser, what reaches a configured provider, and what remains under your control."
+        updated="July 31, 2026"
+        updatedIso="2026-07-31"
         sections={sections}
       />
     </>
