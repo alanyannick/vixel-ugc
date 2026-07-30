@@ -36,9 +36,9 @@ export type ServerRuntimeConfig = {
   };
 };
 
-const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
+const DEFAULT_TEXT_MODEL = "gpt-5.4-mini";
 const DEFAULT_IMAGE_MODEL = "gpt-image-2";
-const DEFAULT_VIDEO_MODEL = "seedance-2.0";
+const DEFAULT_VIDEO_MODEL = "veo-3.1-fast-generate-preview";
 export const MIN_ACCESS_CODE_BYTES = 16;
 export const MIN_SESSION_SECRET_BYTES = 32;
 

@@ -39,19 +39,51 @@ describe("studio execution plan projection", () => {
     expect(buildExecutionPlanForCampaign(newCampaign())).toBeNull();
   });
 
-  it("advances only the targeted runtime items through video delivery", () => {
+  it("keeps an adopted video ready for export until delivery is recorded", () => {
     const plan = buildExecutionPlanForCampaign(demoCampaign);
     expect(plan).not.toBeNull();
     const running = advanceExecutionPlan(plan, "video_submitted");
     const completed = advanceExecutionPlan(running, "video_succeeded");
     const adopted = advanceExecutionPlan(completed, "video_adopted");
-    const items = adopted?.stages.flatMap((stage) => stage.items) ?? [];
+    const adoptedItems =
+      adopted?.stages.flatMap((stage) => stage.items) ?? [];
 
-    expect(items.find((item) => item.planner.kind === "video")?.runtime.status)
+    expect(
+      adoptedItems.find((item) => item.planner.kind === "video")?.runtime.status,
+    )
       .toBe("succeeded");
-    expect(items.find((item) => item.planner.kind === "review")?.runtime.status)
+    expect(
+      adoptedItems.find((item) => item.planner.kind === "review")?.runtime.status,
+    )
       .toBe("succeeded");
-    expect(items.find((item) => item.planner.kind === "export")?.runtime.status)
+    expect(
+      adoptedItems.find((item) => item.planner.kind === "export")?.runtime.status,
+    )
       .toBe("ready");
+    expect(adopted?.runtime.status).not.toBe("succeeded");
+
+    const delivered = advanceExecutionPlan(adopted, "delivery_exported");
+    const deliveredItems =
+      delivered?.stages.flatMap((stage) => stage.items) ?? [];
+
+    expect(
+      deliveredItems.find((item) => item.planner.kind === "export")?.runtime
+        .status,
+    ).toBe("succeeded");
+    expect(delivered?.runtime.status).toBe("succeeded");
+  });
+
+  it("does not complete delivery before a video is adopted", () => {
+    const plan = buildExecutionPlanForCampaign(demoCampaign);
+    expect(plan).not.toBeNull();
+
+    const unchanged = advanceExecutionPlan(plan, "delivery_exported");
+
+    expect(
+      unchanged?.stages
+        .flatMap((stage) => stage.items)
+        .find((item) => item.planner.kind === "export")?.runtime.status,
+    ).toBe("blocked");
+    expect(unchanged?.revision).toBe(plan?.revision);
   });
 });

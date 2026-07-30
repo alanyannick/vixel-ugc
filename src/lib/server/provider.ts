@@ -670,23 +670,30 @@ export async function submitNewApiVideo(input: {
       : input.ratio === "9:16"
         ? { width: 720, height: 1280 }
         : { width: 1280, height: 720 };
+  const metadata: Record<string, unknown> = {
+    durationSeconds: input.durationSec,
+    aspectRatio: input.ratio,
+    resolution: input.resolution,
+    personGeneration: input.imageDataUrl ? "allow_adult" : "allow_all",
+  };
+  // Gemini Veo 3.1 generates audio natively and rejects `generateAudio`
+  // entirely. Audio remains part of the signed canonical input, while the
+  // provider-compatible representation is omission.
   const payload: Record<string, unknown> = {
     model: runtime.newApi.videoModel,
     prompt: input.prompt,
     duration: input.durationSec,
-    ratio: input.ratio,
-    resolution: input.resolution,
+    size: `${dimensions.width}x${dimensions.height}`,
     width: dimensions.width,
     height: dimensions.height,
     fps: 24,
     n: 1,
-    generate_audio: input.generateAudio,
+    metadata,
   };
   if (input.imageDataUrl) {
     payload.image = input.imageDataUrl;
     payload.images = [input.imageDataUrl];
   }
-  if (input.lastImageDataUrl) payload.last_image = input.lastImageDataUrl;
 
   const data = await callVideoProvider({
     path: "/v1/video/generations",

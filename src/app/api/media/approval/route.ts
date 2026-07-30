@@ -154,6 +154,7 @@ export async function POST(request: Request): Promise<Response> {
     inputSignature,
     idempotencyKey,
     providerModel,
+    adapterVersion: approval.claims.adapterVersion,
     expiresAt: new Date(approval.claims.expiresAt * 1_000).toISOString(),
   });
 }

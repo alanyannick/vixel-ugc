@@ -15,7 +15,9 @@ export type MediaLedgerStatus =
   | "processing"
   | "succeeded"
   | "failed"
-  | "submit_unknown";
+  | "submit_unknown"
+  | "cancelled"
+  | "reconciliation_required";
 
 export type MediaLedgerEntry = {
   id: string;
@@ -66,7 +68,7 @@ export class MediaLedgerError extends Error {
   }
 }
 
-const TABLE = "vixel_media_generation_ledger";
+const TABLE = "vixel_koc.media_generation_ledger";
 const SELECT_COLUMNS = `
   id, session_identity, kind, idempotency_key, input_signature,
   approval_signature, provider_model, status, provider_task_id,
@@ -165,6 +167,10 @@ function state(): LedgerGlobal {
         max: 3,
         idleTimeoutMillis: 30_000,
         connectionTimeoutMillis: 5_000,
+        statement_timeout: 10_000,
+        query_timeout: 12_000,
+        idle_in_transaction_session_timeout: 10_000,
+        allowExitOnIdle: true,
       }),
       schemaReady: null,
     };
@@ -176,36 +182,24 @@ async function ensureSchema(): Promise<Pool> {
   const ledger = state();
   if (!ledger.schemaReady) {
     ledger.schemaReady = ledger.pool
-      .query(`
-        CREATE TABLE IF NOT EXISTS ${TABLE} (
-          id uuid PRIMARY KEY,
-          session_identity char(64) NOT NULL,
-          kind text NOT NULL CHECK (kind IN ('image', 'video')),
-          idempotency_key varchar(128) NOT NULL,
-          input_signature char(64) NOT NULL,
-          approval_signature char(64) NOT NULL,
-          provider_model varchar(240) NOT NULL,
-          status text NOT NULL CHECK (
-            status IN (
-              'submitting', 'submitted', 'processing', 'succeeded',
-              'failed', 'submit_unknown'
-            )
-          ),
-          provider_task_id varchar(128),
-          provider_result jsonb,
-          error_code varchar(120),
-          error_message varchar(1000),
-          created_at timestamptz NOT NULL DEFAULT now(),
-          updated_at timestamptz NOT NULL DEFAULT now(),
-          UNIQUE (session_identity, idempotency_key),
-          UNIQUE (session_identity, approval_signature)
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS
-          vixel_media_generation_provider_task_unique
-          ON ${TABLE} (provider_task_id)
-          WHERE provider_task_id IS NOT NULL;
+      // Runtime credentials only verify the migrated schema. DDL is applied
+      // separately through the checked-in Supabase migration so a cold
+      // function cannot silently create or drift production tables.
+      .query<{ runtime_ready: boolean }>(`
+        SELECT
+          has_schema_privilege(current_user, 'vixel_koc', 'USAGE')
+          AND has_table_privilege(current_user, '${TABLE}', 'SELECT')
+          AND has_table_privilege(current_user, '${TABLE}', 'INSERT')
+          AND has_table_privilege(current_user, '${TABLE}', 'UPDATE')
+          AS runtime_ready
       `)
-      .then(() => undefined)
+      .then((result) => {
+        if (!result.rows[0]?.runtime_ready) {
+          throw new Error(
+            "The database login is not a member of vixel_koc_runtime.",
+          );
+        }
+      })
       .catch((error: unknown) => {
         ledger.schemaReady = null;
         throw new MediaLedgerError(

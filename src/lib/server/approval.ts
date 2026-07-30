@@ -29,6 +29,7 @@ export type MediaApprovalClaims = {
   kind: MediaKind;
   inputSignature: string;
   providerModel: string;
+  adapterVersion: string;
   idempotencyKey: string;
   issuedAt: number;
   expiresAt: number;
@@ -39,6 +40,7 @@ const APPROVAL_TTL_SECONDS = 5 * 60;
 const TOKEN_PATTERN = /^ma1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
+const FALLBACK_ADAPTER_VERSION = "newapi-media-adapter:2026-07-30-v2";
 
 function canonicalize(value: Json): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -99,6 +101,13 @@ export function providerModelFor(kind: MediaKind): string {
     : runtime.newApi.videoModel;
 }
 
+export function mediaAdapterVersion(): string {
+  const commit = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
+  return commit && /^[a-f0-9]{7,40}$/i.test(commit)
+    ? `commit:${commit.toLowerCase()}`
+    : FALLBACK_ADAPTER_VERSION;
+}
+
 function approvalSecret(): string | null {
   const root = process.env.STUDIO_SESSION_SECRET?.trim();
   if (!root) return null;
@@ -118,6 +127,7 @@ export function issueMediaApproval(input: {
   kind: MediaKind;
   inputSignature: string;
   providerModel: string;
+  adapterVersion?: string;
   idempotencyKey: string;
   now?: number;
   ttlSeconds?: number;
@@ -128,11 +138,14 @@ export function issueMediaApproval(input: {
 } | null {
   const secret = approvalSecret();
   if (!secret) return null;
+  const adapterVersion =
+    input.adapterVersion?.trim() || mediaAdapterVersion();
   if (
     !SHA256_PATTERN.test(input.sessionIdentity) ||
     !SHA256_PATTERN.test(input.inputSignature) ||
     !IDEMPOTENCY_KEY_PATTERN.test(input.idempotencyKey) ||
-    !input.providerModel.trim()
+    !input.providerModel.trim() ||
+    !adapterVersion
   ) {
     return null;
   }
@@ -147,6 +160,7 @@ export function issueMediaApproval(input: {
     kind: input.kind,
     inputSignature: input.inputSignature,
     providerModel: input.providerModel.trim(),
+    adapterVersion,
     idempotencyKey: input.idempotencyKey,
     issuedAt,
     expiresAt: issuedAt + ttl,
@@ -168,6 +182,7 @@ export function verifyMediaApproval(
     kind: MediaKind;
     inputSignature: string;
     providerModel: string;
+    adapterVersion?: string;
     idempotencyKey: string;
   },
   now = Date.now(),
@@ -204,6 +219,8 @@ export function verifyMediaApproval(
     claims.kind !== expected.kind ||
     claims.inputSignature !== expected.inputSignature ||
     claims.providerModel !== expected.providerModel ||
+    claims.adapterVersion !==
+      (expected.adapterVersion?.trim() || mediaAdapterVersion()) ||
     claims.idempotencyKey !== expected.idempotencyKey
   ) {
     return null;

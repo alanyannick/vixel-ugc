@@ -13,7 +13,13 @@ export const creativeBriefRequestSchema = z.object({
   platform: z.string().trim().min(1).max(100),
   goal: z.string().trim().min(1).max(500),
   language: z.string().trim().min(1).max(80),
-  durationSec: z.number().int().min(5).max(180).optional(),
+  durationSec: z
+    .number()
+    .int()
+    .refine((value) => [4, 6, 8].includes(value), {
+      message: "Duration must be 4, 6, or 8 seconds.",
+    })
+    .optional(),
   format: z.string().trim().min(1).max(120).optional(),
   creatorDescription: z.string().trim().min(1).max(800).optional(),
   productImageDataUrl: imageDataUrlSchema.optional(),
@@ -53,7 +59,10 @@ const generatedBriefSchema = z.object({
   recommendedPersonaId: z.string().min(1).max(80),
   guardrails: z.array(z.string().min(1).max(500)).min(1).max(12),
   groundingWarnings: z.array(z.string().min(1).max(500)).max(12),
-  shotDirection: z.string().min(1).max(1_200).optional(),
+  // OpenAI strict JSON Schema requires every property to appear in `required`.
+  // Keeping this field mandatory avoids provider-side `invalid_json_schema`
+  // failures while preserving a fully typed production brief.
+  shotDirection: z.string().min(1).max(1_200),
 });
 
 type GeneratedBrief = z.infer<typeof generatedBriefSchema>;
@@ -66,6 +75,59 @@ export type CreativeBriefResponse = {
   provider: "live" | "fallback";
   requestId: string;
 };
+
+function providerFailureMetadata(error: unknown): {
+  errorName: string;
+  statusCode?: number;
+  code?: string;
+  retryable?: boolean;
+  causeName?: string;
+  lastErrorName?: string;
+  lastStatusCode?: number;
+  lastCode?: string;
+} {
+  if (!(error instanceof Error)) {
+    return { errorName: "UnknownError" };
+  }
+
+  const providerError = error as Error & {
+    statusCode?: unknown;
+    code?: unknown;
+    isRetryable?: unknown;
+    cause?: unknown;
+    lastError?: unknown;
+  };
+  const cause =
+    providerError.cause instanceof Error ? providerError.cause : undefined;
+  const lastError =
+    providerError.lastError instanceof Error
+      ? (providerError.lastError as Error & {
+          statusCode?: unknown;
+          code?: unknown;
+        })
+      : undefined;
+
+  return {
+    errorName: error.name,
+    ...(typeof providerError.statusCode === "number"
+      ? { statusCode: providerError.statusCode }
+      : {}),
+    ...(typeof providerError.code === "string"
+      ? { code: providerError.code.slice(0, 80) }
+      : {}),
+    ...(typeof providerError.isRetryable === "boolean"
+      ? { retryable: providerError.isRetryable }
+      : {}),
+    ...(cause ? { causeName: cause.name } : {}),
+    ...(lastError ? { lastErrorName: lastError.name } : {}),
+    ...(typeof lastError?.statusCode === "number"
+      ? { lastStatusCode: lastError.statusCode }
+      : {}),
+    ...(typeof lastError?.code === "string"
+      ? { lastCode: lastError.code.slice(0, 80) }
+      : {}),
+  };
+}
 
 function creativeMode(input: CreativeBriefRequest): CreativeMode {
   return input.facts.length === 0 ? "guided" : "planned";
@@ -361,9 +423,16 @@ export async function generateCreativeBrief(
       provider: "live",
       requestId,
     };
-  } catch {
+  } catch (error) {
     // A fallback is a disclosed deterministic brief, never a simulated provider
-    // success. Provider payloads and secrets are deliberately not logged.
+    // success. Provider payloads, prompts, error messages, and secrets are
+    // deliberately not logged; these fields are enough to distinguish network,
+    // HTTP, and schema failures in deployment telemetry.
+    console.warn("creative_brief_provider_fallback", {
+      requestId,
+      model: runtime.newApi.textModel,
+      ...providerFailureMetadata(error),
+    });
     return fallback();
   }
 }

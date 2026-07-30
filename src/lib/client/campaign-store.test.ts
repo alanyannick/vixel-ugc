@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   demoCampaign,
+  newCampaign,
   parseCampaignExport,
 } from "@/lib/client/campaign-store";
 
@@ -24,6 +25,45 @@ describe("campaign JSON recovery", () => {
     expect(parsed.jobs).toEqual([]);
     expect(parsed.receipts[0]?.action).toBe("Candidate adopted");
   });
+
+  it("uses Veo's canonical 8-second default for new campaigns", () => {
+    expect(newCampaign().input.durationSec).toBe(8);
+    expect(demoCampaign.input.durationSec).toBe(8);
+  });
+
+  it.each([4, 6, 8])(
+    "accepts the canonical %i-second Veo duration",
+    (durationSec) => {
+      const parsed = parseCampaignExport(
+        exportPayload({
+          ...demoCampaign,
+          input: {
+            ...demoCampaign.input,
+            durationSec,
+          },
+        }),
+      );
+
+      expect(parsed.input.durationSec).toBe(durationSec);
+    },
+  );
+
+  it.each([3, 5, 7, 9, 12, 15, 30])(
+    "rejects the non-canonical %i-second Veo duration",
+    (durationSec) => {
+      expect(() =>
+        parseCampaignExport(
+          exportPayload({
+            ...demoCampaign,
+            input: {
+              ...demoCampaign.input,
+              durationSec,
+            },
+          }),
+        ),
+      ).toThrow("not a valid Vixel KOC campaign export");
+    },
+  );
 
   it("rejects a file with the wrong envelope", () => {
     expect(() =>
@@ -65,4 +105,3 @@ describe("campaign JSON recovery", () => {
     );
   });
 });
-

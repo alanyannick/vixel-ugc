@@ -93,6 +93,20 @@ describe("server environment", () => {
     expect(insecureProduction.newApi.configured).toBe(false);
   });
 
+  it("uses the canary-proven NewAPI models when overrides are absent", () => {
+    const config = getServerRuntimeConfig({
+      NODE_ENV: "production",
+      NEWAPI_BASE_URL: "https://gateway.example.test/v1",
+      NEWAPI_API_KEY: "not-returned",
+    });
+
+    expect(config.newApi).toMatchObject({
+      textModel: "gpt-5.4-mini",
+      imageModel: "gpt-image-2",
+      videoModel: "veo-3.1-fast-generate-preview",
+    });
+  });
+
   it("serves a secret-free health capability snapshot", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEWAPI_BASE_URL", "https://gateway.example.test/v1");
@@ -218,6 +232,13 @@ describe("server-signed paid approval", () => {
       verifyMediaApproval(
         issued?.token,
         { ...expected, providerModel: "another-model" },
+        1_800_000_001_000,
+      ),
+    ).toBeNull();
+    expect(
+      verifyMediaApproval(
+        issued?.token,
+        { ...expected, adapterVersion: "another-adapter-build" },
         1_800_000_001_000,
       ),
     ).toBeNull();
@@ -394,6 +415,41 @@ describe("image provider", () => {
         image: "http://169.254.169.254/latest/meta-data",
       }).success,
     ).toBe(false);
+  });
+
+  it("fails closed on ambiguous or unsupported Veo inputs", () => {
+    expect(
+      videoGenerationRequestSchema.safeParse({
+        prompt: "Animate the product.",
+        imageDataUrl: PNG_DATA_URL,
+        firstFrameDataUrl: "data:image/png;base64,iVBORw0KGgoA",
+      }).success,
+    ).toBe(false);
+    expect(
+      videoGenerationRequestSchema.safeParse({
+        prompt: "Animate the product.",
+        imageDataUrl: PNG_DATA_URL,
+        lastFrameDataUrl: PNG_DATA_URL,
+      }).success,
+    ).toBe(false);
+    expect(
+      videoGenerationRequestSchema.safeParse({
+        prompt: "Animate the product.",
+        durationSec: 4,
+        resolution: "1080p",
+      }).success,
+    ).toBe(false);
+    expect(
+      videoGenerationRequestSchema.safeParse({
+        prompt: "Animate the product.",
+        generateAudio: false,
+      }).success,
+    ).toBe(false);
+    expect(
+      videoGenerationRequestSchema.parse({
+        prompt: "Animate the product.",
+      }).generateAudio,
+    ).toBe(true);
   });
 
   it("normalizes base64 and URL provider responses", () => {
@@ -680,10 +736,10 @@ describe("video provider", () => {
     const submitted = await submitNewApiVideo({
       prompt: "A restrained camera push.",
       imageDataUrl: PNG_DATA_URL,
-      durationSec: 5,
+      durationSec: 4,
       ratio: "9:16",
       resolution: "720p",
-      generateAudio: false,
+      generateAudio: true,
       idempotencyKey: "video:stable-submit-key",
       fetchImpl: fetchMock,
     });
@@ -696,6 +752,19 @@ describe("video provider", () => {
     expect(new Headers(init.headers).get("idempotency-key")).toBe(
       "video:stable-submit-key",
     );
+    const payload = JSON.parse(String(init.body));
+    expect(payload).toMatchObject({
+      model: "dreamina-seedance-2-0-260128",
+      duration: 4,
+      size: "720x1280",
+      metadata: {
+        durationSeconds: 4,
+        aspectRatio: "9:16",
+        resolution: "720p",
+        personGeneration: "allow_adult",
+      },
+    });
+    expect(payload.metadata).not.toHaveProperty("generateAudio");
   });
 
   it("uses a sanitized error for rejected video submissions", async () => {
@@ -706,10 +775,10 @@ describe("video provider", () => {
     );
     const error = await submitNewApiVideo({
       prompt: "A restrained camera push.",
-      durationSec: 5,
+      durationSec: 4,
       ratio: "9:16",
       resolution: "720p",
-      generateAudio: false,
+      generateAudio: true,
       idempotencyKey: "video:sanitized-error",
       fetchImpl: fetchMock,
     }).catch((caught: unknown) => caught);

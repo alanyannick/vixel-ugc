@@ -17,7 +17,6 @@ import {
   LayoutGrid,
   Menu,
   MessageSquareText,
-  MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
   Plus,
@@ -45,6 +44,7 @@ import {
   listRecoverableMediaJobs,
   pollVideoCandidate,
   readRecoverableMediaJob,
+  StudioApiError,
   submitVideoCandidate,
 } from "@/lib/client/api";
 import {
@@ -75,15 +75,18 @@ type View = "board" | "sources" | "routes" | "candidates" | "receipts";
 
 type PaidApproval =
   | ({
-    prompt: string;
-    inputSignature: string;
-    idempotencyKey: string;
-    serverApprovalToken?: string;
-    providerModel?: string;
+      prompt: string;
+      inputSignature: string;
+      idempotencyKey: string;
+      serverApprovalToken?: string;
+      providerModel?: string;
+      adapterVersion?: string;
+      expiresAt?: string;
     } & (
       | {
           kind: "image";
           aspectRatio: "9:16";
+          references: Array<{ dataUrl: string }>;
         }
       | {
           kind: "video";
@@ -98,12 +101,25 @@ type PaidApproval =
     ))
   | null;
 
+type ProductionBeat = {
+  range: string;
+  label: string;
+  direction: string;
+};
+
 function mediaJobKey(
   kind: "image" | "video",
   campaign: CampaignState,
+  inputSignature: string,
 ): string {
   const campaignFragment = campaignJobFragment(campaign);
-  return `${kind}:${campaignFragment}:${campaign.revision}:${crypto.randomUUID()}`;
+  const intentDigest = exactInputSignature({
+    kind,
+    campaignId: campaign.id,
+    campaignRevision: campaign.revision,
+    inputSignature,
+  }).slice(-20);
+  return `${kind}:${campaignFragment}:${campaign.revision}:${intentDigest}`;
 }
 
 function campaignJobFragment(campaign: CampaignState): string {
@@ -185,27 +201,111 @@ async function sha256Text(value: string): Promise<string> {
   ).join("");
 }
 
+function downloadJson(payload: unknown, fileName: string) {
+  const href = URL.createObjectURL(
+    new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    }),
+  );
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(href);
+}
+
+function safeExportName(value: string, fallback: string) {
+  const normalized = (value || fallback)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || fallback;
+}
+
 function downloadCampaign(campaign: CampaignState) {
-  const payload = JSON.stringify(
+  downloadJson(
     {
       format: "vixel-koc-campaign",
       version: 1,
       exportedAt: new Date().toISOString(),
       campaign,
     },
-    null,
-    2,
+    `${safeExportName(campaign.input.productName, "vixel-koc-campaign")}.json`,
   );
-  const href = URL.createObjectURL(
-    new Blob([payload], { type: "application/json" }),
+}
+
+function downloadDeliveryReceipt(
+  campaign: CampaignState,
+  candidate: Candidate,
+) {
+  downloadJson(
+    {
+      format: "vixel-koc-delivery-receipt",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      campaign: {
+        id: campaign.id,
+        revision: campaign.revision,
+        name: campaign.name,
+        productName: campaign.input.productName,
+        platform: campaign.input.platform,
+        durationSec: campaign.input.durationSec,
+      },
+      delivery: {
+        candidateId: candidate.id,
+        kind: candidate.kind,
+        assetUrl: candidate.url,
+        provider: candidate.provider,
+        model: candidate.model ?? null,
+        ledgerEntryId: candidate.ledgerEntryId ?? null,
+        providerTaskId: candidate.providerTaskId ?? null,
+        inputSignature: candidate.inputSignature ?? null,
+        accepted: candidate.status === "adopted",
+      },
+    },
+    `${safeExportName(campaign.input.productName, "vixel-koc")}-delivery.json`,
   );
-  const anchor = document.createElement("a");
-  anchor.href = href;
-  anchor.download = `${campaign.input.productName || "vixel-koc-campaign"}.json`
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-");
-  anchor.click();
-  URL.revokeObjectURL(href);
+}
+
+function productionBeats(durationSec: number): ProductionBeat[] {
+  const firstEnd = durationSec === 4 ? 1 : 2;
+  const actionEnd = durationSec === 8 ? 6 : durationSec - 1;
+  return [
+    {
+      range: `0–${firstEnd}s`,
+      label: "Visible hook",
+      direction: "Lead with the selected opening line and readable product.",
+    },
+    {
+      range: `${firstEnd}–${actionEnd}s`,
+      label: "Product action",
+      direction: "Show one observable use moment in the same continuous take.",
+    },
+    {
+      range: `${actionEnd}–${durationSec}s`,
+      label: "Native close",
+      direction: "Close on one supplied fact without inflating the promise.",
+    },
+  ];
+}
+
+function paidMediaInput(approval: NonNullable<PaidApproval>) {
+  return approval.kind === "video"
+    ? {
+        prompt: approval.prompt,
+        imageDataUrl: approval.imageDataUrl,
+        durationSec: approval.durationSec,
+        ratio: approval.ratio,
+        resolution: approval.resolution,
+        generateAudio: approval.generateAudio,
+        idempotencyKey: approval.idempotencyKey,
+      }
+    : {
+        prompt: approval.prompt,
+        aspectRatio: approval.aspectRatio,
+        references: approval.references,
+        idempotencyKey: approval.idempotencyKey,
+      };
 }
 
 export function StudioWorkspace() {
@@ -218,10 +318,27 @@ export function StudioWorkspace() {
   const [generationBusy, setGenerationBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [pollingIssue, setPollingIssue] = useState("");
   const [approval, setApproval] = useState<PaidApproval>(null);
   const generationLockRef = useRef(false);
   const anchorLockRef = useRef(false);
   const recoveryAttemptedRef = useRef(false);
+  const workspaceScrollRef = useRef<HTMLDivElement>(null);
+
+  const navigateTo = useCallback((nextView: View) => {
+    setView(nextView);
+    setMobileNavOpen(false);
+    window.requestAnimationFrame(() => {
+      if (window.matchMedia("(max-width: 760px)").matches) {
+        window.scrollTo({ top: 0, behavior: "auto" });
+        return;
+      }
+      workspaceScrollRef.current?.scrollTo({
+        top: 0,
+        behavior: "auto",
+      });
+    });
+  }, []);
 
   const updateCampaign = useCallback(
     (
@@ -341,8 +458,9 @@ export function StudioWorkspace() {
                 status:
                   ledgerJob.status === "submitted"
                     ? "queued"
-                    : ledgerJob.status === "submit_unknown"
-                      ? "failed"
+                    : ledgerJob.status === "submit_unknown" ||
+                        ledgerJob.status === "reconciliation_required"
+                      ? "reconciliation_required"
                       : ledgerJob.status === "submitting"
                         ? "queued"
                         : ledgerJob.status,
@@ -431,7 +549,43 @@ export function StudioWorkspace() {
           Number.isFinite(job.createdAtMs) &&
           Date.now() - job.createdAtMs < 24 * 60 * 60 * 1_000,
       );
-      if (!pollableJobs.length) return;
+      if (!pollableJobs.length) {
+        updateCampaign((current) => {
+          const trackedIds = new Set(trackedJobs.map((job) => job.id));
+          const staleJobs = current.jobs.filter(
+            (job) =>
+              trackedIds.has(job.id) &&
+              (job.status === "queued" || job.status === "processing"),
+          );
+          if (!staleJobs.length) return current;
+          return {
+            ...current,
+            jobs: current.jobs.map((job) =>
+              trackedIds.has(job.id) &&
+              (job.status === "queued" || job.status === "processing")
+                ? {
+                    ...job,
+                    status: "reconciliation_required" as const,
+                    error:
+                      "The 24-hour browser polling window closed. Reconcile this ledgered task before any new paid submission.",
+                    updatedAt: new Date().toISOString(),
+                  }
+                : job,
+            ),
+            receipts: [
+              nowReceipt(
+                "Video reconciliation required",
+                "A ledgered video task exceeded the browser polling window without a terminal result.",
+              ),
+              ...current.receipts,
+            ],
+          };
+        });
+        setPollingIssue(
+          "A video task exceeded the polling window. Its ledger claim is preserved; review Receipts before any new paid submission.",
+        );
+        return;
+      }
       let hadPollingFailure = false;
 
       for (const job of pollableJobs) {
@@ -533,6 +687,11 @@ export function StudioWorkspace() {
       failureStreak = hadPollingFailure
         ? Math.min(failureStreak + 1, 3)
         : 0;
+      setPollingIssue(
+        hadPollingFailure
+          ? "Provider polling is temporarily delayed. The task is ledgered and will retry without another paid submission."
+          : "",
+      );
       const nextDelay = Math.min(8_000 * 2 ** failureStreak, 60_000);
       if (!stopped) {
         timer = window.setTimeout(() => void syncJobs(), nextDelay);
@@ -582,12 +741,16 @@ export function StudioWorkspace() {
 
   const beginNewCampaign = () => {
     const fresh = newCampaign();
-    updateCampaign(() => fresh, {
-      action: "Campaign created",
-      detail: "A new source-grounded campaign workspace was opened.",
+    setCampaign({
+      ...fresh,
+      receipts: [
+        nowReceipt(
+          "Campaign created",
+          "A new source-grounded campaign workspace was opened.",
+        ),
+      ],
     });
-    setView("sources");
-    setMobileNavOpen(false);
+    navigateTo("sources");
     setError("");
     setNotice("New campaign opened. Start with product truth.");
   };
@@ -597,7 +760,7 @@ export function StudioWorkspace() {
       action: "Demo restored",
       detail: "The built-in source-grounded demo campaign was restored.",
     });
-    setView("board");
+    navigateTo("board");
     setError("");
     setNotice("Demo campaign restored.");
   };
@@ -655,13 +818,17 @@ export function StudioWorkspace() {
       },
       { action: "Candidate adopted", detail: candidate.label },
     );
-    setNotice(`${candidate.label} became the accepted visual source.`);
+    setNotice(
+      candidate.kind === "video"
+        ? `${candidate.label} became the accepted final video.`
+        : `${candidate.label} became the accepted visual source.`,
+    );
   };
 
   const startGeneration = () => {
     if (!selectedHook || !selectedPersona) {
       setError("Choose one hook and one creator persona before generation.");
-      setView("routes");
+      navigateTo("routes");
       return;
     }
     setError("");
@@ -674,19 +841,23 @@ export function StudioWorkspace() {
         campaign.input.creatorImageDataUrl ?? null,
       ],
     } as const;
+    const inputSignature = exactInputSignature(exactInput);
     setApproval({
       kind: exactInput.kind,
       prompt: exactInput.prompt,
       aspectRatio: exactInput.aspectRatio,
-      inputSignature: exactInputSignature(exactInput),
-      idempotencyKey: mediaJobKey("image", campaign),
+      references: exactInput.references
+        .filter((reference): reference is string => Boolean(reference))
+        .map((dataUrl) => ({ dataUrl })),
+      inputSignature,
+      idempotencyKey: mediaJobKey("image", campaign, inputSignature),
     });
   };
 
   const startVideoGeneration = async () => {
     if (!selectedHook || !selectedPersona) {
       setError("Choose one hook and one creator persona before production.");
-      setView("routes");
+      navigateTo("routes");
       return;
     }
     const adoptedAnchor = campaign.candidates.find(
@@ -694,12 +865,12 @@ export function StudioWorkspace() {
     );
     if (!adoptedAnchor) {
       setError("Adopt one image anchor before starting video production.");
-      setView("candidates");
+      navigateTo("candidates");
       return;
     }
     if (anchorLockRef.current) return;
     anchorLockRef.current = true;
-    const durationSec = Math.min(campaign.input.durationSec, 15);
+    const durationSec = campaign.input.durationSec;
     const prompt = [
       `Create one continuous ${durationSec}-second 9:16 KOC product video for ${campaign.input.productName}.`,
       `Opening dialogue: ${selectedHook.script}`,
@@ -725,11 +896,12 @@ export function StudioWorkspace() {
         anchorCandidateId: adoptedAnchor.id,
         anchorDigest,
       } as const;
+      const inputSignature = exactInputSignature(exactInput);
       setApproval({
         ...exactInput,
         imageDataUrl,
-        inputSignature: exactInputSignature(exactInput),
-        idempotencyKey: mediaJobKey("video", campaign),
+        inputSignature,
+        idempotencyKey: mediaJobKey("video", campaign, inputSignature),
       });
       setNotice("");
     } catch (caught) {
@@ -743,8 +915,75 @@ export function StudioWorkspace() {
     }
   };
 
+  const reviewGeneration = async () => {
+    if (
+      !approval ||
+      approval.serverApprovalToken ||
+      generationLockRef.current
+    ) {
+      return;
+    }
+    generationLockRef.current = true;
+    setGenerationBusy(true);
+    setError("");
+    try {
+      const signed = await approveMediaInput(
+        approval.kind,
+        paidMediaInput(approval),
+      );
+      setApproval((current) =>
+        current?.idempotencyKey === approval.idempotencyKey
+          ? {
+              ...current,
+              serverApprovalToken: signed.approvalToken,
+              providerModel: signed.providerModel,
+              adapterVersion: signed.adapterVersion,
+              inputSignature: signed.inputSignature,
+              expiresAt: signed.expiresAt,
+            }
+          : current,
+      );
+      setNotice(
+        "Exact input is locked without provider spend. Review the model and canonical parameters, then confirm the paid submission.",
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The server could not lock this exact paid input.",
+      );
+    } finally {
+      generationLockRef.current = false;
+      setGenerationBusy(false);
+    }
+  };
+
   const confirmGeneration = async () => {
     if (!approval || generationLockRef.current) return;
+    if (!approval.serverApprovalToken) {
+      setError("Lock and review the exact provider input before paid submission.");
+      return;
+    }
+    if (
+      !approval.expiresAt ||
+      Date.parse(approval.expiresAt) <= Date.now() + 5_000
+    ) {
+      setApproval((current) =>
+        current?.idempotencyKey === approval.idempotencyKey
+          ? {
+              ...current,
+              serverApprovalToken: undefined,
+              providerModel: undefined,
+              adapterVersion: undefined,
+              expiresAt: undefined,
+            }
+          : current,
+      );
+      setError(
+        "This exact-input approval expired. Lock the unchanged input again; no provider call was made.",
+      );
+      return;
+    }
     generationLockRef.current = true;
     setGenerationBusy(true);
     setError("");
@@ -759,28 +998,9 @@ export function StudioWorkspace() {
           generateAudio: approval.generateAudio,
           idempotencyKey: approval.idempotencyKey,
         };
-        const signed = approval.serverApprovalToken
-          ? null
-          : await approveMediaInput("video", mediaInput);
-        const approvalToken =
-          approval.serverApprovalToken ?? signed?.approvalToken;
-        if (!approvalToken) {
-          throw new Error("The server could not sign this paid video input.");
-        }
-        if (signed) {
-          setApproval((current) =>
-            current?.idempotencyKey === approval.idempotencyKey
-              ? {
-                  ...current,
-                  serverApprovalToken: signed.approvalToken,
-                  providerModel: signed.providerModel,
-                }
-              : current,
-          );
-        }
         const submitted = await submitVideoCandidate({
           ...mediaInput,
-          approvalToken,
+          approvalToken: approval.serverApprovalToken,
         });
         const submittedAt = new Date().toISOString();
         updateCampaign(
@@ -857,48 +1077,21 @@ export function StudioWorkspace() {
           },
         );
         setApproval(null);
-        setView("board");
+        navigateTo("board");
         setNotice(
           "Video job submitted. You can leave this view; polling resumes from saved task state.",
         );
         return;
       }
-      const references = [
-        campaign.input.productImageDataUrl
-          ? { dataUrl: campaign.input.productImageDataUrl }
-          : {},
-        campaign.input.creatorImageDataUrl
-          ? { dataUrl: campaign.input.creatorImageDataUrl }
-          : {},
-      ].filter((item) => "dataUrl" in item && Boolean(item.dataUrl));
       const mediaInput = {
         prompt: approval.prompt,
         aspectRatio: approval.aspectRatio,
-        references,
+        references: approval.references,
         idempotencyKey: approval.idempotencyKey,
       };
-      const signed = approval.serverApprovalToken
-        ? null
-        : await approveMediaInput("image", mediaInput);
-      const approvalToken =
-        approval.serverApprovalToken ?? signed?.approvalToken;
-      if (!approvalToken) {
-        throw new Error("The server could not sign this paid image input.");
-      }
-      if (signed) {
-        setApproval((current) =>
-          current?.idempotencyKey === approval.idempotencyKey
-            ? {
-                ...current,
-                serverApprovalToken: signed.approvalToken,
-                providerModel: signed.providerModel,
-              }
-            : current,
-        );
-      }
       const result = await createImageCandidate({
         ...mediaInput,
-        approvalToken,
+        approvalToken: approval.serverApprovalToken,
       });
       const candidate: Candidate = {
         id: `candidate-${crypto.randomUUID()}`,
@@ -928,9 +1121,28 @@ export function StudioWorkspace() {
         },
       );
       setApproval(null);
-      setView("candidates");
+      navigateTo("candidates");
       setNotice("Generation completed. Review the new candidate before adoption.");
     } catch (caught) {
+      if (
+        caught instanceof StudioApiError &&
+        caught.code === "invalid_media_approval"
+      ) {
+        setApproval((current) =>
+          current?.idempotencyKey === approval.idempotencyKey
+            ? {
+                ...current,
+                serverApprovalToken: undefined,
+                providerModel: undefined,
+                adapterVersion: undefined,
+                expiresAt: undefined,
+              }
+            : current,
+        );
+        setNotice(
+          "The approval expired before submission. Lock the unchanged input again; no provider call was made.",
+        );
+      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -940,6 +1152,35 @@ export function StudioWorkspace() {
       generationLockRef.current = false;
       setGenerationBusy(false);
     }
+  };
+
+  const exportDelivery = () => {
+    const acceptedVideo = campaign.candidates.find(
+      (candidate) =>
+        candidate.kind === "video" && candidate.status === "adopted",
+    );
+    if (!acceptedVideo) {
+      setError("Adopt one completed video before exporting a delivery receipt.");
+      navigateTo("candidates");
+      return;
+    }
+    downloadDeliveryReceipt(campaign, acceptedVideo);
+    updateCampaign(
+      (current) => ({
+        ...current,
+        executionPlan: advanceExecutionPlan(
+          current.executionPlan,
+          "delivery_exported",
+        ),
+      }),
+      {
+        action: "Delivery receipt exported",
+        detail: `${acceptedVideo.label} was exported with provider, model, ledger, task, and input lineage.`,
+      },
+    );
+    setNotice(
+      "Delivery receipt exported. Download or open the accepted provider asset while it is available.",
+    );
   };
 
   return (
@@ -977,8 +1218,7 @@ export function StudioWorkspace() {
             type="button"
             className={view === "board" ? styles.navActive : ""}
             onClick={() => {
-              setView("board");
-              setMobileNavOpen(false);
+              navigateTo("board");
             }}
           >
             <LayoutGrid size={18} />
@@ -988,8 +1228,7 @@ export function StudioWorkspace() {
             type="button"
             className={view === "sources" ? styles.navActive : ""}
             onClick={() => {
-              setView("sources");
-              setMobileNavOpen(false);
+              navigateTo("sources");
             }}
           >
             <FileText size={18} />
@@ -999,8 +1238,7 @@ export function StudioWorkspace() {
             type="button"
             className={view === "routes" ? styles.navActive : ""}
             onClick={() => {
-              setView("routes");
-              setMobileNavOpen(false);
+              navigateTo("routes");
             }}
           >
             <Sparkles size={18} />
@@ -1011,8 +1249,7 @@ export function StudioWorkspace() {
             type="button"
             className={view === "candidates" ? styles.navActive : ""}
             onClick={() => {
-              setView("candidates");
-              setMobileNavOpen(false);
+              navigateTo("candidates");
             }}
           >
             <GalleryVerticalEnd size={18} />
@@ -1025,8 +1262,7 @@ export function StudioWorkspace() {
             type="button"
             className={view === "receipts" ? styles.navActive : ""}
             onClick={() => {
-              setView("receipts");
-              setMobileNavOpen(false);
+              navigateTo("receipts");
             }}
           >
             <ReceiptText size={18} />
@@ -1036,30 +1272,17 @@ export function StudioWorkspace() {
 
         <div className={styles.sidebarCampaigns}>
           <div className={styles.navSectionLabel}>
-            <span>Recent</span>
-            <button
-              type="button"
-              aria-label="Campaign options"
-              title="Campaign options"
-            >
-              <MoreHorizontal size={16} />
-            </button>
+            <span>Current</span>
           </div>
           <button
             className={styles.campaignMini}
             type="button"
             onClick={() => {
-              setView("board");
-              setMobileNavOpen(false);
+              navigateTo("board");
             }}
           >
             <span className={styles.campaignThumb}>
-              <Image
-                src="/media/koc-serum-creator.webp"
-                alt=""
-                width={40}
-                height={48}
-              />
+              <IconMark className={styles.campaignThumbMark} />
             </span>
             <span>
               <strong>{campaign.input.productName || "Untitled campaign"}</strong>
@@ -1148,7 +1371,7 @@ export function StudioWorkspace() {
                         detail:
                           "Campaign state restored from a validated Vixel export.",
                       });
-                      setView("board");
+                      navigateTo("board");
                       setNotice("Campaign restored from export.");
                     })
                     .catch((caught) =>
@@ -1179,7 +1402,7 @@ export function StudioWorkspace() {
 
         <PlanRail
           campaign={campaign}
-          onNavigate={(nextView) => setView(nextView)}
+          onNavigate={navigateTo}
         />
 
         {notice ? (
@@ -1208,17 +1431,31 @@ export function StudioWorkspace() {
             </button>
           </div>
         ) : null}
+        {pollingIssue ? (
+          <div className={styles.pollingNotice} role="status">
+            <Clock3 size={17} />
+            <span>{pollingIssue}</span>
+            <button
+              type="button"
+              aria-label="Dismiss polling status"
+              onClick={() => setPollingIssue("")}
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ) : null}
 
-        <div className={styles.workspaceScroll}>
+        <div className={styles.workspaceScroll} ref={workspaceScrollRef}>
           {view === "board" ? (
             <CampaignBoard
               campaign={campaign}
               selectedHook={selectedHook}
               selectedPersona={selectedPersona}
-              onView={setView}
+              onView={navigateTo}
               onGenerate={startGeneration}
               onGenerateVideo={startVideoGeneration}
               onAdopt={adoptCandidate}
+              onExportDelivery={exportDelivery}
               onRestoreDemo={restoreDemo}
             />
           ) : null}
@@ -1252,7 +1489,7 @@ export function StudioWorkspace() {
                       detail: `${result.brief.hooks.length} hooks and ${result.brief.personas.length} personas via ${result.provider}.`,
                     },
                   );
-                  setView("routes");
+                  navigateTo("routes");
                   setNotice(
                     `${result.brief.hooks.length} routes ready. Choose one hook and one persona.`,
                   );
@@ -1275,7 +1512,7 @@ export function StudioWorkspace() {
               selectedPersona={selectedPersona}
               onHook={selectHook}
               onPersona={selectPersona}
-              onSources={() => setView("sources")}
+              onSources={() => navigateTo("sources")}
               onGenerate={startGeneration}
             />
           ) : null}
@@ -1303,9 +1540,10 @@ export function StudioWorkspace() {
             selectedHook={selectedHook}
             selectedPersona={selectedPersona}
             routerDecision={routerDecision}
-            onView={setView}
+            onView={navigateTo}
             onGenerate={startGeneration}
             onGenerateVideo={startVideoGeneration}
+            onExportDelivery={exportDelivery}
             onClose={() => setDirectorOpen(false)}
           />
         </>
@@ -1314,11 +1552,11 @@ export function StudioWorkspace() {
       {approval ? (
         <ApprovalDialog
           approval={approval}
-          campaign={campaign}
           busy={generationBusy}
           onCancel={() => {
             if (!generationBusy) setApproval(null);
           }}
+          onReview={reviewGeneration}
           onConfirm={confirmGeneration}
         />
       ) : null}
@@ -1413,6 +1651,7 @@ function CampaignBoard({
   onGenerate,
   onGenerateVideo,
   onAdopt,
+  onExportDelivery,
   onRestoreDemo,
 }: {
   campaign: CampaignState;
@@ -1422,6 +1661,7 @@ function CampaignBoard({
   onGenerate: () => void;
   onGenerateVideo: () => void;
   onAdopt: (candidate: Candidate) => void;
+  onExportDelivery: () => void;
   onRestoreDemo: () => void;
 }) {
   if (!campaign.brief) {
@@ -1455,7 +1695,20 @@ function CampaignBoard({
     );
   }
 
-  const adopted = campaign.candidates.find((item) => item.status === "adopted");
+  const adoptedImage = campaign.candidates.find(
+    (item) => item.status === "adopted" && item.kind === "image",
+  );
+  const adoptedVideo = campaign.candidates.find(
+    (item) => item.status === "adopted" && item.kind === "video",
+  );
+  const deliveryExported = campaign.executionPlan?.stages
+    .flatMap((stage) => stage.items)
+    .some(
+      (item) =>
+        item.planner.kind === "export" &&
+        item.runtime.status === "succeeded",
+    );
+  const beats = productionBeats(campaign.input.durationSec);
   return (
     <div className={styles.board}>
       <section className={styles.boardIntro}>
@@ -1525,7 +1778,9 @@ function CampaignBoard({
               <span className={styles.objectNumber}>02</span>
               <p className={styles.sectionEyebrow}>Visual anchor</p>
               <h3>
-                {adopted ? "Accepted source" : "A candidate needs your review"}
+                {adoptedImage
+                  ? "Accepted source"
+                  : "A candidate needs your review"}
               </h3>
             </div>
             <button
@@ -1537,11 +1792,11 @@ function CampaignBoard({
               <ArrowRight size={16} />
             </button>
           </div>
-          {adopted ? (
+          {adoptedImage ? (
             <CandidateCard
-              candidate={adopted}
+              candidate={adoptedImage}
               featured
-              onAdopt={() => onAdopt(adopted)}
+              onAdopt={() => onAdopt(adoptedImage)}
             />
           ) : (
             <button
@@ -1562,51 +1817,90 @@ function CampaignBoard({
         <div className={styles.productionSection}>
           <span className={styles.objectNumber}>03</span>
           <p className={styles.sectionEyebrow}>Production packet</p>
-          <h3>12 seconds, directed—not guessed</h3>
+          <h3>{campaign.input.durationSec} seconds, directed—not guessed</h3>
           <ol className={styles.shotList}>
-            <li>
-              <time>0–3s</time>
-              <span>
-                <strong>Visible hook</strong>
-                {selectedHook?.script}
-              </span>
-            </li>
-            <li>
-              <time>3–8s</time>
-              <span>
-                <strong>Product action</strong>
-                Show texture and two-drop application in the same take.
-              </span>
-            </li>
-            <li>
-              <time>8–12s</time>
-              <span>
-                <strong>Native close</strong>
-                Name the fragrance-free fact; point to product page without an
-                inflated promise.
-              </span>
-            </li>
+            {beats.map((beat, index) => (
+              <li key={beat.range}>
+                <time>{beat.range}</time>
+                <span>
+                  <strong>{beat.label}</strong>
+                  {index === 0 ? selectedHook?.script : beat.direction}
+                </span>
+              </li>
+            ))}
           </ol>
           <div className={styles.productionMeta}>
             <span>Dialogue + room sound</span>
             <span>Subtitles off</span>
             <span>9:16</span>
           </div>
-          <button
-            className={styles.primaryButton}
-            type="button"
-            onClick={adopted ? onGenerateVideo : onGenerate}
-          >
-            {adopted ? "Queue production video" : "Generate next anchor"}
-            <Sparkles size={17} />
-          </button>
+          {adoptedVideo ? (
+            <div className={styles.deliveryComplete}>
+              <div>
+                <CircleCheck size={20} />
+                <span>
+                  <strong>Final video accepted</strong>
+                  <small>
+                    {deliveryExported
+                      ? "Delivery receipt exported"
+                      : "Export the lineage receipt to complete delivery"}
+                  </small>
+                </span>
+              </div>
+              <div className={styles.deliveryActions}>
+                <a
+                  className={styles.secondaryButton}
+                  href={adoptedVideo.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ArrowDownToLine size={16} />
+                  Open / download video
+                </a>
+                <button
+                  className={styles.primaryButton}
+                  type="button"
+                  onClick={onExportDelivery}
+                >
+                  <ReceiptText size={16} />
+                  {deliveryExported
+                    ? "Export receipt again"
+                    : "Export delivery receipt"}
+                </button>
+              </div>
+              <button
+                className={styles.textButton}
+                type="button"
+                onClick={onGenerateVideo}
+              >
+                Create another take
+              </button>
+              <p>
+                The current asset is provider-hosted. Download it now; the
+                receipt preserves its ledger and task lineage.
+              </p>
+            </div>
+          ) : (
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={adoptedImage ? onGenerateVideo : onGenerate}
+            >
+              {adoptedImage
+                ? "Queue production video"
+                : "Generate next anchor"}
+              <Sparkles size={17} />
+            </button>
+          )}
           {campaign.jobs.length ? (
             <div className={styles.jobStack}>
               {campaign.jobs.slice(0, 2).map((job) => (
                 <div key={job.id} className={styles.jobRow}>
                   <span
                     className={
-                      job.status === "failed"
+                      job.status === "failed" ||
+                      job.status === "cancelled" ||
+                      job.status === "reconciliation_required"
                         ? styles.jobFailed
                         : job.status === "succeeded"
                           ? styles.jobDone
@@ -1619,9 +1913,20 @@ function CampaignBoard({
                       {job.progress !== null
                         ? `${Math.round(job.progress)}% · `
                         : ""}
+                      {job.error
+                        ? `${job.error} · `
+                        : ""}
                       {job.id.slice(0, 14)}
                     </small>
                   </span>
+                  {job.status === "reconciliation_required" ? (
+                    <button
+                      type="button"
+                      onClick={() => onView("receipts")}
+                    >
+                      Review recovery
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -1793,11 +2098,9 @@ function SourcesView({
                   setField("durationSec", Number(event.target.value))
                 }
               >
+                <option value={4}>4 seconds</option>
+                <option value={6}>6 seconds</option>
                 <option value={8}>8 seconds</option>
-                <option value={12}>12 seconds</option>
-                <option value={15}>15 seconds</option>
-                <option value={20}>20 seconds</option>
-                <option value={30}>30 seconds</option>
               </select>
             </label>
             <label>
@@ -2219,10 +2522,25 @@ function CandidateCard({
         </div>
         <p>{candidate.prompt}</p>
         {candidate.status === "adopted" ? (
-          <span className={styles.acceptedLabel}>
-            <BadgeCheck size={16} />
-            Accepted source
-          </span>
+          <div className={styles.acceptedActions}>
+            <span className={styles.acceptedLabel}>
+              <BadgeCheck size={16} />
+              {candidate.kind === "video"
+                ? "Accepted final video"
+                : "Accepted visual source"}
+            </span>
+            {candidate.kind === "video" ? (
+              <a
+                href={candidate.url}
+                target="_blank"
+                rel="noreferrer"
+                className={styles.candidateAssetLink}
+              >
+                <ArrowDownToLine size={15} />
+                Open / download asset
+              </a>
+            ) : null}
+          </div>
         ) : (
           <button type="button" onClick={onAdopt}>
             Adopt candidate
@@ -2282,6 +2600,7 @@ function DirectorPanel({
   onView,
   onGenerate,
   onGenerateVideo,
+  onExportDelivery,
   onClose,
 }: {
   campaign: CampaignState;
@@ -2291,9 +2610,15 @@ function DirectorPanel({
   onView: (view: View) => void;
   onGenerate: () => void;
   onGenerateVideo: () => void;
+  onExportDelivery: () => void;
   onClose: () => void;
 }) {
-  const accepted = campaign.candidates.find((item) => item.status === "adopted");
+  const acceptedImage = campaign.candidates.find(
+    (item) => item.status === "adopted" && item.kind === "image",
+  );
+  const acceptedVideo = campaign.candidates.find(
+    (item) => item.status === "adopted" && item.kind === "video",
+  );
   return (
     <aside className={styles.directorPanel} aria-label="Director">
       <header>
@@ -2324,8 +2649,10 @@ function DirectorPanel({
           <MessageSquareText size={17} />
           <p>
             {campaign.brief
-              ? accepted
-                ? "The route and visual anchor are accepted. Production can now use a stable, source-backed input."
+              ? acceptedVideo
+                ? "The final video is accepted. Export its delivery receipt and download the provider asset."
+                : acceptedImage
+                  ? "The route and visual anchor are accepted. Production can now use a stable, source-backed input."
                 : "The creative route is ready. I’m waiting for one accepted visual anchor before production."
               : "I need product truth before I can create a defensible campaign route."}
           </p>
@@ -2353,11 +2680,20 @@ function DirectorPanel({
           </div>
           <div className={styles.decisionItem}>
             <small>Source</small>
-            <strong>{accepted?.label ?? "Waiting for adoption"}</strong>
+            <strong>{acceptedImage?.label ?? "Waiting for adoption"}</strong>
             <button type="button" onClick={() => onView("candidates")}>
-              {accepted ? "Inspect" : "Review"}
+              {acceptedImage ? "Inspect" : "Review"}
             </button>
           </div>
+          {acceptedVideo ? (
+            <div className={styles.decisionItem}>
+              <small>Final video</small>
+              <strong>{acceptedVideo.label}</strong>
+              <button type="button" onClick={() => onView("candidates")}>
+                Inspect
+              </button>
+            </div>
+          ) : null}
         </section>
 
         <section className={styles.directorSection}>
@@ -2385,7 +2721,9 @@ function DirectorPanel({
                 ? () => onView("sources")
                 : !selectedHook || !selectedPersona
                   ? () => onView("routes")
-                  : accepted
+                  : acceptedVideo
+                    ? onExportDelivery
+                    : acceptedImage
                     ? onGenerateVideo
                     : onGenerate
             }
@@ -2396,14 +2734,18 @@ function DirectorPanel({
                   ? "Add product truth"
                   : !selectedHook || !selectedPersona
                     ? "Choose one route"
-                    : accepted
-                      ? "Queue production video"
-                      : "Create next anchor"}
+                    : acceptedVideo
+                      ? "Export final delivery"
+                      : acceptedImage
+                        ? "Queue production video"
+                        : "Create next anchor"}
               </strong>
               <small>
                 {!campaign.brief
                   ? "No provider spend"
-                  : "Exact input shown before provider spend"}
+                  : acceptedVideo
+                    ? "No provider spend"
+                    : "Two-step exact input review before provider spend"}
               </small>
             </span>
             <ArrowRight size={18} />
@@ -2425,134 +2767,226 @@ function DirectorPanel({
 
 function ApprovalDialog({
   approval,
-  campaign,
   busy,
   onCancel,
+  onReview,
   onConfirm,
 }: {
   approval: NonNullable<PaidApproval>;
-  campaign: CampaignState;
   busy: boolean;
   onCancel: () => void;
+  onReview: () => void;
   onConfirm: () => void;
 }) {
-  const references = [
-    campaign.input.productImageDataUrl,
-    campaign.input.creatorImageDataUrl,
-  ].filter(Boolean);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const locked = Boolean(approval.serverApprovalToken);
+
+  useEffect(() => {
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    closeButtonRef.current?.focus();
+    return () => {
+      if (dialog?.open) dialog.close();
+      returnFocusRef.current?.focus();
+    };
+  }, []);
+
   return (
-    <div className={styles.dialogBackdrop} role="presentation">
-      <div
-        className={styles.approvalDialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="approval-title"
-      >
-        <header>
+    <dialog
+      ref={dialogRef}
+      className={styles.approvalDialog}
+      aria-labelledby="approval-title"
+      aria-describedby="approval-description"
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!busy) onCancel();
+      }}
+    >
+      <header>
+        <div>
+          <span className={styles.dialogIcon}>
+            <ShieldCheck size={19} />
+          </span>
           <div>
-            <span className={styles.dialogIcon}>
-              <ShieldCheck size={19} />
-            </span>
-            <div>
-              <p className={styles.sectionEyebrow}>Paid provider boundary</p>
-              <h2 id="approval-title">Approve exact input</h2>
-            </div>
-          </div>
-          <button
-            type="button"
-            aria-label="Close approval"
-            onClick={onCancel}
-            disabled={busy}
-          >
-            <X size={20} />
-          </button>
-        </header>
-        <div className={styles.approvalBody}>
-          <p>
-            This is the canonical input that will be sent to the configured
-            {approval.kind === "image" ? " image" : " video"} provider.
-            Changing any field requires a new approval.
-          </p>
-          <dl className={styles.approvalMeta}>
-            <div>
-              <dt>Work item</dt>
-              <dd>
-                {approval.kind === "image"
-                  ? "Creator + product anchor"
-                  : "Production video"}
-              </dd>
-            </div>
-            <div>
-              <dt>Ratio</dt>
-              <dd>
-                {approval.kind === "image"
-                  ? approval.aspectRatio
-                  : approval.ratio}
-              </dd>
-            </div>
-            <div>
-              <dt>References</dt>
-              <dd>
-                {approval.kind === "image"
-                  ? references.length || "None"
-                  : `1 adopted image · ${approval.anchorDigest.slice(0, 10)}`}
-              </dd>
-            </div>
-            <div>
-              <dt>Output</dt>
-              <dd>
-                {approval.kind === "image"
-                  ? "1 image candidate"
-                  : `1 × ${approval.durationSec}s video`}
-              </dd>
-            </div>
-            <div>
-              <dt>Approval hash</dt>
-              <dd>{approval.inputSignature.slice(-12)}</dd>
-            </div>
-          </dl>
-          <div className={styles.promptReview}>
-            <span>Provider prompt</span>
-            <p>{approval.prompt}</p>
-          </div>
-          <div className={styles.spendNote}>
-            <CircleAlert size={17} />
-            <p>
-              Provider pricing depends on the configured model. Vixel makes one
-              server-ledgered submission and never automatically resubmits an
-              ambiguous paid request.
-            </p>
+            <p className={styles.sectionEyebrow}>Paid provider boundary</p>
+            <h2 id="approval-title">
+              {locked ? "Confirm paid generation" : "Review exact input"}
+            </h2>
           </div>
         </div>
-        <footer>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-          >
-            Cancel
-          </button>
-          <button
-            className={styles.primaryButton}
-            type="button"
-            onClick={onConfirm}
-            disabled={busy}
-          >
-            {busy ? (
-              <>
-                <RefreshCcw className={styles.spin} size={17} />
-                Provider is working
-              </>
+        <button
+          ref={closeButtonRef}
+          type="button"
+          aria-label="Close approval"
+          onClick={onCancel}
+          disabled={busy}
+        >
+          <X size={20} />
+        </button>
+      </header>
+      <div className={styles.approvalBody}>
+        <p id="approval-description">
+          {locked
+            ? "The server has canonicalized and locked this exact input without contacting the provider. Review every field below before the separate paid submission."
+            : `Review the complete ${approval.kind} input. Locking validates the current provider model and canonical digest without provider spend.`}
+        </p>
+        <dl className={styles.approvalMeta}>
+          <div>
+            <dt>Work item</dt>
+            <dd>
+              {approval.kind === "image"
+                ? "Creator + product anchor"
+                : "Production video"}
+            </dd>
+          </div>
+          <div>
+            <dt>Provider model</dt>
+            <dd>{approval.providerModel ?? "Resolved after lock"}</dd>
+          </div>
+          <div>
+            <dt>Adapter build</dt>
+            <dd>
+              {approval.adapterVersion
+                ? approval.adapterVersion.slice(-12)
+                : "Resolved after lock"}
+            </dd>
+          </div>
+          <div>
+            <dt>Ratio</dt>
+            <dd>
+              {approval.kind === "image"
+                ? approval.aspectRatio
+                : approval.ratio}
+            </dd>
+          </div>
+          <div>
+            <dt>References</dt>
+            <dd>
+              {approval.kind === "image"
+                ? approval.references.length || "None"
+                : `1 adopted image · ${approval.anchorDigest.slice(0, 10)}`}
+            </dd>
+          </div>
+          <div>
+            <dt>Output</dt>
+            <dd>
+              {approval.kind === "image"
+                ? "1 image · 1024×1536"
+                : `1 × ${approval.durationSec}s video`}
+            </dd>
+          </div>
+          {approval.kind === "video" ? (
+            <>
+              <div>
+                <dt>Resolution</dt>
+                <dd>{approval.resolution}</dd>
+              </div>
+              <div>
+                <dt>Audio</dt>
+                <dd>
+                  {approval.generateAudio
+                    ? "Native audio on"
+                    : "Audio off"}
+                </dd>
+              </div>
+            </>
+          ) : null}
+          <div>
+            <dt>{locked ? "Canonical digest" : "Draft digest"}</dt>
+            <dd>{approval.inputSignature.slice(-12)}</dd>
+          </div>
+          <div>
+            <dt>Approval expiry</dt>
+            <dd>
+              {approval.expiresAt
+                ? formatTime(approval.expiresAt)
+                : "Not locked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Job intent</dt>
+            <dd>{approval.idempotencyKey.slice(-12)}</dd>
+          </div>
+        </dl>
+        <div className={styles.referenceReview}>
+          <span>Ordered visual inputs</span>
+          <div>
+            {approval.kind === "image" ? (
+              approval.references.length ? (
+                approval.references.map((reference, index) => (
+                  // Exact data-URL snapshots are intentionally rendered
+                  // directly; they never leave this locked approval object.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={`${index}-${reference.dataUrl.length}`}
+                    src={reference.dataUrl}
+                    alt={`Reference input ${index + 1}`}
+                  />
+                ))
+              ) : (
+                <small>No visual references; this is text-to-image.</small>
+              )
             ) : (
-              <>
-                Confirm and generate
-                <Sparkles size={17} />
-              </>
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={approval.imageDataUrl}
+                alt="Adopted first-frame input"
+              />
             )}
-          </button>
-        </footer>
+          </div>
+        </div>
+        <div className={styles.promptReview}>
+          <span>Provider prompt</span>
+          <p>{approval.prompt}</p>
+        </div>
+        <div className={styles.spendNote}>
+          <CircleAlert size={17} />
+          <p>
+            {locked
+              ? "Exact price is not available from the configured provider. The next button creates one server-ledgered, potentially billable submission; ambiguous requests are never automatically resubmitted."
+              : "Locking is a no-spend validation step. It does not call the image or video provider and cannot create a billed generation."}
+          </p>
+        </div>
       </div>
-    </div>
+      <footer>
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+        >
+          Cancel
+        </button>
+        <button
+          className={styles.primaryButton}
+          type="button"
+          onClick={locked ? onConfirm : onReview}
+          disabled={busy}
+        >
+          {busy ? (
+            <>
+              <RefreshCcw className={styles.spin} size={17} />
+              {locked ? "Submitting once" : "Locking input"}
+            </>
+          ) : locked ? (
+            <>
+              Confirm paid generation
+              <Sparkles size={17} />
+            </>
+          ) : (
+            <>
+              Lock exact input · no spend
+              <ShieldCheck size={17} />
+            </>
+          )}
+        </button>
+      </footer>
+    </dialog>
   );
 }

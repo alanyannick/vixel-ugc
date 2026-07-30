@@ -19,7 +19,8 @@ export type PlanEvent =
   | "video_submitted"
   | "video_succeeded"
   | "video_failed"
-  | "video_adopted";
+  | "video_adopted"
+  | "delivery_exported";
 
 function safeId(value: string, fallback: string): string {
   const normalized = value
@@ -100,6 +101,17 @@ function itemId(
   );
 }
 
+function itemStatus(
+  plan: ExecutionPlan,
+  targetItemId: string,
+): ExecutionPlan["stages"][number]["items"][number]["runtime"]["status"] | null {
+  return (
+    plan.stages
+      .flatMap((stage) => stage.items)
+      .find((item) => item.id === targetItemId)?.runtime.status ?? null
+  );
+}
+
 export function advanceExecutionPlan(
   plan: ExecutionPlan | null | undefined,
   event: PlanEvent,
@@ -131,6 +143,12 @@ export function advanceExecutionPlan(
     if (video) next = transitionItem(next, video, "succeeded");
     if (review) next = transitionItem(next, review, "succeeded");
     if (delivery) next = transitionItem(next, delivery, "ready");
+  }
+  if (event === "delivery_exported" && delivery) {
+    const status = itemStatus(next, delivery);
+    if (status === "ready" || status === "running") {
+      next = transitionItem(next, delivery, "succeeded");
+    }
   }
   return next;
 }

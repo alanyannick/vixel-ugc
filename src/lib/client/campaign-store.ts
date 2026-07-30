@@ -12,6 +12,12 @@ const CAMPAIGN_KEY = "vixel-koc:campaign:v1";
 
 export type Platform = "TikTok" | "Instagram Reels" | "YouTube Shorts" | "小红书";
 
+const VeoDurationSecSchema = z.union([
+  z.literal(4),
+  z.literal(6),
+  z.literal(8),
+]);
+
 export type CampaignInput = {
   productName: string;
   category: string;
@@ -74,7 +80,13 @@ export type Candidate = {
 export type GenerationJob = {
   id: string;
   kind: "video";
-  status: "queued" | "processing" | "succeeded" | "failed";
+  status:
+    | "queued"
+    | "processing"
+    | "succeeded"
+    | "failed"
+    | "cancelled"
+    | "reconciliation_required";
   prompt: string;
   createdAt: string;
   updatedAt: string;
@@ -128,7 +140,7 @@ const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
     ]),
     goal: z.string().max(1_000),
     language: z.string().max(80),
-    durationSec: z.number().int().min(3).max(180),
+    durationSec: VeoDurationSecSchema,
     format: z.string().max(160),
     creatorDescription: z.string().max(1_000).optional(),
     productImageDataUrl: z
@@ -188,7 +200,14 @@ const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
     z.object({
       id: z.string().min(1).max(180),
       kind: z.literal("video"),
-      status: z.enum(["queued", "processing", "succeeded", "failed"]),
+      status: z.enum([
+        "queued",
+        "processing",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "reconciliation_required",
+      ]),
       prompt: z.string().max(12_000),
       createdAt: z.string().datetime(),
       updatedAt: z.string().datetime(),
@@ -323,7 +342,7 @@ const demoBrief: CreativeBrief = {
   guardrails: [
     "Do not claim clinical outcomes without a supplied source.",
     "Keep the bottle label readable and the texture physically plausible.",
-    "Use one continuous clip for the 12-second production unless continuity fails.",
+    "Use one continuous clip for the 8-second production unless continuity fails.",
   ],
   shotDirection:
     "Handheld front camera, window light, product enters frame before second two, macro texture insert only if it can remain one continuous take.",
@@ -347,7 +366,7 @@ export const demoCampaign: CampaignState = {
     platform: "TikTok",
     goal: "Earn qualified product-page visits",
     language: "English",
-    durationSec: 12,
+    durationSec: 8,
     format: "9:16 creator demo",
     creatorDescription: "Natural daylight, 28–35, precise and low-key delivery",
   },
@@ -370,9 +389,9 @@ export const demoCampaign: CampaignState = {
     {
       id: "candidate-serum-02",
       kind: "image",
-      url: "/media/koc-earbuds-unboxing.webp",
-      label: "Hands-first framing reference",
-      prompt: "Hands-first creator framing with a clear, readable product action.",
+      url: "/media/koc-serum-texture.webp",
+      label: "Hands-first texture reference",
+      prompt: "Natural-light hands-first framing with a clear serum texture demonstration.",
       createdAt: "2026-07-30T02:58:00.000Z",
       provider: "Vixel demo set",
       status: "candidate",
@@ -460,7 +479,7 @@ export function newCampaign(): CampaignState {
       platform: "TikTok",
       goal: "",
       language: "English",
-      durationSec: 15,
+      durationSec: 8,
       format: "9:16 creator demo",
     },
     brief: null,

@@ -33,13 +33,14 @@ export function createPageMetadata({
   path,
 }: PageMetadataInput): Metadata {
   const canonical = path === "/" ? siteConfig.url : `${siteConfig.url}${path}`;
+  const brandedTitle = `${title} · ${siteConfig.name}`;
 
   return {
-    title,
+    title: { absolute: brandedTitle },
     description,
     alternates: { canonical },
     openGraph: {
-      title,
+      title: brandedTitle,
       description,
       url: canonical,
       siteName: siteConfig.name,
@@ -56,7 +57,7 @@ export function createPageMetadata({
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: brandedTitle,
       description,
       images: ["/opengraph-image"],
     },

@@ -26,7 +26,9 @@ export type MediaLedgerJob = {
     | "processing"
     | "succeeded"
     | "failed"
-    | "submit_unknown";
+    | "submit_unknown"
+    | "cancelled"
+    | "reconciliation_required";
   provider: string;
   model: string;
   inputSignature: string;
@@ -90,6 +92,7 @@ export async function approveMediaInput(
   idempotencyKey: string;
   inputSignature: string;
   providerModel: string;
+  adapterVersion: string;
   expiresAt: string;
 }> {
   const response = await fetch("/api/media/approval", {
@@ -105,6 +108,7 @@ export async function approveMediaInput(
     idempotencyKey: string;
     inputSignature: string;
     providerModel: string;
+    adapterVersion: string;
     expiresAt: string;
   }>(response);
 }
@@ -143,20 +147,67 @@ export async function createImageCandidate(input: {
     provider?: string;
     requestId?: string;
   }>(response);
-  const url = result.url ?? result.image?.url ?? result.result?.url;
+  let job = result.job;
+  let url = result.url ?? result.image?.url ?? result.result?.url;
+  if (
+    !url &&
+    job &&
+    ["submitting", "submitted", "processing"].includes(job.status)
+  ) {
+    const recovered = await waitForImageResult(job.id);
+    job = recovered.job;
+    url = recovered.url;
+  }
   if (!url) {
     throw new StudioApiError(
-      "The provider completed without returning a usable image.",
-      "RESULT_MISSING",
-      true,
+      job?.status === "submit_unknown"
+        ? "The image submission is awaiting reconciliation. It will remain recoverable from the server ledger and will not be submitted again automatically."
+        : "The provider completed without returning a usable image.",
+      job?.status === "submit_unknown"
+        ? "SUBMISSION_RECONCILIATION_REQUIRED"
+        : "RESULT_MISSING",
+      job?.status !== "failed",
     );
   }
   return {
     url,
-    provider: result.job?.provider ?? result.provider ?? "NewAPI",
-    job: result.job,
+    provider: job?.provider ?? result.provider ?? "NewAPI",
+    job,
     requestId: result.requestId,
   };
+}
+
+async function waitForImageResult(
+  entryId: string,
+): Promise<{ url: string; job: MediaLedgerJob }> {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1_500));
+    }
+    const detail = await readRecoverableMediaJob(entryId);
+    const url = detail.result?.url;
+    if (detail.job.status === "succeeded" && url) {
+      return { url, job: detail.job };
+    }
+    if (
+      detail.job.status === "failed" ||
+      detail.job.status === "submit_unknown" ||
+      detail.job.status === "cancelled" ||
+      detail.job.status === "reconciliation_required"
+    ) {
+      throw new StudioApiError(
+        detail.job.error?.message ??
+          "The image submission did not produce a recoverable result.",
+        detail.job.error?.code ?? "IMAGE_GENERATION_FAILED",
+        false,
+      );
+    }
+  }
+  throw new StudioApiError(
+    "The image is still processing. Its ledger claim is safe; reload later to recover the result without another paid submission.",
+    "IMAGE_RESULT_PENDING",
+    true,
+  );
 }
 
 export type VideoJobResult = {
@@ -200,8 +251,15 @@ export async function submitVideoCandidate(input: {
   });
   const body = await parseResponse<{
     job: MediaLedgerJob;
-    result: VideoJobResult;
+    result: VideoJobResult | null;
   }>(response);
+  if (!body.result) {
+    throw new StudioApiError(
+      "This video submission is already being reconciled. Reload the campaign to recover its ledgered task instead of submitting it again.",
+      "VIDEO_SUBMISSION_PENDING",
+      true,
+    );
+  }
   return {
     result: body.result,
     provider: body.job.provider ?? "NewAPI",

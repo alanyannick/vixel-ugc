@@ -77,7 +77,13 @@ export const videoGenerationRequestSchema = z
     image: imageDataUrlSchema.optional(),
     lastImageDataUrl: imageDataUrlSchema.optional(),
     lastFrameDataUrl: imageDataUrlSchema.optional(),
-    durationSec: z.number().int().min(3).max(15).default(5),
+    durationSec: z
+      .number()
+      .int()
+      .refine((value) => [4, 6, 8].includes(value), {
+        message: "Video duration must be 4, 6, or 8 seconds.",
+      })
+      .default(8),
     ratio: z.enum(["1:1", "16:9", "9:16"]).optional(),
     aspectRatio: z.enum(["1:1", "16:9", "9:16"]).optional(),
     resolution: z.enum(["720p", "1080p"]).default("720p"),
@@ -89,14 +95,60 @@ export const videoGenerationRequestSchema = z
       .optional(),
   })
   .superRefine((value, context) => {
+    const firstFrames = [
+      value.imageDataUrl,
+      value.firstFrameDataUrl,
+      value.image,
+    ].filter((item): item is string => Boolean(item));
+    if (new Set(firstFrames).size > 1) {
+      context.addIssue({
+        code: "custom",
+        path: ["imageDataUrl"],
+        message: "First-frame aliases must resolve to the same image.",
+      });
+    }
     if (
-      (value.lastImageDataUrl || value.lastFrameDataUrl) &&
-      !(value.imageDataUrl || value.firstFrameDataUrl || value.image)
+      value.ratio &&
+      value.aspectRatio &&
+      value.ratio !== value.aspectRatio
     ) {
       context.addIssue({
         code: "custom",
+        path: ["ratio"],
+        message: "Video ratio aliases must match.",
+      });
+    }
+    if (
+      value.generateAudio !== undefined &&
+      value.audio !== undefined &&
+      value.generateAudio !== value.audio
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["generateAudio"],
+        message: "Video audio aliases must match.",
+      });
+    }
+    if (value.generateAudio === false || value.audio === false) {
+      context.addIssue({
+        code: "custom",
+        path: ["generateAudio"],
+        message: "The configured Veo 3.1 model always generates audio.",
+      });
+    }
+    if (value.lastImageDataUrl || value.lastFrameDataUrl) {
+      context.addIssue({
+        code: "custom",
         path: ["lastImageDataUrl"],
-        message: "A last frame requires a first frame.",
+        message:
+          "Last-frame interpolation is not supported by the configured NewAPI adapter.",
+      });
+    }
+    if (value.resolution === "1080p" && value.durationSec !== 8) {
+      context.addIssue({
+        code: "custom",
+        path: ["resolution"],
+        message: "Veo 3.1 requires an 8-second duration for 1080p output.",
       });
     }
   })
@@ -109,7 +161,7 @@ export const videoGenerationRequestSchema = z
     durationSec: value.durationSec,
     ratio: value.ratio ?? value.aspectRatio ?? ("9:16" as const),
     resolution: value.resolution,
-    generateAudio: value.generateAudio ?? value.audio ?? false,
+    generateAudio: value.generateAudio ?? value.audio ?? true,
     idempotencyKey: value.idempotencyKey,
   }));
 

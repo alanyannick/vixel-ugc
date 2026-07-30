@@ -22,6 +22,10 @@
   font-family: "Manrope Variable", "Avenir Next", sans-serif;
 }
 
+.workspaceWide {
+  grid-column: 2 / -1;
+}
+
 .sidebar {
   position: relative;
   z-index: 20;
@@ -189,6 +193,12 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.campaignThumbMark {
+  position: absolute;
+  inset: 8px 5px;
+  color: var(--studio-citron);
 }
 
 .campaignMini > span:last-child {
@@ -561,7 +571,8 @@
 }
 
 .notice,
-.errorNotice {
+.errorNotice,
+.pollingNotice {
   display: grid;
   min-height: 40px;
   grid-template-columns: 18px 1fr 44px;
@@ -584,8 +595,15 @@
   color: #ffc0b5;
 }
 
+.pollingNotice {
+  border-color: rgba(127, 213, 255, 0.22);
+  background: rgba(12, 48, 64, 0.48);
+  color: #bceaff;
+}
+
 .notice button,
-.errorNotice button {
+.errorNotice button,
+.pollingNotice button {
   display: grid;
   width: 44px;
   height: 44px;
@@ -823,6 +841,56 @@
   width: 100%;
 }
 
+.deliveryComplete {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid rgba(199, 244, 61, 0.28);
+  border-radius: 8px;
+  background: rgba(43, 59, 7, 0.18);
+}
+
+.deliveryComplete > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--studio-citron);
+}
+
+.deliveryComplete > div:first-child span {
+  display: grid;
+  gap: 3px;
+}
+
+.deliveryComplete strong {
+  color: var(--studio-text);
+  font-size: 10px;
+}
+
+.deliveryComplete small,
+.deliveryComplete > p {
+  margin: 0;
+  color: var(--studio-muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.deliveryActions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.deliveryActions a {
+  min-height: 36px;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.deliveryComplete .textButton {
+  justify-content: flex-start;
+}
+
 .jobStack {
   display: grid;
   gap: 6px;
@@ -831,7 +899,7 @@
 
 .jobRow {
   display: grid;
-  grid-template-columns: 9px 1fr;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   padding: 9px 10px;
@@ -854,6 +922,17 @@
   color: var(--studio-dim);
   font-size: 7px;
   font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+
+.jobRow button {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--studio-border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 8px;
 }
 
 .jobLive,
@@ -1004,6 +1083,36 @@
   border-color: rgba(199, 244, 61, 0.25);
   background: rgba(50, 68, 9, 0.22);
   color: var(--studio-citron);
+}
+
+.candidateInfo > .acceptedActions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.acceptedActions .acceptedLabel {
+  justify-content: flex-start;
+  gap: 7px;
+  text-align: left;
+}
+
+.candidateAssetLink {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--studio-border);
+  border-radius: 6px;
+  color: var(--studio-text);
+  font-size: 9px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.candidateAssetLink:hover {
+  border-color: var(--studio-citron);
 }
 
 .missingAnchor {
@@ -1888,25 +1997,28 @@
   color: var(--studio-muted);
 }
 
-.dialogBackdrop {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(4, 5, 3, 0.78);
-  backdrop-filter: blur(8px);
-}
-
 .approvalDialog {
+  box-sizing: border-box;
+  margin: auto;
+  padding: 0;
+  color: var(--studio-text);
   width: min(640px, 100%);
   max-height: calc(100svh - 40px);
-  overflow: auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
   border: 1px solid #464d3e;
   border-radius: 12px;
   background: #11130f;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.approvalDialog[open] {
+  display: grid;
+}
+
+.approvalDialog::backdrop {
+  background: rgba(4, 5, 3, 0.78);
+  backdrop-filter: blur(8px);
 }
 
 .approvalDialog > header {
@@ -1951,6 +2063,7 @@
 }
 
 .approvalBody {
+  overflow-y: auto;
   padding: 22px;
 }
 
@@ -1963,19 +2076,18 @@
 
 .approvalMeta {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
   margin: 0 0 18px;
   border: 1px solid var(--studio-border);
   border-radius: 7px;
+  overflow: hidden;
+  background: var(--studio-border);
 }
 
 .approvalMeta > div {
   padding: 11px;
-  border-right: 1px solid var(--studio-border);
-}
-
-.approvalMeta > div:last-child {
-  border-right: 0;
+  background: #11130f;
 }
 
 .approvalMeta dt {
@@ -1989,6 +2101,45 @@
   margin: 0;
   font-size: 9px;
   font-weight: 650;
+}
+
+.referenceReview {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 12px;
+  padding: 15px;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: #0b0d0a;
+}
+
+.referenceReview > span,
+.promptReview > span {
+  color: var(--studio-dim);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.referenceReview > div {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  gap: 8px;
+}
+
+.referenceReview img {
+  width: 58px;
+  height: 74px;
+  border: 1px solid var(--studio-border);
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.referenceReview small {
+  color: var(--studio-muted);
+  font-size: 9px;
 }
 
 .promptReview {
@@ -2030,6 +2181,7 @@
   gap: 8px;
   padding: 16px 20px;
   border-top: 1px solid var(--studio-border);
+  background: #11130f;
 }
 
 .gatePage {
@@ -2274,6 +2426,10 @@
 
   .workspace {
     border-right: 0;
+  }
+
+  .workspaceWide {
+    grid-column: auto;
   }
 }
 
@@ -2577,12 +2733,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .approvalMeta > div:nth-child(2) {
-    border-right: 0;
-  }
-
-  .approvalMeta > div:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--studio-border);
+  .approvalDialog {
+    width: calc(100% - 16px);
+    height: calc(100svh - 16px);
+    max-height: calc(100svh - 16px);
   }
 
   .approvalDialog > footer {
