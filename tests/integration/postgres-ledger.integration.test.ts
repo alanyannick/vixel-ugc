@@ -33,6 +33,10 @@ const HARDENING_MIGRATION_PATH = resolve(
   process.cwd(),
   "supabase/migrations/20260730193000_harden_media_generation_ledger.sql",
 );
+const ACCOUNT_OWNER_MIGRATION_PATH = resolve(
+  process.cwd(),
+  "supabase/migrations/20260730211500_ensure_media_generation_account_owner.sql",
+);
 
 type LedgerTestGlobal = typeof globalThis & {
   __vixelMediaLedger?: {
@@ -182,12 +186,19 @@ describe.skipIf(!RUN_INTEGRATION)(
           HARDENING_MIGRATION_PATH,
           "utf8",
         );
+        const accountOwnerMigrationSql = await readFile(
+          ACCOUNT_OWNER_MIGRATION_PATH,
+          "utf8",
+        );
         expect(baseMigrationSql).toContain(
           "create table if not exists vixel_koc.media_generation_ledger",
         );
         expect(baseMigrationSql).not.toContain("revision bigint");
         expect(hardeningMigrationSql).toContain(
           "add column if not exists revision bigint not null default 0",
+        );
+        expect(accountOwnerMigrationSql).toContain(
+          "add column if not exists account_user_id uuid",
         );
         expect(baseMigrationSql).toContain(
           "grant select, insert, update",
@@ -222,6 +233,7 @@ describe.skipIf(!RUN_INTEGRATION)(
           "created_at",
           "updated_at",
           "revision",
+          "account_user_id",
         ]);
         expect(
           columns.rows.find((column) => column.column_name === "revision"),

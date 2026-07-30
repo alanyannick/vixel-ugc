@@ -2,25 +2,52 @@ import { expect, test } from "@playwright/test";
 
 test("marketing page communicates the source-grounded workflow", async ({
   page,
-}, testInfo) => {
+}) => {
   await page.goto("/");
 
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Plan AI UGC video campaigns, grounded in product truth.",
+      name: "Turn any product into a creator ad.",
     }),
   ).toBeVisible();
-  if (testInfo.project.name.includes("mobile")) {
-    await expect(
-      page.getByRole("link", { name: "Open the planning studio" }).first(),
-    ).toBeVisible();
-  } else {
-    const stages = page.getByLabel("Campaign stages");
-    await expect(stages.getByText("Source", { exact: true })).toBeVisible();
-    await expect(stages.getByText("Generate", { exact: true })).toBeVisible();
-    await expect(stages.getByText("Adopt", { exact: true })).toBeVisible();
-  }
+  const productLink = page.getByRole("textbox", { name: "Product link" });
+  const campaignIdea = page.getByRole("textbox", { name: "Campaign idea" });
+  await expect(productLink).toBeVisible();
+  await expect(campaignIdea).toBeVisible();
+  await productLink.fill("https://shop.example.test/pulse-blender");
+  await campaignIdea.fill("Show the ten-second setup and first-use reaction.");
+  await page.getByRole("button", { name: "Build campaign" }).click();
+  await expect(page).toHaveURL(/\/waitlist\?/);
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "Bring one product. Leave with a campaign.",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Product link" }),
+  ).toHaveValue("https://shop.example.test/pulse-blender");
+  await expect(
+    page.getByRole("textbox", { name: "Campaign idea" }),
+  ).toHaveValue("Show the ten-second setup and first-use reaction.");
+});
+
+test("public entry preserves keyboard focus and reduced-motion content", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "Skip to content" }),
+  ).toBeFocused();
+
+  const sectionCopy = page.locator(".section-heading-copy").first();
+  await sectionCopy.scrollIntoViewIfNeeded();
+  await expect(sectionCopy).toBeVisible();
+  await expect(sectionCopy).toHaveCSS("animation-name", "none");
 });
 
 test("campaign intake reaches a five-route decision without media spend", async ({

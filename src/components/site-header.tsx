@@ -4,7 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 const navigation = [
   { href: "/workflows/ugc-video", label: "How it works" },
   { href: "/product-truth", label: "Product truth" },
-  { href: "/access", label: "Beta access" },
+  { href: "/pricing", label: "Pricing" },
   { href: "/faq", label: "FAQ" },
 ] as const;
 
@@ -28,10 +28,15 @@ export function SiteHeader() {
         ))}
       </nav>
 
-      <Link className="header-cta" href="/studio">
-        Create video
-        <ArrowUpRight aria-hidden="true" size={16} strokeWidth={1.8} />
-      </Link>
+      <div className="header-actions">
+        <Link className="header-login" href="/studio">
+          Log in
+        </Link>
+        <Link className="header-cta" href="/waitlist">
+          Join beta
+          <ArrowUpRight aria-hidden="true" size={16} strokeWidth={1.8} />
+        </Link>
+      </div>
 
       <details className="mobile-menu">
         <summary aria-label="Open navigation">
@@ -44,7 +49,8 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <Link href="/studio">Create video ↗</Link>
+          <Link href="/studio">Log in</Link>
+          <Link href="/waitlist">Join beta ↗</Link>
         </nav>
       </details>
     </header>

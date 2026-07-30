@@ -5,6 +5,7 @@ import {
   apiError,
   getRequestId,
   jsonResponse,
+  mutationComesFromSameOrigin,
   readJsonBody,
 } from "@/lib/server/api";
 import {
@@ -38,25 +39,6 @@ type AttemptRecord = {
 // security boundary. Production deployments should additionally enforce a
 // shared edge/WAF rate limit.
 const accessAttempts = new Map<string, AttemptRecord>();
-
-function mutationComesFromSameOrigin(request: Request): boolean {
-  const fetchSite = request.headers.get("sec-fetch-site")?.toLowerCase();
-  if (
-    fetchSite &&
-    fetchSite !== "same-origin" &&
-    fetchSite !== "none"
-  ) {
-    return false;
-  }
-
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    return new URL(origin).origin === new URL(request.url).origin;
-  } catch {
-    return false;
-  }
-}
 
 function clientKey(request: Request): string {
   const forwarded = request.headers

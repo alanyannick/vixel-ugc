@@ -1,8 +1,10 @@
 "use client";
 
-import type {
-  CampaignInput,
-  CreativeBrief,
+import {
+  CampaignStateSchema,
+  type CampaignInput,
+  type CampaignState,
+  type CreativeBrief,
 } from "@/lib/client/campaign-store";
 
 export class StudioApiError extends Error {
@@ -69,6 +71,50 @@ async function parseResponse<T>(response: Response): Promise<T> {
   }
 
   return body as T;
+}
+
+export async function listCloudCampaigns(): Promise<CampaignState[]> {
+  const response = await fetch("/api/campaigns", { cache: "no-store" });
+  const result = await parseResponse<{
+    campaigns: Array<{ snapshot: unknown }>;
+  }>(response);
+  return result.campaigns.flatMap((record) => {
+    const parsed = CampaignStateSchema.safeParse(record.snapshot);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+export async function saveCloudCampaign(
+  campaign: CampaignState,
+  expectedRevision: number | null,
+): Promise<{ revision: number }> {
+  const response = await fetch(
+    `/api/campaigns/${encodeURIComponent(campaign.id)}`,
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ campaign, expectedRevision }),
+    },
+  );
+  const result = await parseResponse<{
+    campaign: { revision: number };
+  }>(response);
+  return { revision: result.campaign.revision };
+}
+
+export async function deleteCloudCampaign(
+  campaignId: string,
+  expectedRevision: number,
+): Promise<void> {
+  const response = await fetch(
+    `/api/campaigns/${encodeURIComponent(campaignId)}`,
+    {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ expectedRevision }),
+    },
+  );
+  await parseResponse<{ ok: true }>(response);
 }
 
 export async function createCreativeBrief(

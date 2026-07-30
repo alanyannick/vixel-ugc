@@ -23,6 +23,7 @@ export type MediaLedgerStatus =
 export type MediaLedgerEntry = {
   id: string;
   sessionIdentity: string;
+  accountUserId?: string | null;
   kind: MediaKind;
   idempotencyKey: string;
   inputSignature: string;
@@ -41,6 +42,7 @@ export type MediaLedgerEntry = {
 type LedgerRow = QueryResultRow & {
   id: string;
   session_identity: string;
+  account_user_id: string | null;
   kind: MediaKind;
   idempotency_key: string;
   input_signature: string;
@@ -79,7 +81,7 @@ export class MediaLedgerError extends Error {
 
 const TABLE = "vixel_koc.media_generation_ledger";
 const SELECT_COLUMNS = `
-  id, session_identity, kind, idempotency_key, input_signature,
+  id, session_identity, account_user_id, kind, idempotency_key, input_signature,
   approval_signature, provider_model, status, provider_task_id,
   provider_result, error_code, error_message, revision, created_at, updated_at
 `;
@@ -393,6 +395,7 @@ function toEntry(row: LedgerRow): MediaLedgerEntry {
   return {
     id: row.id,
     sessionIdentity: row.session_identity.trim(),
+    accountUserId: row.account_user_id,
     kind: row.kind,
     idempotencyKey: row.idempotency_key,
     inputSignature: row.input_signature.trim(),
@@ -467,6 +470,7 @@ async function currentOwnedEntry(
 
 type MediaSubmissionClaimInput = {
   sessionIdentity: string;
+  accountUserId?: string | null;
   kind: MediaKind;
   idempotencyKey: string;
   inputSignature: string;
@@ -639,14 +643,15 @@ export async function claimMediaSubmission(
     const id = randomUUID();
     const inserted = await client.query<LedgerRow>(
       `INSERT INTO ${TABLE} (
-        id, session_identity, kind, idempotency_key, input_signature,
-        approval_signature, provider_model, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'submitting')
+        id, session_identity, account_user_id, kind, idempotency_key,
+        input_signature, approval_signature, provider_model, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'submitting')
       ON CONFLICT DO NOTHING
       RETURNING ${SELECT_COLUMNS}`,
       [
         id,
         input.sessionIdentity,
+        input.accountUserId ?? null,
         input.kind,
         input.idempotencyKey,
         input.inputSignature,

@@ -1,25 +1,76 @@
-import { permanentRedirect } from "next/navigation";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowRight, Check, ShieldCheck } from "lucide-react";
 
-type LegacyPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
+import { BillingPanel } from "@/components/billing/billing-panel";
+import { StructuredData } from "@/components/marketing/structured-data";
+import { breadcrumbSchema } from "@/lib/seo/schema";
+import { createPageMetadata } from "@/lib/seo/site";
 
-function redirectTarget(
-  pathname: string,
-  searchParams: Record<string, string | string[] | undefined>,
-): string {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(searchParams)) {
-    for (const item of Array.isArray(value) ? value : [value]) {
-      if (item !== undefined) query.append(key, item);
-    }
-  }
-  const serialized = query.toString();
-  return serialized ? `${pathname}?${serialized}` : pathname;
-}
+export const metadata: Metadata = createPageMetadata({
+  title: "Private beta pricing",
+  description:
+    "Vixel UGC private beta includes source-grounded campaign planning, cloud recovery, reviewed creator-image generation, and vertical video generation.",
+  path: "/pricing",
+});
 
-export default async function LegacyPricingPage({
-  searchParams,
-}: LegacyPageProps) {
-  permanentRedirect(redirectTarget("/access", await searchParams));
+const features = [
+  "Source-grounded campaign briefs",
+  "Five distinct creator routes",
+  "Cloud campaign save and recovery",
+  "Reviewed image and vertical video generation",
+  "Exact paid-input receipts and replay protection",
+  "Stripe-hosted checkout and billing management",
+] as const;
+
+export default function PricingPage() {
+  return (
+    <>
+      <StructuredData
+        data={breadcrumbSchema([
+          { name: "Home", path: "/" },
+          { name: "Pricing", path: "/pricing" },
+        ])}
+      />
+      <section className="pricing-hero">
+        <div>
+          <p>PRICING / PRIVATE BETA</p>
+          <h1>
+            Plan freely.
+            <br />
+            <em>Generate deliberately.</em>
+          </h1>
+          <span>
+            Waitlist and planning never trigger provider spend. An approved
+            account and an active recurring subscription are both required
+            before paid generation can run.
+          </span>
+        </div>
+        <article className="pricing-card">
+          <header>
+            <span>Founding beta</span>
+            <strong>Recurring access</strong>
+            <small>The exact amount and renewal date appear in Stripe Checkout.</small>
+          </header>
+          <ul>
+            {features.map((feature) => (
+              <li key={feature}>
+                <Check aria-hidden="true" size={16} />
+                {feature}
+              </li>
+            ))}
+          </ul>
+          <BillingPanel />
+          <Link className="button button--outline-ink" href="/waitlist">
+            Apply for beta access
+            <ArrowRight aria-hidden="true" size={17} />
+          </Link>
+          <p>
+            <ShieldCheck aria-hidden="true" size={16} />
+            Checkout and billing management are hosted by Stripe.
+          </p>
+        </article>
+      </section>
+    </>
+  );
 }

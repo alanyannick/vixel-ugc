@@ -38,14 +38,17 @@ import {
 } from "react";
 
 import { useAccessGateSession } from "@/components/studio/access-gate";
+import { BillingPanel } from "@/components/billing/billing-panel";
 import { IconMark } from "@/components/studio/icon-mark";
 import {
   approveMediaInput,
   createCreativeBrief,
   createImageCandidate,
+  listCloudCampaigns,
   listRecoverableMediaJobs,
   pollVideoCandidate,
   readRecoverableMediaJob,
+  saveCloudCampaign,
   StudioApiError,
   submitVideoCandidate,
 } from "@/lib/client/api";
@@ -331,6 +334,9 @@ export function StudioWorkspace() {
   const generationLockRef = useRef(false);
   const anchorLockRef = useRef(false);
   const recoveryAttemptedRef = useRef(false);
+  const cloudSyncAvailableRef = useRef(false);
+  const lastCloudRevisionRef = useRef<number | null>(null);
+  const cloudSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const workspaceScrollRef = useRef<HTMLDivElement>(null);
 
   const navigateTo = useCallback((nextView: View) => {
@@ -374,13 +380,31 @@ export function StudioWorkspace() {
 
   useEffect(() => {
     let active = true;
-    loadCampaign()
-      .then((stored) => {
-        if (active) setCampaign(ensureExecutionPlan(stored));
-      })
-      .finally(() => {
+    async function hydrateCampaign() {
+      try {
+        const cloudCampaigns = await listCloudCampaigns();
+        if (!active) return;
+        cloudSyncAvailableRef.current = true;
+        if (cloudCampaigns[0]) {
+          lastCloudRevisionRef.current = cloudCampaigns[0].revision;
+          setCampaign(ensureExecutionPlan(cloudCampaigns[0]));
+          return;
+        }
+      } catch {
+        // Recovery/operator sessions and not-yet-configured deployments keep
+        // the existing browser-local campaign path.
+      } finally {
+        if (active && !cloudSyncAvailableRef.current) {
+          const stored = await loadCampaign();
+          if (active) setCampaign(ensureExecutionPlan(stored));
+        } else if (active && lastCloudRevisionRef.current === null) {
+          const stored = await loadCampaign();
+          if (active) setCampaign(ensureExecutionPlan(stored));
+        }
         if (active) setHydrated(true);
-      });
+      }
+    }
+    void hydrateCampaign();
     return () => {
       active = false;
     };
@@ -389,6 +413,36 @@ export function StudioWorkspace() {
   useEffect(() => {
     if (!hydrated) return;
     void saveCampaign(campaign);
+    if (!cloudSyncAvailableRef.current) return;
+
+    const snapshot = campaign;
+    cloudSaveQueueRef.current = cloudSaveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const expectedRevision = lastCloudRevisionRef.current;
+        if (expectedRevision === snapshot.revision) return;
+        if (
+          expectedRevision !== null &&
+          snapshot.revision !== expectedRevision + 1
+        ) {
+          throw new StudioApiError(
+            "The cloud campaign has a newer revision. Your browser copy remains available for recovery.",
+            "revision_conflict",
+            false,
+          );
+        }
+        const saved = await saveCloudCampaign(snapshot, expectedRevision);
+        lastCloudRevisionRef.current = saved.revision;
+      })
+      .catch((caught) => {
+        cloudSyncAvailableRef.current = false;
+        setNotice(
+          caught instanceof StudioApiError &&
+            caught.code === "revision_conflict"
+            ? caught.message
+            : "Cloud sync paused. This campaign is still safe in this browser and can be exported.",
+        );
+      });
   }, [campaign, hydrated]);
 
   useEffect(() => {
@@ -1355,6 +1409,7 @@ export function StudioWorkspace() {
         </div>
 
         <div className={styles.sidebarFooter}>
+          <BillingPanel compact />
           <div className={styles.localStatus}>
             <ShieldCheck size={16} />
             <span>

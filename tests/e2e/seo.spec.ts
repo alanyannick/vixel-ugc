@@ -8,7 +8,7 @@ test("public acquisition pages expose self-referencing canonicals", async ({
   const pages = [
     {
       path: "/",
-      heading: "Plan AI UGC video campaigns, grounded in product truth.",
+      heading: "Turn any product into a creator ad.",
     },
     {
       path: "/ugc-ad-generator",
@@ -26,6 +26,14 @@ test("public acquisition pages expose self-referencing canonicals", async ({
     {
       path: "/workflows/ugc-video",
       heading: "From product truth to a reviewed video candidate.",
+    },
+    {
+      path: "/pricing",
+      heading: "Plan freely. Generate deliberately.",
+    },
+    {
+      path: "/waitlist",
+      heading: "Bring one product. Leave with a campaign.",
     },
   ] as const;
 
@@ -65,6 +73,8 @@ test("crawl surfaces list the UGC content cluster without blocking Studio noinde
     "/what-is-ai-ugc",
     "/guides/ugc-vs-koc",
     "/access",
+    "/pricing",
+    "/waitlist",
   ]) {
     expect(sitemap).toContain(`${canonicalOrigin}${path}`);
   }
@@ -82,12 +92,6 @@ test("legacy public routes permanently redirect", async ({ request }) => {
   expect(workflowResponse.status()).toBe(308);
   expect(workflowResponse.headers().location).toBe("/workflows/ugc-video");
 
-  const pricingResponse = await request.get("/pricing", {
-    maxRedirects: 0,
-  });
-  expect(pricingResponse.status()).toBe(308);
-  expect(pricingResponse.headers().location).toBe("/access");
-
   const attributedWorkflow = await request.get(
     "/workflows/koc-video?utm_source=legacy&utm_campaign=launch",
     { maxRedirects: 0 },
@@ -97,12 +101,4 @@ test("legacy public routes permanently redirect", async ({ request }) => {
     "/workflows/ugc-video?utm_source=legacy&utm_campaign=launch",
   );
 
-  const attributedPricing = await request.get(
-    "/pricing?utm_source=legacy&utm_content=nav",
-    { maxRedirects: 0 },
-  );
-  expect(attributedPricing.status()).toBe(308);
-  expect(attributedPricing.headers().location).toBe(
-    "/access?utm_source=legacy&utm_content=nav",
-  );
 });

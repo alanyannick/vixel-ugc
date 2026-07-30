@@ -121,7 +121,7 @@ export type CampaignState = {
   }>;
 };
 
-const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
+export const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
   id: z.string().min(1).max(180),
   revision: z.number().int().min(1),
   name: z.string().min(1).max(240),
