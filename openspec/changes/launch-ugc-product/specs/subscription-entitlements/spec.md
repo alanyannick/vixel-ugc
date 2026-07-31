@@ -12,6 +12,10 @@ approved users and the configured recurring beta price.
 - **WHEN** the recurring price is not configured
 - **THEN** the system returns a controlled unavailable result without creating a Checkout session
 
+#### Scenario: Drifted price
+- **WHEN** the configured Stripe price is not an active licensed USD $39 monthly price
+- **THEN** the system fails closed before creating a customer or Checkout session
+
 ### Requirement: Replay-safe subscription projection
 The system MUST verify Stripe webhook signatures and apply each provider event
 at most once.

@@ -70,12 +70,14 @@ processing. Provider event IDs are unique. A transaction records the event and
 projects subscription or suppression state once. Replays return success without
 reapplying side effects.
 
-### Subscription configuration is external
+### Subscription price is an explicit product contract
 
-The app references `STRIPE_PRICE_UGC_BETA`; it does not hard-code amount,
-currency, or allowance. This lets the technical launch finish while the final
-offer remains a deliberate commercial choice. Missing price or webhook
-configuration disables Checkout rather than weakening entitlement checks.
+The Founding Beta offer is USD $39 billed monthly. The app references the
+deployment-specific `STRIPE_PRICE_UGC_BETA`, then retrieves that price from
+Stripe and verifies the active status, amount, currency, monthly interval, and
+licensed usage type before creating a customer or Checkout session. Missing or
+drifted price and webhook configuration disables Checkout rather than weakening
+entitlement checks.
 
 ### Public composer is a safe intent capture
 
@@ -125,6 +127,6 @@ delivery, audit, or billing records.
 
 ## Open Questions
 
-- Final recurring price, currency, included allowance, and overage policy.
+- Included generation allowance and overage policy before live generation.
 - Initial admin Supabase user ID.
 - Final lifecycle sender display names and reply-to mailbox.

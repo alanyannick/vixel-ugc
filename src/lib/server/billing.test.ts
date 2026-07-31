@@ -83,6 +83,95 @@ describe("subscription billing", () => {
     expect(withProductTransaction).not.toHaveBeenCalled();
   });
 
+  it("rejects a configured Stripe price whose commercial terms drift", async () => {
+    enableBillingEnvironment();
+    const retrieve = vi.fn().mockResolvedValue({
+      active: true,
+      type: "recurring",
+      unit_amount: 2_900,
+      currency: "usd",
+      recurring: {
+        interval: "month",
+        interval_count: 1,
+        usage_type: "licensed",
+      },
+    });
+    installStripeClientForTests({
+      prices: { retrieve },
+    } as never);
+    const { createCheckoutSession } = await import("./billing");
+    await expect(
+      createCheckoutSession({
+        userId: USER_ID,
+        email: "creator@example.com",
+        requestKey: "request-safe",
+      }),
+    ).rejects.toMatchObject({
+      code: "billing_price_invalid",
+    } satisfies Partial<BillingError>);
+    expect(retrieve).toHaveBeenCalledWith("price_safe");
+    expect(withProductTransaction).not.toHaveBeenCalled();
+  });
+
+  it("creates Checkout only for the verified $39 monthly licensed price", async () => {
+    enableBillingEnvironment();
+    const checkoutCreate = vi.fn().mockResolvedValue({
+      url: "https://checkout.stripe.com/c/pay/cs_test_safe",
+    });
+    installStripeClientForTests({
+      prices: {
+        retrieve: vi.fn().mockResolvedValue({
+          active: true,
+          type: "recurring",
+          unit_amount: 3_900,
+          currency: "usd",
+          recurring: {
+            interval: "month",
+            interval_count: 1,
+            usage_type: "licensed",
+          },
+        }),
+      },
+      checkout: { sessions: { create: checkoutCreate } },
+    } as never);
+    vi.mocked(withProductTransaction).mockImplementationOnce(
+      async (operation) =>
+        operation({
+          query: vi.fn().mockResolvedValue({
+            rows: [{ stripe_customer_id: "cus_safe" }],
+          }),
+        } as never),
+    );
+    vi.mocked(productQuery).mockResolvedValueOnce({
+      rows: [
+        {
+          ...activeRow(),
+          stripe_subscription_id: null,
+          status: "checkout_pending",
+        },
+      ],
+    } as never);
+
+    const { createCheckoutSession } = await import("./billing");
+    const result = await createCheckoutSession({
+      userId: USER_ID,
+      email: "creator@example.com",
+      requestKey: "request-safe",
+    });
+
+    expect(result.url).toContain("checkout.stripe.com");
+    expect(checkoutCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "subscription",
+        customer: "cus_safe",
+        line_items: [{ price: "price_safe", quantity: 1 }],
+      }),
+      expect.objectContaining({
+        idempotencyKey: `vixel-ugc/checkout/${USER_ID}/request-safe`,
+      }),
+    );
+  });
+
   it("treats a repeated Stripe event as a replay-safe no-op", async () => {
     const query = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
     vi.mocked(withProductTransaction).mockImplementationOnce(async (operation) =>
