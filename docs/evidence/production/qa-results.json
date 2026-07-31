@@ -1,8 +1,8 @@
 {
-  "checkedAt": "2026-07-30T15:58:00.000Z",
+  "checkedAt": "2026-07-31T20:33:50.000Z",
   "base": "https://ugc.vixelai.com",
-  "deploymentId": "dpl_BmdkYn8nvMgxBcJDkqrdRhDgHCQE",
-  "sourceCommit": "4c78cc4bcb3a8b530b1e09cc0c82231a2828864d",
+  "deploymentId": "dpl_HtnBnhXxFv1DjSCb8RRQhez9tiQm",
+  "sourceCommit": "26f44f6d6fcf2e2d309b04ae0b0e0d6c8860172d",
   "deployment": {
     "target": "production",
     "state": "READY",
@@ -13,13 +13,21 @@
     "status": "ok",
     "liveness": true,
     "readiness": true,
+    "features": {
+      "waitlist": "ready",
+      "accountAuth": "ready",
+      "cloudCampaigns": "ready",
+      "lifecycleEmail": "ready",
+      "billing": "disabled"
+    },
+    "productDatabase": "ready",
     "studioAccess": "ready",
     "provider": "ready",
-    "ledger": "not_required",
+    "ledger": "ready",
     "providerConfigured": true,
     "providerTransportSecure": true,
     "liveGeneration": false,
-    "databaseConfigured": false
+    "databaseConfigured": true
   },
   "http": {
     "/": 200,
@@ -55,10 +63,11 @@
     }
   },
   "browser": {
-    "productionAcquisitionAndSeo": {
-      "desktopChrome": "4/4 PASS",
-      "mobileChrome": "4/4 PASS"
+    "localEndToEnd": {
+      "desktopChrome": "6/6 PASS",
+      "mobileChrome": "6/6 PASS"
     },
+    "productionStudioInspection": "PASS",
     "canonicalOrigin": "https://ugc.vixelai.com",
     "homepageH1": "AI UGC video generator, grounded in product truth.",
     "studioRobots": "noindex, nofollow"
@@ -68,11 +77,19 @@
     "xFrameOptions": "DENY",
     "xContentTypeOptions": "nosniff",
     "crossOriginOpenerPolicy": "same-origin",
-    "crossOriginResourcePolicy": "same-origin"
+    "crossOriginResourcePolicy": "same-origin",
+    "campaignRuntimeDeletePrivilege": "denied"
+  },
+  "observability": {
+    "postDeployErrorLogs": 0,
+    "postDeploy5xxLogs": 0,
+    "externalDrainConfigured": false
   },
   "notes": [
     "No secret, cookie, access code, provider key, database URL, or bypass token is stored.",
-    "Direct NewAPI canaries passed and the production provider variables are configured; production paid generation remains disabled until the dedicated database is authorized and connected.",
+    "Waitlist, email accounts, cloud campaigns, lifecycle email, and product database checks are ready.",
+    "Billing and live generation remain disabled; no paid image or video generation was submitted.",
+    "A real public Turnstile success remains a manual owner smoke test; automation did not bypass CAPTCHA.",
     "Production PNG files in this directory are retained only as the pre-cutover KOC visual baseline."
   ]
 }

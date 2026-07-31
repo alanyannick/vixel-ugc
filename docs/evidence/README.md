@@ -4,11 +4,11 @@
 
 - Canonical URL: `https://ugc.vixelai.com`
 - Vercel project: `alanyannicks-projects/vixel-koc`
-- Verified deployment: `dpl_BmdkYn8nvMgxBcJDkqrdRhDgHCQE`
+- Verified deployment: `dpl_HtnBnhXxFv1DjSCb8RRQhez9tiQm`
 - Deployment state: `production / READY`
-- Verified at: `2026-07-30 23:58 CST`
-- Runtime source commit: `4c78cc4bcb3a8b530b1e09cc0c82231a2828864d`
-- Pull request: `alanyannick/vixel-ugc#1`
+- Verified at: `2026-08-01 04:33 CST`
+- Runtime source commit: `26f44f6d6fcf2e2d309b04ae0b0e0d6c8860172d`
+- Pull request: `alanyannick/vixel-ugc#9`
 
 The deployment is public on the custom domain. The legacy
 `vixel-koc.vercel.app` host returns a permanent redirect to the same path on
@@ -21,12 +21,13 @@ database value, or protection-bypass secret is stored in this evidence pack.
 npm run check                                      PASS
   ESLint                                            PASS
   TypeScript                                        PASS
-  Vitest                                            79/79 PASS
-  Next.js production build                          28 routes PASS
-npm run test:e2e                                    10/10 PASS
+  Vitest                                            177 PASS / 4 SKIPPED
+  Next.js production build                          41 routes PASS
+npm run test:e2e                                    12/12 PASS
 npm audit --omit=dev                                0 vulnerabilities
-GitHub CI / verify                                  PASS
-production acquisition + SEO Playwright smoke       8/8 PASS
+GitHub CI / verify                                  PASS (1m57s)
+Vercel Preview and Production builds                PASS
+production Chrome Studio inspection                 PASS
 ```
 
 The suite covers deterministic creative routing, durable execution-plan state,
@@ -73,14 +74,20 @@ The secret-free health response reports:
 status=ok
 liveness=true
 readiness=true
+waitlist=ready
+accountAuth=ready
+cloudCampaigns=ready
+lifecycleEmail=ready
+billing=disabled
+productDatabase=ready
 studioAccess=ready
 provider=ready
-ledger=not_required
-liveGeneration=false
-databaseConfigured=false
+ledger=ready
+liveGeneration=disabled
+databaseConfigured=true
 providerConfigured=true
 providerTransportSecure=true
-commit=4c78cc4bcb3a8b530b1e09cc0c82231a2828864d
+commit=26f44f6d6fcf2e2d309b04ae0b0e0d6c8860172d
 ```
 
 Verified response policy:
@@ -103,11 +110,11 @@ identified above.
 
 ## Deliberate production boundary
 
-Direct HTTPS NewAPI canaries passed for text (`gpt-5.4-mini`), image generation
-and editing (`gpt-image-2`), and Veo video generation. Those HTTPS provider
-variables are now present on the public deployment, while
-`ENABLE_LIVE_GENERATION=false` remains enforced until a dedicated Supabase
-project is explicitly authorized, created, migrated, and bound to Vercel. This
-is a fail-closed production boundary: the paid control plane is implemented
-and tested, but this evidence does not claim live production spend or a
-production ledger.
+The dedicated UGC database is connected and the runtime boundary is healthy.
+RLS is enabled and forced on the product tables; the application role can
+select, insert, and update campaign snapshots but cannot physically delete
+them. `ENABLE_LIVE_GENERATION=false` and billing remains disabled, so this is a
+fail-closed planning release: the control plane is implemented and tested, but
+this evidence does not claim a successful Stripe checkout or live production
+image/video spend. A real public Turnstile success remains a manual owner smoke
+test because CAPTCHA completion was not bypassed during automation.
