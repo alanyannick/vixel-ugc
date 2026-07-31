@@ -25,19 +25,22 @@ type GateState =
   | "pending"
   | "recovery";
 
-type SessionKind = "none" | "account" | "recovery";
+export type SessionKind = "none" | "account" | "recovery";
 
 export type AccessGateSession = {
   canSignOut: boolean;
+  sessionKind: SessionKind;
   signOutError: string;
   signingOut: boolean;
   signOut: () => Promise<void>;
+  storageScope: string;
 };
 
 type AccountSessionResponse = {
   authenticated?: boolean;
   ready?: boolean;
   account?: {
+    userId?: string;
     email?: string;
     accountStatus?: "pending" | "approved" | "suspended";
   };
@@ -66,6 +69,7 @@ async function responseMessage(
 export function AccessGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GateState>("checking");
   const [sessionKind, setSessionKind] = useState<SessionKind>("none");
+  const [accountUserId, setAccountUserId] = useState<string | null>(null);
   const [accessRequired, setAccessRequired] = useState(false);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -79,19 +83,19 @@ export function AccessGate({ children }: { children: ReactNode }) {
     useState(false);
 
   const acceptAccountState = useCallback((body: AccountSessionResponse) => {
-    if (body.authenticated && body.account?.accountStatus === "approved") {
-      setSessionKind("account");
-      setAccessRequired(true);
-      setState("open");
-      return true;
-    }
     if (body.authenticated) {
+      if (!body.account?.userId) return false;
       setSessionKind("account");
+      setAccountUserId(body.account.userId);
       setAccessRequired(true);
-      setState("pending");
+      setState(
+        body.account.accountStatus === "approved" ? "open" : "pending",
+      );
       return true;
     }
     if (body.ready) {
+      setSessionKind("none");
+      setAccountUserId(null);
       setState("email");
       return true;
     }
@@ -105,6 +109,8 @@ export function AccessGate({ children }: { children: ReactNode }) {
         new URLSearchParams(window.location.search).get("operator") ===
         "recovery";
       setOperatorRecoveryEnabled(operatorRecoveryRequested);
+      let accountFailure =
+        "Account access could not be verified. Check your connection and try again.";
       try {
         const accountResponse = await fetch("/api/auth/session", {
           cache: "no-store",
@@ -117,20 +123,48 @@ export function AccessGate({ children }: { children: ReactNode }) {
               | null;
           if (
             accountBody &&
-            (accountBody.authenticated || !operatorRecoveryRequested) &&
+            (!operatorRecoveryRequested ||
+              (accountBody.authenticated &&
+                accountBody.account?.accountStatus === "approved")) &&
             acceptAccountState(accountBody)
           ) {
             return;
           }
+          if (accountBody?.ready === false) {
+            accountFailure =
+              "Email account access is not available on this deployment.";
+          } else if (accountBody?.authenticated) {
+            accountFailure =
+              "Account access returned an incomplete session. Sign in again to continue.";
+          }
+        } else {
+          accountFailure = await responseMessage(
+            accountResponse,
+            "Account access could not be verified. Try again shortly.",
+          );
         }
+      } catch {
+        accountFailure =
+          "Account access could not be verified. Check your connection and try again.";
+      }
 
+      if (!active) return;
+      if (!operatorRecoveryRequested) {
+        setSessionKind("none");
+        setAccountUserId(null);
+        setError(accountFailure);
+        setState("email");
+        return;
+      }
+
+      try {
         const recoveryResponse = await fetch("/api/auth/access", {
           cache: "no-store",
         });
         if (!active) return;
         if (!recoveryResponse.ok) {
           setError(
-            "Studio access could not be verified. Check your connection and try again.",
+            "Operator recovery access could not be verified. Check your connection and try again.",
           );
           setState("recovery");
           return;
@@ -139,9 +173,11 @@ export function AccessGate({ children }: { children: ReactNode }) {
           | { authenticated?: boolean; required?: boolean }
           | null;
         if (!recoveryBody) {
+          setError("Operator recovery returned an invalid response.");
           setState("recovery");
           return;
         }
+        setAccountUserId(null);
         setAccessRequired(recoveryBody.required === true);
         if (
           recoveryBody.authenticated ||
@@ -157,7 +193,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
       } catch {
         if (active) {
           setError(
-            "Studio access could not be verified. Check your connection and try again.",
+            "Operator recovery access could not be verified. Check your connection and try again.",
           );
           setState("recovery");
         }
@@ -219,14 +255,28 @@ export function AccessGate({ children }: { children: ReactNode }) {
           await responseMessage(response, "The sign-in code is not valid."),
         );
       }
-      const body = (await response.json()) as {
-        account?: { accountStatus?: "pending" | "approved" | "suspended" };
-      };
-      setSessionKind("account");
-      setAccessRequired(true);
-      setState(
-        body.account?.accountStatus === "approved" ? "open" : "pending",
-      );
+      const sessionResponse = await fetch("/api/auth/session", {
+        cache: "no-store",
+      });
+      if (!sessionResponse.ok) {
+        throw new Error(
+          await responseMessage(
+            sessionResponse,
+            "Your account was verified, but Studio access could not be loaded.",
+          ),
+        );
+      }
+      const sessionBody = (await sessionResponse.json().catch(() => null)) as
+        | AccountSessionResponse
+        | null;
+      if (
+        !sessionBody?.authenticated ||
+        !acceptAccountState(sessionBody)
+      ) {
+        throw new Error(
+          "Your account was verified, but Studio returned an incomplete session.",
+        );
+      }
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Verification failed.",
@@ -259,6 +309,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
       const body = (await response.json().catch(() => null)) as
         | { required?: boolean }
         | null;
+      setAccountUserId(null);
       setAccessRequired(body?.required !== false);
       setSessionKind(body?.required === false ? "none" : "recovery");
       setState("open");
@@ -295,6 +346,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
         setState("email");
       }
       setSessionKind("none");
+      setAccountUserId(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Sign out failed.");
     } finally {
@@ -303,13 +355,21 @@ export function AccessGate({ children }: { children: ReactNode }) {
   }
 
   if (state === "open") {
+    const storageScope =
+      sessionKind === "account" && accountUserId
+        ? accountUserId
+        : sessionKind === "recovery"
+          ? "operator-recovery"
+          : "planning";
     return (
       <AccessGateSessionContext.Provider
         value={{
           canSignOut: accessRequired,
+          sessionKind,
           signOutError: error,
           signingOut,
           signOut,
+          storageScope,
         }}
       >
         {children}

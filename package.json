@@ -4,7 +4,7 @@
   "private": true,
   "description": "A source-grounded AI UGC campaign studio powered by a durable creative router.",
   "engines": {
-    "node": ">=22.14.0"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "next dev",

@@ -442,7 +442,10 @@ export function studioSessionMigrationCookies(
   return cookies;
 }
 
-export function getAccessState(request: Request): AccessState {
+function accessState(
+  request: Request,
+  allowAccountSession: boolean,
+): AccessState {
   const runtime = getServerRuntimeConfig();
   if (!runtime.access.required) {
     return { allowed: true, required: false, configured: false };
@@ -458,6 +461,14 @@ export function getAccessState(request: Request): AccessState {
   const session = verifiedSession(
     readCookie(request, STUDIO_SESSION_COOKIE),
   );
+  if (session?.version === "v3" && !allowAccountSession) {
+    return {
+      allowed: false,
+      required: true,
+      configured: true,
+      reason: "not_authenticated",
+    };
+  }
   if (
     session?.version === "v3" &&
     session.accountStatus !== "approved"
@@ -478,6 +489,15 @@ export function getAccessState(request: Request): AccessState {
     configured: true,
     reason: "not_authenticated",
   };
+}
+
+export function getAccessState(request: Request): AccessState {
+  return accessState(request, true);
+}
+
+/** Recovery access is intentionally independent from account v3 sessions. */
+export function getOperatorRecoveryAccessState(request: Request): AccessState {
+  return accessState(request, false);
 }
 
 export function requireStudioSession(

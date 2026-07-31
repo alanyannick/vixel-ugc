@@ -1,26 +1,46 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { probeMediaLedgerReadinessMock } = vi.hoisted(() => ({
+const {
+  probeMediaLedgerReadinessMock,
+  probeProductDatabaseReadinessMock,
+} = vi.hoisted(() => ({
   probeMediaLedgerReadinessMock: vi.fn(),
+  probeProductDatabaseReadinessMock: vi.fn(),
 }));
 
 vi.mock("@/lib/server/database-readiness", () => ({
   probeMediaLedgerReadiness: probeMediaLedgerReadinessMock,
 }));
 
+vi.mock("@/lib/server/product-db", () => ({
+  probeProductDatabaseReadiness: probeProductDatabaseReadinessMock,
+}));
+
 import { GET as healthRoute } from "@/app/api/health/route";
+import { getServerRuntimeConfig } from "@/lib/server/env";
 
 function configureLiveRuntime(): void {
   vi.stubEnv("NODE_ENV", "test");
   vi.stubEnv("ENABLE_LIVE_GENERATION", "true");
   vi.stubEnv("NEWAPI_BASE_URL", "https://gateway.example.test/v1");
   vi.stubEnv("NEWAPI_API_KEY", "server-only-provider-key");
+  vi.stubEnv("ENABLE_ACCOUNT_AUTH", "true");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "publishable-key");
+  vi.stubEnv("SUPABASE_SECRET_KEY", "secret-key");
+  vi.stubEnv("ENABLE_BILLING", "true");
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://ugc.example.test");
+  vi.stubEnv("STRIPE_SECRET_KEY", "stripe-secret-key");
+  vi.stubEnv("STRIPE_WEBHOOK_SECRET", "stripe-webhook-secret");
+  vi.stubEnv("STRIPE_PRICE_UGC_BETA", "price_beta");
 }
 
 beforeEach(() => {
   vi.unstubAllEnvs();
   probeMediaLedgerReadinessMock.mockReset();
   probeMediaLedgerReadinessMock.mockResolvedValue({ status: "ready" });
+  probeProductDatabaseReadinessMock.mockReset();
+  probeProductDatabaseReadinessMock.mockResolvedValue({ status: "ready" });
 });
 
 describe("health ledger readiness", () => {
@@ -94,10 +114,18 @@ describe("health ledger readiness", () => {
         readiness: false,
         ledger: "not_ready",
       },
-      issues: ["live_generation_ledger_not_ready"],
+      issues: expect.arrayContaining([
+        "product_database_not_ready",
+        "account_auth_not_ready",
+        "billing_not_ready",
+        "live_generation_account_auth_not_ready",
+        "live_generation_billing_not_ready",
+        "live_generation_ledger_not_ready",
+      ]),
       databaseConfigured: false,
     });
     expect(probeMediaLedgerReadinessMock).not.toHaveBeenCalled();
+    expect(probeProductDatabaseReadinessMock).not.toHaveBeenCalled();
   });
 
   it("reports a configured but unreachable ledger as not ready", async () => {
@@ -124,6 +152,7 @@ describe("health ledger readiness", () => {
       databaseConfigured: true,
     });
     expect(probeMediaLedgerReadinessMock).toHaveBeenCalledTimes(1);
+    expect(probeProductDatabaseReadinessMock).toHaveBeenCalledTimes(1);
     expect(text).not.toContain("runtime:secret");
     expect(text).not.toContain("database.example.test");
   });
@@ -148,5 +177,62 @@ describe("health ledger readiness", () => {
       databaseConfigured: true,
     });
     expect(probeMediaLedgerReadinessMock).toHaveBeenCalledTimes(1);
+    expect(probeProductDatabaseReadinessMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("degrades enabled product features when the product schema probe fails", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("ENABLE_ACCOUNT_AUTH", "true");
+    vi.stubEnv(
+      "DATABASE_APP_URL",
+      "postgresql://runtime:secret@database.example.test/postgres",
+    );
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "publishable-key");
+    vi.stubEnv("SUPABASE_SECRET_KEY", "secret-key");
+    probeProductDatabaseReadinessMock.mockResolvedValueOnce({
+      status: "not_ready",
+    });
+
+    const response = await healthRoute();
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      status: "degraded",
+      checks: {
+        readiness: false,
+        productDatabase: "not_ready",
+        features: { accountAuth: "not_ready" },
+      },
+      issues: ["product_database_not_ready", "account_auth_not_ready"],
+    });
+    expect(probeProductDatabaseReadinessMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires account auth for cloud campaigns and billing", () => {
+    const runtime = getServerRuntimeConfig({
+      NODE_ENV: "test",
+      DATABASE_APP_URL: "postgresql://runtime@example.test/postgres",
+      NEXT_PUBLIC_SITE_URL: "https://ugc.example.test",
+      NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "publishable-key",
+      SUPABASE_SECRET_KEY: "secret-key",
+      ENABLE_CLOUD_CAMPAIGNS: "true",
+      ENABLE_BILLING: "true",
+      STRIPE_SECRET_KEY: "stripe-secret-key",
+      STRIPE_WEBHOOK_SECRET: "stripe-webhook-secret",
+      STRIPE_PRICE_UGC_BETA: "price_beta",
+    });
+
+    expect(runtime.product.features.cloudCampaigns).toMatchObject({
+      enabled: true,
+      ready: false,
+      missing: ["account_auth"],
+    });
+    expect(runtime.product.features.billing).toMatchObject({
+      enabled: true,
+      ready: false,
+      missing: ["account_auth"],
+    });
   });
 });

@@ -50,36 +50,19 @@ test("public entry preserves keyboard focus and reduced-motion content", async (
   await expect(sectionCopy).toHaveCSS("animation-name", "none");
 });
 
-test("campaign intake reaches a five-route decision without media spend", async ({
+test("campaign intake reaches a five-route planning decision while generation is closed", async ({
   page,
 }, testInfo) => {
   let mediaSubmissions = 0;
   await page.route("**/api/media/approval", async (route) => {
-    const request = route.request();
-    const body = request.postDataJSON() as {
-      kind: string;
-      input: { idempotencyKey: string };
-    };
-    expect(body.kind).toBe("image");
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        approvalToken: "ma1.test-payload.test-signature",
-        kind: "image",
-        inputSignature: "a".repeat(64),
-        idempotencyKey: body.input.idempotencyKey,
-        providerModel: "gpt-image-2",
-        adapterVersion: "commit:abcdef1234567",
-        expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
-      }),
-    });
+    mediaSubmissions += 1;
+    await route.abort();
   });
   await page.route("**/api/media/image", async (route) => {
     mediaSubmissions += 1;
     await route.abort();
   });
-  await page.goto("/studio");
+  await page.goto("/studio?operator=recovery");
   await expect(page.getByText("Checking studio access…")).toBeHidden({
     timeout: 10_000,
   });
@@ -112,27 +95,12 @@ test("campaign intake reaches a five-route decision without media spend", async 
     page.getByRole("button", { name: /Creative foundation/ }),
   ).toHaveAttribute("data-plan-stage-id", /^stage-/);
 
-  await page.getByRole("button", { name: "Continue to assets" }).click();
-  const approval = page.getByRole("dialog");
-  await expect(approval).toBeVisible();
   await expect(
-    approval.getByRole("heading", { name: "Review exact input" }),
+    page.getByText("Planning mode", { exact: true }).first(),
   ).toBeVisible();
-  await expect(approval.getByText("1 image · 1024×1536")).toBeVisible();
   await expect(
-    approval.getByText("Resolved after lock", { exact: true }).first(),
-  ).toBeVisible();
-  await approval
-    .getByRole("button", { name: "Lock exact input · no spend" })
-    .click();
-  await expect(
-    approval.getByRole("heading", { name: "Confirm paid generation" }),
-  ).toBeVisible();
-  await expect(approval.getByText("gpt-image-2", { exact: true })).toBeVisible();
-  await expect(
-    approval.getByRole("button", { name: "Confirm paid generation" }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Asset generation not open" }),
+  ).toBeDisabled();
+  await expect(page.getByRole("dialog")).toBeHidden();
   expect(mediaSubmissions).toBe(0);
-  await approval.getByRole("button", { name: "Cancel" }).click();
-  await expect(approval).toBeHidden();
 });

@@ -150,8 +150,8 @@ export function WaitlistForm({
       <label className="waitlist-consent">
         <input name="productUpdatesOptedIn" type="checkbox" />
         <span>
-          Send me occasional product updates. This is optional and can be
-          turned off anytime.
+          Send me occasional product updates. This is optional; access and
+          account emails are separate.
         </span>
       </label>
       <TurnstileWidget action="waitlist" onToken={onCaptchaToken} />

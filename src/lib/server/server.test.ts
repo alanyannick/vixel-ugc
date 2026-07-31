@@ -146,12 +146,17 @@ describe("server environment", () => {
     );
     const response = await healthRoute();
     const text = await response.text();
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     expect(text).not.toContain("health-route-secret");
     expect(JSON.parse(text)).toMatchObject({
       providerConfigured: true,
       liveGeneration: true,
       databaseConfigured: true,
+      checks: { liveGeneration: "not_ready" },
+      issues: [
+        "live_generation_account_auth_not_ready",
+        "live_generation_billing_not_ready",
+      ],
       build: { environment: "production" },
     });
   });

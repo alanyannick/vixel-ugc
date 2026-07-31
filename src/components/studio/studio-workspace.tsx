@@ -61,6 +61,7 @@ import {
   demoCampaign,
   loadCampaign,
   newCampaign,
+  nextReplacementRevision,
   parseCampaignExport,
   saveCampaign,
 } from "@/lib/client/campaign-store";
@@ -77,6 +78,15 @@ import {
 import styles from "./studio.module.css";
 
 type View = "board" | "sources" | "routes" | "candidates" | "receipts";
+type SaveStatus = "saving" | "saved-local" | "saved-cloud" | "failed";
+type StorageMode = "checking" | "local" | "cloud";
+type PaidRuntimeReadiness = "checking" | "ready" | "not-ready";
+
+export type StudioCapabilities = {
+  paidGenerationReady: boolean;
+  liveGenerationEnabled: boolean;
+  accountAuthEnabled: boolean;
+};
 
 type PaidApproval =
   | ({
@@ -313,12 +323,18 @@ function paidMediaInput(approval: NonNullable<PaidApproval>) {
       };
 }
 
-export function StudioWorkspace() {
+export function StudioWorkspace({
+  capabilities,
+}: {
+  capabilities: StudioCapabilities;
+}) {
   const {
     canSignOut,
+    sessionKind,
     signOut: onSignOut,
     signOutError,
     signingOut,
+    storageScope,
   } = useAccessGateSession();
   const [campaign, setCampaign] = useState<CampaignState>(demoCampaign);
   const [hydrated, setHydrated] = useState(false);
@@ -330,14 +346,33 @@ export function StudioWorkspace() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pollingIssue, setPollingIssue] = useState("");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saving");
+  const [storageMode, setStorageMode] = useState<StorageMode>("checking");
+  const [paidRuntimeReadiness, setPaidRuntimeReadiness] =
+    useState<PaidRuntimeReadiness>("checking");
   const [approval, setApproval] = useState<PaidApproval>(null);
   const generationLockRef = useRef(false);
   const anchorLockRef = useRef(false);
   const recoveryAttemptedRef = useRef(false);
   const cloudSyncAvailableRef = useRef(false);
-  const lastCloudRevisionRef = useRef<number | null>(null);
+  const cloudRevisionsRef = useRef<Map<string, number>>(new Map());
   const cloudSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const saveSequenceRef = useRef(0);
   const workspaceScrollRef = useRef<HTMLDivElement>(null);
+  const canUsePaidGeneration = Boolean(
+    capabilities.paidGenerationReady &&
+      paidRuntimeReadiness === "ready" &&
+      (!capabilities.accountAuthEnabled || sessionKind === "account"),
+  );
+  const generationUnavailableMessage = !capabilities.liveGenerationEnabled
+    ? "Planning mode is active. Campaign planning works, but live image and video generation is disabled on this deployment."
+    : !capabilities.paidGenerationReady
+      ? "Campaign planning is available, but paid generation is not ready yet."
+      : capabilities.accountAuthEnabled && sessionKind !== "account"
+        ? "Sign in with an approved account to use paid generation."
+        : paidRuntimeReadiness === "checking"
+          ? "Checking paid generation readiness. Campaign planning remains available."
+          : "Paid generation is paused because a production dependency is not healthy.";
 
   const navigateTo = useCallback((nextView: View) => {
     setView(nextView);
@@ -378,6 +413,55 @@ export function StudioWorkspace() {
     [],
   );
 
+  const replaceCampaign = useCallback(
+    (
+      replacement: CampaignState,
+      receipt: { action: string; detail: string },
+    ) => {
+      const next = ensureExecutionPlan(replacement);
+      setCampaign({
+        ...next,
+        revision: nextReplacementRevision(
+          next.revision,
+          cloudRevisionsRef.current.get(next.id) ?? null,
+        ),
+        updatedAt: new Date().toISOString(),
+        receipts: [nowReceipt(receipt.action, receipt.detail), ...next.receipts],
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let active = true;
+    if (!capabilities.paidGenerationReady) {
+      setPaidRuntimeReadiness("not-ready");
+      return () => {
+        active = false;
+      };
+    }
+
+    setPaidRuntimeReadiness("checking");
+    void fetch("/api/health", { cache: "no-store" })
+      .then(async (response) => {
+        const body = (await response.json().catch(() => null)) as
+          | { checks?: { liveGeneration?: string } }
+          | null;
+        if (active) {
+          setPaidRuntimeReadiness(
+            body?.checks?.liveGeneration === "ready" ? "ready" : "not-ready",
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setPaidRuntimeReadiness("not-ready");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [capabilities.paidGenerationReady]);
+
   useEffect(() => {
     let active = true;
     async function hydrateCampaign() {
@@ -385,22 +469,53 @@ export function StudioWorkspace() {
         const cloudCampaigns = await listCloudCampaigns();
         if (!active) return;
         cloudSyncAvailableRef.current = true;
+        cloudRevisionsRef.current = new Map(
+          cloudCampaigns.map((item) => [item.id, item.revision]),
+        );
+        setStorageMode("cloud");
         if (cloudCampaigns[0]) {
-          lastCloudRevisionRef.current = cloudCampaigns[0].revision;
           setCampaign(ensureExecutionPlan(cloudCampaigns[0]));
           return;
         }
+        let stored: CampaignState | null = null;
+        try {
+          stored = await loadCampaign(storageScope);
+        } catch {
+          if (active) {
+            setNotice(
+              "Cloud sync is active, but browser recovery is unavailable on this device.",
+            );
+          }
+        }
+        if (active) {
+          setCampaign(ensureExecutionPlan(stored ?? newCampaign()));
+        }
       } catch {
         // Recovery/operator sessions and not-yet-configured deployments keep
-        // the existing browser-local campaign path.
-      } finally {
-        if (active && !cloudSyncAvailableRef.current) {
-          const stored = await loadCampaign();
-          if (active) setCampaign(ensureExecutionPlan(stored));
-        } else if (active && lastCloudRevisionRef.current === null) {
-          const stored = await loadCampaign();
-          if (active) setCampaign(ensureExecutionPlan(stored));
+        // an account-scoped browser recovery path. Only the operator scope may
+        // migrate the old shared key; account sessions never inherit it.
+        cloudSyncAvailableRef.current = false;
+        if (active) setStorageMode("local");
+        let stored: CampaignState | null = null;
+        try {
+          stored = await loadCampaign(storageScope, {
+            allowLegacyMigration: sessionKind === "recovery",
+          });
+        } catch {
+          if (active) {
+            setError(
+              "Browser recovery is unavailable. Export your campaign before leaving this page.",
+            );
+          }
         }
+        if (active) {
+          setCampaign(
+            ensureExecutionPlan(
+              stored ?? (sessionKind === "recovery" ? demoCampaign : newCampaign()),
+            ),
+          );
+        }
+      } finally {
         if (active) setHydrated(true);
       }
     }
@@ -408,42 +523,86 @@ export function StudioWorkspace() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [sessionKind, storageScope]);
 
   useEffect(() => {
     if (!hydrated) return;
-    void saveCampaign(campaign);
-    if (!cloudSyncAvailableRef.current) return;
-
+    const sequence = ++saveSequenceRef.current;
     const snapshot = campaign;
-    cloudSaveQueueRef.current = cloudSaveQueueRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        const expectedRevision = lastCloudRevisionRef.current;
-        if (expectedRevision === snapshot.revision) return;
+    setSaveStatus("saving");
+
+    async function persistCampaign() {
+      let localSaved = false;
+      try {
+        await saveCampaign(snapshot, storageScope);
+        localSaved = true;
+      } catch {
         if (
-          expectedRevision !== null &&
-          snapshot.revision !== expectedRevision + 1
+          !cloudSyncAvailableRef.current &&
+          saveSequenceRef.current === sequence
         ) {
-          throw new StudioApiError(
-            "The cloud campaign has a newer revision. Your browser copy remains available for recovery.",
-            "revision_conflict",
-            false,
+          setSaveStatus("failed");
+          setError(
+            "This browser could not save the campaign. Export a copy before leaving this page.",
           );
         }
-        const saved = await saveCloudCampaign(snapshot, expectedRevision);
-        lastCloudRevisionRef.current = saved.revision;
-      })
-      .catch((caught) => {
+      }
+
+      if (!cloudSyncAvailableRef.current) {
+        if (localSaved && saveSequenceRef.current === sequence) {
+          setSaveStatus("saved-local");
+        }
+        return;
+      }
+
+      const queuedSave = cloudSaveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          const expectedRevision =
+            cloudRevisionsRef.current.get(snapshot.id) ?? null;
+          if (expectedRevision === snapshot.revision) return;
+          if (
+            expectedRevision !== null &&
+            snapshot.revision !== expectedRevision + 1
+          ) {
+            throw new StudioApiError(
+              "The cloud campaign has a newer revision. Your browser copy remains available for recovery.",
+              "revision_conflict",
+              false,
+            );
+          }
+          const saved = await saveCloudCampaign(snapshot, expectedRevision);
+          cloudRevisionsRef.current.set(snapshot.id, saved.revision);
+        });
+      cloudSaveQueueRef.current = queuedSave.catch(() => undefined);
+
+      try {
+        await queuedSave;
+        if (saveSequenceRef.current === sequence) {
+          setSaveStatus("saved-cloud");
+        }
+      } catch (caught) {
         cloudSyncAvailableRef.current = false;
+        setStorageMode("local");
+        if (saveSequenceRef.current === sequence) {
+          setSaveStatus(localSaved ? "saved-local" : "failed");
+          if (!localSaved) {
+            setError(
+              "Cloud sync and browser recovery both failed. Export a copy before leaving this page.",
+            );
+          }
+        }
         setNotice(
           caught instanceof StudioApiError &&
             caught.code === "revision_conflict"
             ? caught.message
             : "Cloud sync paused. This campaign is still safe in this browser and can be exported.",
         );
-      });
-  }, [campaign, hydrated]);
+      }
+    }
+
+    void persistCampaign();
+  }, [campaign, hydrated, storageScope]);
 
   useEffect(() => {
     if (!hydrated || recoveryAttemptedRef.current) return;
@@ -873,7 +1032,7 @@ export function StudioWorkspace() {
   };
 
   const restoreDemo = () => {
-    updateCampaign(() => ensureExecutionPlan(demoCampaign), {
+    replaceCampaign(demoCampaign, {
       action: "Demo restored",
       detail: "The built-in source-grounded demo campaign was restored.",
     });
@@ -943,6 +1102,10 @@ export function StudioWorkspace() {
   };
 
   const startGeneration = () => {
+    if (!canUsePaidGeneration) {
+      setNotice(generationUnavailableMessage);
+      return;
+    }
     if (!selectedHook || !selectedPersona) {
       setError("Choose one hook and one creator persona before generation.");
       navigateTo("routes");
@@ -972,6 +1135,10 @@ export function StudioWorkspace() {
   };
 
   const startVideoGeneration = async () => {
+    if (!canUsePaidGeneration) {
+      setNotice(generationUnavailableMessage);
+      return;
+    }
     if (!selectedHook || !selectedPersona) {
       setError("Choose one hook and one creator persona before production.");
       navigateTo("routes");
@@ -1033,6 +1200,11 @@ export function StudioWorkspace() {
   };
 
   const reviewGeneration = async () => {
+    if (!canUsePaidGeneration) {
+      setApproval(null);
+      setNotice(generationUnavailableMessage);
+      return;
+    }
     if (
       !approval ||
       approval.serverApprovalToken ||
@@ -1076,6 +1248,11 @@ export function StudioWorkspace() {
   };
 
   const confirmGeneration = async () => {
+    if (!canUsePaidGeneration) {
+      setApproval(null);
+      setNotice(generationUnavailableMessage);
+      return;
+    }
     if (!approval || generationLockRef.current) return;
     if (!approval.serverApprovalToken) {
       setError("Lock and review the exact provider input before paid submission.");
@@ -1413,10 +1590,31 @@ export function StudioWorkspace() {
           <div className={styles.localStatus}>
             <ShieldCheck size={16} />
             <span>
-              <strong>Local recovery on</strong>
-              <small>Campaign state is saved in this browser</small>
+              <strong>
+                {storageMode === "cloud"
+                  ? "Cloud sync on"
+                  : storageMode === "checking"
+                    ? "Checking storage"
+                    : "Local recovery on"}
+              </strong>
+              <small>
+                {storageMode === "cloud"
+                  ? "Browser recovery is scoped to this account"
+                  : storageMode === "checking"
+                    ? "Confirming the safest campaign copy"
+                    : "This browser only; export before switching devices"}
+              </small>
             </span>
           </div>
+          {!canUsePaidGeneration ? (
+            <div className={styles.localStatus}>
+              <Sparkles size={16} />
+              <span>
+                <strong>Planning mode</strong>
+                <small>Creative routes work; paid media generation is closed</small>
+              </span>
+            </div>
+          ) : null}
           {canSignOut ? (
             <div className={styles.sessionAccess}>
               <span>
@@ -1477,8 +1675,20 @@ export function StudioWorkspace() {
           </div>
           <div className={styles.headerActions}>
             <span className={styles.saveState}>
-              <CircleCheck size={15} />
-              Saved locally
+              {saveStatus === "saving" ? (
+                <RefreshCcw className={styles.spin} size={15} />
+              ) : saveStatus === "failed" ? (
+                <CircleAlert size={15} />
+              ) : (
+                <CircleCheck size={15} />
+              )}
+              {saveStatus === "saving"
+                ? "Saving…"
+                : saveStatus === "saved-cloud"
+                  ? "Saved to cloud"
+                  : saveStatus === "saved-local"
+                    ? "Saved in this browser"
+                    : "Save failed"}
             </span>
             <button
               type="button"
@@ -1505,7 +1715,7 @@ export function StudioWorkspace() {
                     .text()
                     .then((raw) => {
                       const imported = parseCampaignExport(raw);
-                      updateCampaign(() => ensureExecutionPlan(imported), {
+                      replaceCampaign(imported, {
                         action: "Campaign imported",
                         detail:
                           "Campaign state restored from a validated Vixel export.",
@@ -1543,6 +1753,16 @@ export function StudioWorkspace() {
           campaign={campaign}
           onNavigate={navigateTo}
         />
+
+        {!canUsePaidGeneration ? (
+          <div className={styles.planningNotice} role="status">
+            <Sparkles size={17} />
+            <span>
+              <strong>Planning mode</strong>
+              {generationUnavailableMessage}
+            </span>
+          </div>
+        ) : null}
 
         {notice ? (
           <div className={styles.notice} role="status">
@@ -1596,6 +1816,8 @@ export function StudioWorkspace() {
               onAdopt={adoptCandidate}
               onExportDelivery={exportDelivery}
               onRestoreDemo={restoreDemo}
+              canGenerate={canUsePaidGeneration}
+              generationUnavailableMessage={generationUnavailableMessage}
             />
           ) : null}
           {view === "sources" ? (
@@ -1653,6 +1875,7 @@ export function StudioWorkspace() {
               onPersona={selectPersona}
               onSources={() => navigateTo("sources")}
               onGenerate={startGeneration}
+              canGenerate={canUsePaidGeneration}
             />
           ) : null}
           {view === "candidates" ? (
@@ -1660,6 +1883,8 @@ export function StudioWorkspace() {
               campaign={campaign}
               onAdopt={adoptCandidate}
               onGenerate={startGeneration}
+              canGenerate={canUsePaidGeneration}
+              generationUnavailableMessage={generationUnavailableMessage}
             />
           ) : null}
           {view === "receipts" ? <ReceiptsView campaign={campaign} /> : null}
@@ -1684,6 +1909,8 @@ export function StudioWorkspace() {
             onGenerateVideo={startVideoGeneration}
             onExportDelivery={exportDelivery}
             onClose={() => setDirectorOpen(false)}
+            canGenerate={canUsePaidGeneration}
+            generationUnavailableMessage={generationUnavailableMessage}
           />
         </>
       ) : null}
@@ -1792,6 +2019,8 @@ function CampaignBoard({
   onAdopt,
   onExportDelivery,
   onRestoreDemo,
+  canGenerate,
+  generationUnavailableMessage,
 }: {
   campaign: CampaignState;
   selectedHook: CreativeHook | null;
@@ -1802,6 +2031,8 @@ function CampaignBoard({
   onAdopt: (candidate: Candidate) => void;
   onExportDelivery: () => void;
   onRestoreDemo: () => void;
+  canGenerate: boolean;
+  generationUnavailableMessage: string;
 }) {
   if (!campaign.brief) {
     return (
@@ -1942,11 +2173,21 @@ function CampaignBoard({
               className={styles.missingAnchor}
               type="button"
               onClick={onGenerate}
+              disabled={!canGenerate}
+              title={!canGenerate ? generationUnavailableMessage : undefined}
             >
               <ImagePlus size={24} />
               <span>
-                <strong>Create a creator + product anchor</strong>
-                <small>Exact provider input will be shown before spend.</small>
+                <strong>
+                  {canGenerate
+                    ? "Create a creator + product anchor"
+                    : "Anchor generation is not open yet"}
+                </strong>
+                <small>
+                  {canGenerate
+                    ? "Exact provider input will be shown before spend."
+                    : "Finish the campaign plan now and export it for later production."}
+                </small>
               </span>
               <ArrowRight size={18} />
             </button>
@@ -2011,8 +2252,10 @@ function CampaignBoard({
                 className={styles.textButton}
                 type="button"
                 onClick={onGenerateVideo}
+                disabled={!canGenerate}
+                title={!canGenerate ? generationUnavailableMessage : undefined}
               >
-                Create another take
+                {canGenerate ? "Create another take" : "Production is not open"}
               </button>
               <p>
                 The current asset is provider-hosted. Download it now; the
@@ -2024,10 +2267,14 @@ function CampaignBoard({
               className={styles.primaryButton}
               type="button"
               onClick={adoptedImage ? onGenerateVideo : onGenerate}
+              disabled={!canGenerate}
+              title={!canGenerate ? generationUnavailableMessage : undefined}
             >
-              {adoptedImage
-                ? "Queue production video"
-                : "Generate next anchor"}
+              {!canGenerate
+                ? "Production opens with paid beta"
+                : adoptedImage
+                  ? "Queue production video"
+                  : "Generate next anchor"}
               <Sparkles size={17} />
             </button>
           )}
@@ -2334,8 +2581,8 @@ function ReferenceUpload({
   const handle = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Choose an image file.");
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setError("Choose a PNG, JPEG, or WebP image.");
       return;
     }
     if (file.size > 1_200_000) {
@@ -2374,7 +2621,11 @@ function ReferenceUpload({
           <ImagePlus size={21} />
           <strong>{label}</strong>
           <span>{hint}</span>
-          <input type="file" accept="image/*" onChange={handle} />
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handle}
+          />
         </label>
       )}
       {error ? <small className={styles.uploadError}>{error}</small> : null}
@@ -2390,6 +2641,7 @@ function RoutesView({
   onPersona,
   onSources,
   onGenerate,
+  canGenerate,
 }: {
   campaign: CampaignState;
   selectedHook: CreativeHook | null;
@@ -2398,6 +2650,7 @@ function RoutesView({
   onPersona: (persona: CreatorPersona) => void;
   onSources: () => void;
   onGenerate: () => void;
+  canGenerate: boolean;
 }) {
   if (!campaign.brief) {
     return (
@@ -2525,8 +2778,9 @@ function RoutesView({
           className={styles.primaryButton}
           type="button"
           onClick={onGenerate}
+          disabled={!canGenerate}
         >
-          Continue to assets
+          {canGenerate ? "Continue to assets" : "Asset generation not open"}
           <ArrowRight size={18} />
         </button>
       </section>
@@ -2538,10 +2792,14 @@ function CandidatesView({
   campaign,
   onAdopt,
   onGenerate,
+  canGenerate,
+  generationUnavailableMessage,
 }: {
   campaign: CampaignState;
   onAdopt: (candidate: Candidate) => void;
   onGenerate: () => void;
+  canGenerate: boolean;
+  generationUnavailableMessage: string;
 }) {
   return (
     <div className={styles.detailView}>
@@ -2559,9 +2817,11 @@ function CandidatesView({
           className={styles.primaryButton}
           type="button"
           onClick={onGenerate}
+          disabled={!canGenerate}
+          title={!canGenerate ? generationUnavailableMessage : undefined}
         >
           <ImagePlus size={17} />
-          Generate anchor
+          {canGenerate ? "Generate anchor" : "Generation not open"}
         </button>
       </section>
       {campaign.candidates.length ? (
@@ -2580,10 +2840,16 @@ function CandidatesView({
           type="button"
           className={styles.candidateEmpty}
           onClick={onGenerate}
+          disabled={!canGenerate}
+          title={!canGenerate ? generationUnavailableMessage : undefined}
         >
           <ImagePlus size={28} />
           <strong>No candidates yet</strong>
-          <span>Approve exact input to create the first visual anchor.</span>
+          <span>
+            {canGenerate
+              ? "Approve exact input to create the first visual anchor."
+              : "Complete and export the campaign plan while generation is closed."}
+          </span>
         </button>
       )}
     </div>
@@ -2741,6 +3007,8 @@ function DirectorPanel({
   onGenerateVideo,
   onExportDelivery,
   onClose,
+  canGenerate,
+  generationUnavailableMessage,
 }: {
   campaign: CampaignState;
   selectedHook: CreativeHook | null;
@@ -2751,12 +3019,17 @@ function DirectorPanel({
   onGenerateVideo: () => void;
   onExportDelivery: () => void;
   onClose: () => void;
+  canGenerate: boolean;
+  generationUnavailableMessage: string;
 }) {
   const acceptedImage = campaign.candidates.find(
     (item) => item.status === "adopted" && item.kind === "image",
   );
   const acceptedVideo = campaign.candidates.find(
     (item) => item.status === "adopted" && item.kind === "video",
+  );
+  const nextActionNeedsGeneration = Boolean(
+    campaign.brief && selectedHook && selectedPersona && !acceptedVideo,
   );
   return (
     <aside className={styles.directorPanel} aria-label="Director">
@@ -2855,6 +3128,12 @@ function DirectorPanel({
           <button
             className={styles.directorAction}
             type="button"
+            disabled={nextActionNeedsGeneration && !canGenerate}
+            title={
+              nextActionNeedsGeneration && !canGenerate
+                ? generationUnavailableMessage
+                : undefined
+            }
             onClick={
               !campaign.brief
                 ? () => onView("sources")
@@ -2875,6 +3154,8 @@ function DirectorPanel({
                     ? "Choose one route"
                     : acceptedVideo
                       ? "Export final delivery"
+                      : !canGenerate
+                        ? "Paid generation is not open"
                       : acceptedImage
                         ? "Queue production video"
                         : "Create next anchor"}
@@ -2884,6 +3165,8 @@ function DirectorPanel({
                   ? "No provider spend"
                   : acceptedVideo
                     ? "No provider spend"
+                    : !canGenerate
+                      ? generationUnavailableMessage
                     : "Two-step exact input review before provider spend"}
               </small>
             </span>

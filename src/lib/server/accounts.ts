@@ -4,6 +4,7 @@ import {
   type AccountStatus,
   type AppRole,
   getAccountSession,
+  requireStudioSession,
 } from "./auth";
 import { productQuery, withProductTransaction } from "./product-db";
 
@@ -36,6 +37,13 @@ type AccountRow = {
   approved_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
+};
+
+type AccountWaitlistRow = {
+  id: string;
+  display_name: string | null;
+  status: "pending" | "approved" | "invited" | "rejected" | "converted";
+  converted_user_id: string | null;
 };
 
 const ACCOUNT_COLUMNS = `
@@ -101,7 +109,88 @@ export async function ensureAccountProfile(input: {
       `,
       [userId, email, bootstrapRole],
     );
-    const account = accountFromRow(result.rows[0]);
+    let account = accountFromRow(result.rows[0]);
+
+    const linkedWaitlist = await client.query<AccountWaitlistRow>(
+      `
+        INSERT INTO vixel_ugc.waitlist_entries (
+          email,
+          source,
+          converted_user_id
+        )
+        VALUES ($1, 'account-signup', $2)
+        ON CONFLICT (email) DO UPDATE
+        SET converted_user_id = EXCLUDED.converted_user_id
+        WHERE vixel_ugc.waitlist_entries.converted_user_id IS NULL
+        RETURNING id, display_name, status, converted_user_id
+      `,
+      [email, userId],
+    );
+
+    let waitlist = linkedWaitlist.rows[0];
+    if (!waitlist) {
+      const existingWaitlist = await client.query<AccountWaitlistRow>(
+        `
+          SELECT id, display_name, status, converted_user_id
+          FROM vixel_ugc.waitlist_entries
+          WHERE email = $1
+          LIMIT 1
+        `,
+        [email],
+      );
+      waitlist = existingWaitlist.rows[0];
+    }
+    if (!waitlist || waitlist.converted_user_id !== userId) {
+      throw new Error("account_waitlist_identity_conflict");
+    }
+
+    if (
+      account.accountStatus !== "approved" &&
+      ["approved", "invited", "converted"].includes(waitlist.status)
+    ) {
+      const approvedAccount = await client.query<AccountRow>(
+        `
+          UPDATE vixel_ugc.user_profiles
+          SET
+            account_status = 'approved',
+            approved_at = COALESCE(approved_at, now())
+          WHERE user_id = $1
+          RETURNING ${ACCOUNT_COLUMNS}
+        `,
+        [userId],
+      );
+      account = accountFromRow(approvedAccount.rows[0]);
+    }
+
+    await client.query(
+      `
+        INSERT INTO vixel_ugc.email_delivery_ledger (
+          event_type,
+          recipient_email,
+          user_id,
+          waitlist_entry_id,
+          idempotency_key,
+          template_payload
+        )
+        VALUES (
+          'waitlist_confirmation',
+          $1,
+          $2,
+          $3,
+          $4,
+          jsonb_build_object('displayName', $5::text)
+        )
+        ON CONFLICT (idempotency_key) DO NOTHING
+      `,
+      [
+        email,
+        userId,
+        waitlist.id,
+        `waitlist_confirmation:${waitlist.id}:v1`,
+        waitlist.display_name,
+      ],
+    );
+
     await client.query(
       `
         INSERT INTO vixel_ugc.email_delivery_ledger (
@@ -226,6 +315,39 @@ export async function authorizeAccount(
     };
   }
   return { allowed: true, session, account };
+}
+
+/**
+ * Preserves the operator-recovery session path while requiring current
+ * database authorization for every account-backed v3 session.
+ *
+ * The synchronous auth helper can safely validate recovery sessions, but the
+ * account status and role embedded in a v3 cookie are only signed hints. An
+ * account can be suspended or moved back to the waitlist after that cookie is
+ * issued, so product APIs must cross this asynchronous boundary before doing
+ * sensitive work.
+ */
+export async function requireCurrentStudioSession(
+  request: Request,
+  requestId: string,
+): Promise<Response | null> {
+  const accountSession = getAccountSession(request);
+  if (!accountSession) return requireStudioSession(request, requestId);
+
+  try {
+    const authorization = await authorizeAccount(request, requestId, {
+      approved: true,
+    });
+    return authorization.allowed ? null : authorization.response;
+  } catch {
+    return apiError(
+      503,
+      "account_database_unavailable",
+      "Account authorization is temporarily unavailable.",
+      true,
+      requestId,
+    );
+  }
 }
 
 export type AccountApiErrorBody = ApiErrorBody;

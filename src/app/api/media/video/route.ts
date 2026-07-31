@@ -15,8 +15,8 @@ import {
 import {
   getAccountSession,
   getStudioSessionIdentity,
-  requireStudioSession,
 } from "@/lib/server/auth";
+import { requireCurrentStudioSession } from "@/lib/server/accounts";
 import { requirePaidGenerationAccess } from "@/lib/server/billing";
 import {
   claimMediaSubmission,
@@ -76,7 +76,7 @@ function statusFor(
 
 export async function POST(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
-  const accessError = requireStudioSession(request, requestId);
+  const accessError = await requireCurrentStudioSession(request, requestId);
   if (accessError) return accessError;
   const billingError = await requirePaidGenerationAccess(request, requestId);
   if (billingError) return billingError;

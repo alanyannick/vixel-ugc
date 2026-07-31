@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { GET as operatorRecoveryStatus } from "@/app/api/auth/access/route";
+
 import {
   createAccountSessionToken,
   getAccountSession,
@@ -82,5 +84,17 @@ describe("account application sessions", () => {
       );
       expect(response?.status).toBe(403);
     }
+  });
+
+  it("does not reuse an account v3 cookie as operator recovery", async () => {
+    const token = createAccountSessionToken(ACCOUNT, NOW)!;
+    const response = await operatorRecoveryStatus(requestFor(token));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      authenticated: false,
+      required: true,
+      configured: true,
+    });
   });
 });
