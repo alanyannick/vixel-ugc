@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- src public scripts supabase package.json package-lock.json next-env.d.ts next.config.ts postcss.config.mjs tsconfig.json vercel.json",
   "crons": [
     {
       "path": "/api/cron/lifecycle",

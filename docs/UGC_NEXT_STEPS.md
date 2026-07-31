@@ -1,55 +1,56 @@
 # Vixel UGC — Next Steps
 
-Updated: 2026-07-31
+Updated: 2026-08-01
 
 ## Current release boundary
 
-Vixel UGC is live as a **planning beta**. The public acquisition surfaces,
-protected Studio, grounded planning workflow, exact-input approval, recovery
-identity, and paid-media ledger/control plane are shipped. Live paid generation
-must remain disabled until the isolated production database and paid end-to-end
-gates below are complete.
+Vixel UGC is live as a **planning beta**. Public waitlist, email OTP accounts,
+operator approval, cloud campaigns, lifecycle email, protected Studio,
+grounded planning, recovery identity, and the paid-media control plane are
+shipped and healthy. Billing and live paid generation remain deliberately
+disabled until the Stripe and paid end-to-end gates below are complete.
 
 ## P0 — Make `main` the single production source
 
 - [x] Keep the Vercel project `alanyannicks-projects/vixel-koc` connected to
   `alanyannick/vixel-ugc` with production branch `main`.
-- [ ] Verify a push to `main` creates a Vercel production deployment whose Git
+- [x] Verify a push to `main` creates a Vercel production deployment whose Git
   commit SHA matches GitHub `main`.
-- [ ] Keep `ugc.vixelai.com` assigned only to a verified production deployment.
-- [ ] Record deployment ID, commit SHA, health output, and rollback target in
+- [x] Keep `ugc.vixelai.com` assigned only to a verified production deployment.
+- [x] Record deployment ID, commit SHA, health output, and rollback target in
   `docs/evidence/` for each release.
-- [ ] Require GitHub CI and Vercel build success before treating a release as
+- [x] Require GitHub CI and Vercel build success before treating a release as
   production-ready.
 
 ## P0 — Authorize and provision the production ledger
 
-This section requires an explicit owner decision before any paid resource is
-created or reused.
+The production UGC project and fee were explicitly approved and provisioned.
 
-- [ ] Confirm the Supabase organization/project and the exact expected fee.
-- [ ] Create or approve a dedicated UGC database; do not reuse another product's
+- [x] Confirm the Supabase organization/project and the exact expected fee.
+- [x] Create or approve a dedicated UGC database; do not reuse another product's
   schema merely because credentials are available.
-- [ ] Apply every migration in `supabase/migrations/` in timestamp order using
+- [x] Apply every migration in `supabase/migrations/` in timestamp order using
   an owner/migration connection.
-- [ ] Create the restricted runtime login and verify it has only schema usage
+- [x] Create the restricted runtime login and verify it has only schema usage
   plus `SELECT`, `INSERT`, and `UPDATE`; no `DELETE`, DDL, superuser,
   `BYPASSRLS`, role creation, or database creation.
-- [ ] Add `DATABASE_APP_URL` and migration-only credentials to the correct
-  Vercel environments without exposing them to the browser.
-- [ ] Run the production readiness probe and confirm the exact table, indexes,
+- [x] Add `DATABASE_APP_URL` to the production runtime without exposing it to
+  the browser; migration authority remains separate from the application.
+- [x] Run the production readiness probe and confirm the exact table, indexes,
   policies, RLS, role membership, and revision contract.
+- [ ] Add a separately isolated Preview database before running stateful Preview
+  account or campaign tests; Preview must not mutate production user data.
 - [ ] Document backup, retention, incident ownership, and restore procedure.
 
 ## P0 — Enable paid generation deliberately
 
-- [ ] Keep `ENABLE_LIVE_GENERATION=false` until every item in this section is
+- [x] Keep `ENABLE_LIVE_GENERATION=false` until every item in this section is
   complete.
-- [ ] Confirm NewAPI text, image generation, image edit, and video routes over
+- [x] Confirm NewAPI text, image generation, image edit, and video routes over
   HTTPS using the intended production models.
 - [ ] Configure conservative provider budgets and alerts in addition to the
   database daily caps.
-- [ ] Verify the UI presents two distinct actions: lock/sign exact inputs, then
+- [x] Verify the UI presents two distinct actions: lock/sign exact inputs, then
   explicitly submit potentially billable work.
 - [ ] Run one authorized paid image job and one authorized paid video job.
 - [ ] Verify idempotent replay does not create a second provider request or
