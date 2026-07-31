@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import Stripe from "stripe";
 import type { PoolClient } from "pg";
 
+import { FOUNDING_BETA_OFFER } from "@/lib/product-offer";
+
 import { authorizeAccount } from "./accounts";
 import { getServerRuntimeConfig } from "./env";
 import {
@@ -45,7 +47,7 @@ type SubscriptionRow = {
 
 type StripeClient = Pick<
   Stripe,
-  "customers" | "checkout" | "billingPortal" | "webhooks"
+  "customers" | "checkout" | "billingPortal" | "prices" | "webhooks"
 >;
 
 let testStripeClient: StripeClient | null = null;
@@ -129,12 +131,35 @@ export class BillingError extends Error {
       | "billing_not_configured"
       | "billing_webhook_not_configured"
       | "billing_price_not_configured"
+      | "billing_price_invalid"
       | "billing_customer_missing"
       | "billing_event_invalid"
       | "subscription_required",
   ) {
     super(code);
     this.name = "BillingError";
+  }
+}
+
+async function assertFoundingBetaPrice(priceId: string): Promise<void> {
+  let price: Stripe.Price;
+  try {
+    price = await stripeClient().prices.retrieve(priceId);
+  } catch {
+    throw new BillingError("billing_price_invalid");
+  }
+
+  const recurring = price.recurring;
+  if (
+    !price.active ||
+    price.type !== "recurring" ||
+    price.unit_amount !== FOUNDING_BETA_OFFER.amountCents ||
+    price.currency.toLowerCase() !== FOUNDING_BETA_OFFER.currency ||
+    recurring?.interval !== FOUNDING_BETA_OFFER.interval ||
+    recurring.interval_count !== FOUNDING_BETA_OFFER.intervalCount ||
+    recurring.usage_type !== "licensed"
+  ) {
+    throw new BillingError("billing_price_invalid");
   }
 }
 
@@ -226,6 +251,7 @@ export async function createCheckoutSession(input: {
     throw new BillingError("billing_not_configured");
   }
 
+  await assertFoundingBetaPrice(priceId);
   const customer = await ensureStripeCustomer(input);
   const checkout = await stripeClient().checkout.sessions.create(
     {

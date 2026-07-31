@@ -43,6 +43,7 @@
 - [x] 6.3 Implement verified replay-safe Stripe webhook projection
 - [x] 6.4 Add server-owned subscription entitlement before paid generation
 - [x] 6.5 Add billing state UI and Checkout/webhook/entitlement tests
+- [x] 6.6 Publish and verify the USD $39 monthly Founding Beta price contract
 
 ## 7. Product entry
 

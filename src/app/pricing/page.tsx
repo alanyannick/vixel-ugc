@@ -4,6 +4,7 @@ import { ArrowRight, Check, ShieldCheck } from "lucide-react";
 
 import { BillingPanel } from "@/components/billing/billing-panel";
 import { StructuredData } from "@/components/marketing/structured-data";
+import { formatFoundingBetaPrice } from "@/lib/product-offer";
 import { breadcrumbSchema } from "@/lib/seo/schema";
 import { createPageMetadata } from "@/lib/seo/site";
 
@@ -49,8 +50,11 @@ export default function PricingPage() {
         <article className="pricing-card">
           <header>
             <span>Founding beta</span>
-            <strong>Recurring access</strong>
-            <small>The exact amount and renewal date appear in Stripe Checkout.</small>
+            <strong>{formatFoundingBetaPrice()} / month</strong>
+            <small>
+              Recurring monthly access. Renewal details appear in Stripe
+              Checkout.
+            </small>
           </header>
           <ul>
             {features.map((feature) => (
