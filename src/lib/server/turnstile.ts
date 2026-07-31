@@ -7,15 +7,41 @@ type TurnstileResponse = {
   "error-codes"?: string[];
 };
 
+// Cloudflare's documented always-pass test credentials intentionally return
+// `example.com` as the hostname. Keep that exception limited to Vercel Preview
+// deployments using the exact public test key pair so production continues to
+// require the configured application hostname.
+const CLOUDFLARE_ALWAYS_PASS_TEST_SITE_KEY = "1x00000000000000000000AA";
+const CLOUDFLARE_ALWAYS_PASS_TEST_SECRET =
+  "1x0000000000000000000000000000000AA";
+
+function hostnameMatches(input: {
+  hostname?: string;
+  expectedHostname: string;
+  siteKey: string | null;
+  secret: string;
+  env: NodeJS.ProcessEnv;
+}): boolean {
+  const hostname = input.hostname?.toLowerCase();
+  if (hostname === input.expectedHostname) return true;
+
+  return (
+    input.env.VERCEL_ENV === "preview" &&
+    input.siteKey === CLOUDFLARE_ALWAYS_PASS_TEST_SITE_KEY &&
+    input.secret === CLOUDFLARE_ALWAYS_PASS_TEST_SECRET &&
+    hostname === "example.com"
+  );
+}
+
 export async function verifyTurnstile(input: {
   token: string;
   remoteIp?: string;
   expectedAction: string;
-}): Promise<boolean> {
-  const runtime = getServerRuntimeConfig();
+}, env: NodeJS.ProcessEnv = process.env): Promise<boolean> {
+  const runtime = getServerRuntimeConfig(env);
   if (!runtime.production) return true;
 
-  const secret = envValue(process.env, "TURNSTILE_SECRET_KEY");
+  const secret = envValue(env, "TURNSTILE_SECRET_KEY");
   const siteUrl = runtime.product.siteUrl;
   if (!secret || !siteUrl || !input.token) return false;
 
@@ -51,7 +77,13 @@ export async function verifyTurnstile(input: {
 
   const expectedHostname = new URL(siteUrl).hostname.toLowerCase();
   return (
-    result.hostname?.toLowerCase() === expectedHostname &&
+    hostnameMatches({
+      hostname: result.hostname,
+      expectedHostname,
+      siteKey: runtime.product.turnstile.siteKey,
+      secret,
+      env,
+    }) &&
     (!result.action || result.action === input.expectedAction)
   );
 }
