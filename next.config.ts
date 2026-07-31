@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const developmentOnlyScriptSource =
   process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
 
+const turnstileOrigin = "https://challenges.cloudflare.com";
+
 const productionOnlyHeaders =
   process.env.NODE_ENV === "production"
     ? [
@@ -27,12 +29,13 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${developmentOnlyScriptSource}`,
+      `script-src 'self' 'unsafe-inline' ${turnstileOrigin}${developmentOnlyScriptSource}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "media-src 'self' blob: https:",
-      "connect-src 'self'",
+      `connect-src 'self' ${turnstileOrigin}`,
       "font-src 'self' data:",
+      `frame-src 'self' ${turnstileOrigin}`,
       "object-src 'none'",
       "worker-src 'self' blob:",
       "manifest-src 'self'",
