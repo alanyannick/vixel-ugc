@@ -4,11 +4,12 @@
 
 - Canonical URL: `https://ugc.vixelai.com`
 - Vercel project: `alanyannicks-projects/vixel-koc`
-- Verified deployment: `dpl_HtnBnhXxFv1DjSCb8RRQhez9tiQm`
+- Verified deployment: `dpl_CVHfSRtiqYFCNQWR2tXeX9yWfPBB`
 - Deployment state: `production / READY`
-- Verified at: `2026-08-01 04:33 CST`
-- Runtime source commit: `26f44f6d6fcf2e2d309b04ae0b0e0d6c8860172d`
-- Pull request: `alanyannick/vixel-ugc#9`
+- Verified at: `2026-08-01 04:44 CST`
+- Runtime source commit: `6186d29211703fc24f4099cb0a1fb2a3e72102c6`
+- Application feature commit: `26f44f6d6fcf2e2d309b04ae0b0e0d6c8860172d`
+- Pull requests: `alanyannick/vixel-ugc#9`, `alanyannick/vixel-ugc#10`
 
 The deployment is public on the custom domain. The legacy
 `vixel-koc.vercel.app` host returns a permanent redirect to the same path on
@@ -25,7 +26,7 @@ npm run check                                      PASS
   Next.js production build                          41 routes PASS
 npm run test:e2e                                    12/12 PASS
 npm audit --omit=dev                                0 vulnerabilities
-GitHub CI / verify                                  PASS (1m57s)
+GitHub CI / verify                                  PASS (2m10s)
 Vercel Preview and Production builds                PASS
 production Chrome Studio inspection                 PASS
 ```
@@ -87,7 +88,7 @@ liveGeneration=disabled
 databaseConfigured=true
 providerConfigured=true
 providerTransportSecure=true
-commit=26f44f6d6fcf2e2d309b04ae0b0e0d6c8860172d
+commit=6186d29211703fc24f4099cb0a1fb2a3e72102c6
 ```
 
 Verified response policy:

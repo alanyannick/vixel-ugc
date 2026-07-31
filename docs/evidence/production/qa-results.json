@@ -1,8 +1,9 @@
 {
-  "checkedAt": "2026-07-31T20:33:50.000Z",
+  "checkedAt": "2026-07-31T20:44:31.000Z",
   "base": "https://ugc.vixelai.com",
-  "deploymentId": "dpl_HtnBnhXxFv1DjSCb8RRQhez9tiQm",
-  "sourceCommit": "26f44f6d6fcf2e2d309b04ae0b0e0d6c8860172d",
+  "deploymentId": "dpl_CVHfSRtiqYFCNQWR2tXeX9yWfPBB",
+  "sourceCommit": "6186d29211703fc24f4099cb0a1fb2a3e72102c6",
+  "applicationFeatureCommit": "26f44f6d6fcf2e2d309b04ae0b0e0d6c8860172d",
   "deployment": {
     "target": "production",
     "state": "READY",
