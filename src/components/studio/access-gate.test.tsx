@@ -26,6 +26,65 @@ describe("AccessGate session controls", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("keeps email OTP as the only visible default sign-in path", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          authenticated: false,
+          ready: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(
+      <AccessGate>
+        <SessionProbe />
+      </AccessGate>,
+    );
+
+    expect(await screen.findByLabelText("Email")).toBeVisible();
+    expect(screen.queryByText("Emergency operator access")).toBeNull();
+    expect(screen.queryByText("Operator recovery access")).toBeNull();
+  });
+
+  it("shows emergency operator access only from the dedicated URL", async () => {
+    window.history.replaceState({}, "", "/studio?operator=recovery");
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            authenticated: false,
+            ready: true,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            authenticated: false,
+            required: true,
+            configured: true,
+          }),
+          { status: 200 },
+        ),
+      );
+
+    render(
+      <AccessGate>
+        <SessionProbe />
+      </AccessGate>,
+    );
+
+    expect(await screen.findByLabelText("Operator recovery code")).toBeVisible();
+    expect(screen.getByText("Emergency operator access.")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Back to email sign-in" }),
+    ).toBeVisible();
   });
 
   it("signs out through the recovery endpoint while retaining recovery guidance", async () => {

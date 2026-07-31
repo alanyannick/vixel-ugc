@@ -75,6 +75,8 @@ export function AccessGate({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [operatorRecoveryEnabled, setOperatorRecoveryEnabled] =
+    useState(false);
 
   const acceptAccountState = useCallback((body: AccountSessionResponse) => {
     if (body.authenticated && body.account?.accountStatus === "approved") {
@@ -99,6 +101,10 @@ export function AccessGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     async function checkAccess() {
+      const operatorRecoveryRequested =
+        new URLSearchParams(window.location.search).get("operator") ===
+        "recovery";
+      setOperatorRecoveryEnabled(operatorRecoveryRequested);
       try {
         const accountResponse = await fetch("/api/auth/session", {
           cache: "no-store",
@@ -109,7 +115,13 @@ export function AccessGate({ children }: { children: ReactNode }) {
             (await accountResponse.json().catch(() => null)) as
               | AccountSessionResponse
               | null;
-          if (accountBody && acceptAccountState(accountBody)) return;
+          if (
+            accountBody &&
+            (accountBody.authenticated || !operatorRecoveryRequested) &&
+            acceptAccountState(accountBody)
+          ) {
+            return;
+          }
         }
 
         const recoveryResponse = await fetch("/api/auth/access", {
@@ -351,7 +363,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
           <IconMark className={styles.gateMark} />
           <span className={styles.gateLock}>
             {accountMode ? <MailCheck size={16} /> : <LockKeyhole size={16} />}
-            {accountMode ? "Email access" : "Operator recovery"}
+            {accountMode ? "Email access" : "Emergency access"}
           </span>
         </div>
         <p className={styles.gateEyebrow}>Vixel UGC Studio</p>
@@ -360,14 +372,14 @@ export function AccessGate({ children }: { children: ReactNode }) {
             ? "Check your inbox."
             : accountMode
               ? "Enter the campaign room."
-              : "Recover operator access."}
+              : "Emergency operator access."}
         </h1>
         <p>
           {state === "otp"
             ? `Enter the six-digit code sent to ${email.trim().toLowerCase()}.`
             : accountMode
               ? "Use your approved beta email. New accounts remain on the waitlist until an operator admits them."
-              : "The shared code is retained only as a temporary operator recovery path."}
+              : "Use the recovery code only when email sign-in is unavailable."}
         </p>
 
         {state === "email" ? (
@@ -448,17 +460,32 @@ export function AccessGate({ children }: { children: ReactNode }) {
           </p>
         ) : null}
 
-        <button
-          className={styles.gateRecoveryToggle}
-          type="button"
-          onClick={() => {
-            setError("");
-            setState(accountMode ? "recovery" : "email");
-          }}
-        >
-          <KeyRound size={14} />
-          {accountMode ? "Operator recovery access" : "Use email access"}
-        </button>
+        {state === "recovery" ||
+        (state === "email" && operatorRecoveryEnabled) ? (
+          <button
+            className={styles.gateRecoveryToggle}
+            type="button"
+            onClick={() => {
+              setError("");
+              if (state === "recovery") {
+                setOperatorRecoveryEnabled(false);
+                window.history.replaceState(
+                  window.history.state,
+                  "",
+                  window.location.pathname,
+                );
+                setState("email");
+                return;
+              }
+              setState("recovery");
+            }}
+          >
+            <KeyRound size={14} />
+            {state === "recovery"
+              ? "Back to email sign-in"
+              : "Emergency operator access"}
+          </button>
+        ) : null}
       </section>
     </div>
   );
