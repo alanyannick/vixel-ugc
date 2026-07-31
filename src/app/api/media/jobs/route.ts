@@ -1,8 +1,8 @@
 import { apiError, getRequestId, jsonResponse } from "@/lib/server/api";
 import {
   getStudioSessionIdentity,
-  requireStudioSession,
 } from "@/lib/server/auth";
+import { requireCurrentStudioSession } from "@/lib/server/accounts";
 import {
   listOwnedMediaEntries,
   MediaLedgerError,
@@ -15,7 +15,7 @@ export const maxDuration = 10;
 
 export async function GET(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
-  const accessError = requireStudioSession(request, requestId);
+  const accessError = await requireCurrentStudioSession(request, requestId);
   if (accessError) return accessError;
 
   const runtimeConfig = getServerRuntimeConfig();

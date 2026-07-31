@@ -232,6 +232,48 @@ export function getServerRuntimeConfig(
     production || accessCodePresent || sessionSecretPresent;
   const accessConfigured = codeStrong && sessionSecretStrong;
 
+  const waitlistFeature = featureReadiness(
+    enabled(env, "ENABLE_PUBLIC_WAITLIST"),
+    [
+      [databaseConfigured, "database"],
+      [!production || turnstileConfigured, "turnstile"],
+    ],
+  );
+  const accountAuthFeature = featureReadiness(
+    enabled(env, "ENABLE_ACCOUNT_AUTH"),
+    [
+      [databaseConfigured, "database"],
+      [supabaseConfigured, "supabase"],
+      [!production || turnstileConfigured, "turnstile"],
+    ],
+  );
+  const cloudCampaignsFeature = featureReadiness(
+    enabled(env, "ENABLE_CLOUD_CAMPAIGNS"),
+    [
+      [databaseConfigured, "database"],
+      [accountAuthFeature.ready, "account_auth"],
+    ],
+  );
+  const lifecycleEmailFeature = featureReadiness(
+    enabled(env, "ENABLE_LIFECYCLE_EMAIL"),
+    [
+      [databaseConfigured, "database"],
+      [resendConfigured, "resend"],
+      [Boolean(resendWebhookSecret), "resend_webhook"],
+      [Boolean(cronSecret), "cron"],
+    ],
+  );
+  const billingFeature = featureReadiness(
+    enabled(env, "ENABLE_BILLING"),
+    [
+      [databaseConfigured, "database"],
+      [accountAuthFeature.ready, "account_auth"],
+      [stripeConfigured, "stripe"],
+      [Boolean(stripeWebhookSecret), "stripe_webhook"],
+      [Boolean(stripePrice), "stripe_price"],
+    ],
+  );
+
   return {
     production,
     liveGeneration: enabled(env, "ENABLE_LIVE_GENERATION"),
@@ -259,45 +301,11 @@ export function getServerRuntimeConfig(
         priceConfigured: Boolean(stripePrice),
       },
       features: {
-        waitlist: featureReadiness(
-          enabled(env, "ENABLE_PUBLIC_WAITLIST"),
-          [
-            [databaseConfigured, "database"],
-            [!production || turnstileConfigured, "turnstile"],
-          ],
-        ),
-        accountAuth: featureReadiness(
-          enabled(env, "ENABLE_ACCOUNT_AUTH"),
-          [
-            [databaseConfigured, "database"],
-            [supabaseConfigured, "supabase"],
-            [!production || turnstileConfigured, "turnstile"],
-          ],
-        ),
-        cloudCampaigns: featureReadiness(
-          enabled(env, "ENABLE_CLOUD_CAMPAIGNS"),
-          [
-            [databaseConfigured, "database"],
-            [supabaseConfigured, "supabase"],
-          ],
-        ),
-        lifecycleEmail: featureReadiness(
-          enabled(env, "ENABLE_LIFECYCLE_EMAIL"),
-          [
-            [databaseConfigured, "database"],
-            [resendConfigured, "resend"],
-            [Boolean(cronSecret), "cron"],
-          ],
-        ),
-        billing: featureReadiness(
-          enabled(env, "ENABLE_BILLING"),
-          [
-            [databaseConfigured, "database"],
-            [stripeConfigured, "stripe"],
-            [Boolean(stripeWebhookSecret), "stripe_webhook"],
-            [Boolean(stripePrice), "stripe_price"],
-          ],
-        ),
+        waitlist: waitlistFeature,
+        accountAuth: accountAuthFeature,
+        cloudCampaigns: cloudCampaignsFeature,
+        lifecycleEmail: lifecycleEmailFeature,
+        billing: billingFeature,
       },
     },
     newApi: {

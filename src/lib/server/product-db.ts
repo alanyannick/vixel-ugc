@@ -26,6 +26,11 @@ export class ProductDatabaseError extends Error {
   }
 }
 
+export type ProductDatabaseReadiness =
+  | { status: "ready" }
+  | { status: "not_configured" }
+  | { status: "not_ready" };
+
 type ProductDatabaseGlobal = {
   databaseUrl: string;
   pool: Pool;
@@ -169,6 +174,23 @@ export async function productQuery<Row extends QueryResultRow>(
       "database_unavailable",
       "The Vixel UGC product database query failed.",
     );
+  }
+}
+
+/**
+ * Reuses the product runtime-boundary verification performed by ensureReady
+ * and exposes only a secret-free readiness state to the health endpoint.
+ */
+export async function probeProductDatabaseReadiness(): Promise<ProductDatabaseReadiness> {
+  if (!databaseUrl()) return { status: "not_configured" };
+  try {
+    const pool = await ensureReady();
+    const result = await pool.query<{ ready: number }>("SELECT 1 AS ready");
+    return result.rows[0]?.ready === 1
+      ? { status: "ready" }
+      : { status: "not_ready" };
+  } catch {
+    return { status: "not_ready" };
   }
 }
 

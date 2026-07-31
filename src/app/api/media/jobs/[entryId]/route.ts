@@ -3,8 +3,8 @@ import { z } from "zod";
 import { apiError, getRequestId, jsonResponse } from "@/lib/server/api";
 import {
   getStudioSessionIdentity,
-  requireStudioSession,
 } from "@/lib/server/auth";
+import { requireCurrentStudioSession } from "@/lib/server/accounts";
 import {
   findOwnedMediaEntry,
   MediaLedgerError,
@@ -23,7 +23,7 @@ export async function GET(
   context: RouteContext,
 ): Promise<Response> {
   const requestId = getRequestId(request);
-  const accessError = requireStudioSession(request, requestId);
+  const accessError = await requireCurrentStudioSession(request, requestId);
   if (accessError) return accessError;
   const sessionIdentity = getStudioSessionIdentity(request);
   if (!sessionIdentity) {

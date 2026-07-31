@@ -5,7 +5,7 @@ import {
   jsonResponse,
   readJsonBody,
 } from "@/lib/server/api";
-import { requireStudioSession } from "@/lib/server/auth";
+import { requireCurrentStudioSession } from "@/lib/server/accounts";
 import {
   creativeBriefRequestSchema,
   generateCreativeBrief,
@@ -16,7 +16,7 @@ export const maxDuration = 60;
 
 export async function POST(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
-  const accessError = requireStudioSession(request, requestId);
+  const accessError = await requireCurrentStudioSession(request, requestId);
   if (accessError) return accessError;
 
   let body: unknown;
@@ -48,4 +48,3 @@ export async function POST(request: Request): Promise<Response> {
 
   return jsonResponse(await generateCreativeBrief(parsed.data, requestId));
 }
-

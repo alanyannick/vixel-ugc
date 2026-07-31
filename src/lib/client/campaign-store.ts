@@ -8,7 +8,21 @@ import {
   type ExecutionPlan,
 } from "@/lib/domain/contracts";
 
-const CAMPAIGN_KEY = "vixel-koc:campaign:v1";
+const LEGACY_CAMPAIGN_KEY = "vixel-koc:campaign:v1";
+const CAMPAIGN_KEY_PREFIX = "vixel-koc:campaign:v2";
+
+function campaignStorageKey(scope: string): string {
+  const normalized = scope
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9:_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 180);
+  if (!normalized) {
+    throw new Error("A campaign storage scope is required.");
+  }
+  return `${CAMPAIGN_KEY_PREFIX}:${normalized}`;
+}
 
 export type Platform = "TikTok" | "Instagram Reels" | "YouTube Shorts" | "小红书";
 
@@ -419,25 +433,56 @@ export const demoCampaign: CampaignState = {
   ],
 };
 
-export async function loadCampaign(): Promise<CampaignState> {
-  const stored = await get<CampaignState & { executionPlan?: ExecutionPlan | null }>(
-    CAMPAIGN_KEY,
-  );
-  return stored
-    ? {
-        ...stored,
-        executionPlan: stored.executionPlan ?? null,
-        jobs: stored.jobs ?? [],
-      }
-    : demoCampaign;
+function parseStoredCampaign(stored: unknown): CampaignState | null {
+  if (!stored || typeof stored !== "object") return null;
+  const candidate = stored as CampaignState & {
+    executionPlan?: ExecutionPlan | null;
+    jobs?: CampaignState["jobs"];
+  };
+  const parsed = CampaignStateSchema.safeParse({
+    ...candidate,
+    executionPlan: candidate.executionPlan ?? null,
+    jobs: candidate.jobs ?? [],
+  });
+  return parsed.success ? parsed.data : null;
 }
 
-export async function saveCampaign(campaign: CampaignState): Promise<void> {
-  await set(CAMPAIGN_KEY, campaign);
+export async function loadCampaign(
+  scope: string,
+  options: { allowLegacyMigration?: boolean } = {},
+): Promise<CampaignState | null> {
+  const key = campaignStorageKey(scope);
+  const stored = parseStoredCampaign(await get<unknown>(key));
+  if (stored) return stored;
+
+  if (!options.allowLegacyMigration) return null;
+  const legacy = parseStoredCampaign(await get<unknown>(LEGACY_CAMPAIGN_KEY));
+  if (!legacy) return null;
+  await set(key, legacy);
+  return legacy;
 }
 
-export async function resetCampaign(): Promise<void> {
-  await del(CAMPAIGN_KEY);
+export async function saveCampaign(
+  campaign: CampaignState,
+  scope: string,
+): Promise<void> {
+  await set(campaignStorageKey(scope), campaign);
+}
+
+export async function resetCampaign(scope: string): Promise<void> {
+  await del(campaignStorageKey(scope));
+}
+
+/**
+ * Importing or restoring replaces the whole campaign, including its id. When
+ * that id already exists in the cloud, the server only accepts exactly the
+ * next revision; otherwise the validated export revision remains the baseline.
+ */
+export function nextReplacementRevision(
+  importedRevision: number,
+  knownCloudRevision: number | null,
+): number {
+  return (knownCloudRevision ?? importedRevision) + 1;
 }
 
 export function parseCampaignExport(raw: string): CampaignState {

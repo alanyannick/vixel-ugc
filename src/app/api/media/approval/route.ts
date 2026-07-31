@@ -16,8 +16,8 @@ import {
 } from "@/lib/server/api";
 import {
   getStudioSessionIdentity,
-  requireStudioSession,
 } from "@/lib/server/auth";
+import { requireCurrentStudioSession } from "@/lib/server/accounts";
 import { paidControlPlaneReadiness } from "@/lib/server/ledger";
 import {
   IdempotencyKeyConflictError,
@@ -43,7 +43,7 @@ function readinessError(requestId: string): Response | null {
 
 export async function POST(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
-  const accessError = requireStudioSession(request, requestId);
+  const accessError = await requireCurrentStudioSession(request, requestId);
   if (accessError) return accessError;
   const sessionIdentity = getStudioSessionIdentity(request);
   if (!sessionIdentity) {

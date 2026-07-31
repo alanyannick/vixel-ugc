@@ -10,15 +10,26 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccessGate, useAccessGateSession } from "./access-gate";
 
 function SessionProbe() {
-  const { canSignOut, signOut, signingOut } = useAccessGateSession();
+  const {
+    canSignOut,
+    sessionKind,
+    signOut,
+    signingOut,
+    storageScope,
+  } = useAccessGateSession();
   return (
-    <button
-      type="button"
-      disabled={signingOut}
-      onClick={() => void signOut()}
-    >
-      {canSignOut ? "Sign out" : "Planning mode"}
-    </button>
+    <>
+      <button
+        type="button"
+        disabled={signingOut}
+        onClick={() => void signOut()}
+      >
+        {canSignOut ? "Sign out" : "Planning mode"}
+      </button>
+      <output aria-label="Session storage scope">
+        {sessionKind}:{storageScope}
+      </output>
+    </>
   );
 }
 
@@ -30,7 +41,7 @@ describe("AccessGate session controls", () => {
   });
 
   it("keeps email OTP as the only visible default sign-in path", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           authenticated: false,
@@ -49,6 +60,37 @@ describe("AccessGate session controls", () => {
     expect(await screen.findByLabelText("Email")).toBeVisible();
     expect(screen.queryByText("Emergency operator access")).toBeNull();
     expect(screen.queryByText("Operator recovery access")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/auth/access",
+      expect.anything(),
+    );
+  });
+
+  it("shows an account error without falling back to recovery", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "Account status is temporarily unavailable.",
+          },
+        }),
+        { status: 503 },
+      ),
+    );
+
+    render(
+      <AccessGate>
+        <SessionProbe />
+      </AccessGate>,
+    );
+
+    expect(
+      await screen.findByText("Account status is temporarily unavailable."),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Email")).toBeVisible();
+    expect(screen.queryByLabelText("Operator recovery code")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("shows emergency operator access only from the dedicated URL", async () => {
@@ -88,6 +130,7 @@ describe("AccessGate session controls", () => {
   });
 
   it("signs out through the recovery endpoint while retaining recovery guidance", async () => {
+    window.history.replaceState({}, "", "/studio?operator=recovery");
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -123,9 +166,15 @@ describe("AccessGate session controls", () => {
       <AccessGate>
         <SessionProbe />
       </AccessGate>,
-      );
+    );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    const signOutButton = await screen.findByRole("button", {
+      name: "Sign out",
+    });
+    expect(screen.getByLabelText("Session storage scope")).toHaveTextContent(
+      "recovery:operator-recovery",
+    );
+    fireEvent.click(signOutButton);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/auth/access", {
@@ -138,7 +187,8 @@ describe("AccessGate session controls", () => {
     expect(screen.getByLabelText("Operator recovery code")).toBeVisible();
   });
 
-  it("does not expose sign-out controls in unprotected planning mode", async () => {
+  it("opens unprotected planning mode only through the dedicated recovery URL", async () => {
+    window.history.replaceState({}, "", "/studio?operator=recovery");
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         new Response(
@@ -168,6 +218,9 @@ describe("AccessGate session controls", () => {
 
     expect(await screen.findByText("Planning mode")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+    expect(screen.getByLabelText("Session storage scope")).toHaveTextContent(
+      "none:planning",
+    );
   });
 
   it("keeps an authenticated pending account outside Studio", async () => {
@@ -177,6 +230,7 @@ describe("AccessGate session controls", () => {
           authenticated: true,
           ready: true,
           account: {
+            userId: "0f54f1be-129d-4adb-a731-6fd54cfc1bc1",
             email: "pending@example.com",
             accountStatus: "pending",
           },
@@ -202,9 +256,10 @@ describe("AccessGate session controls", () => {
         new Response(
           JSON.stringify({
             authenticated: true,
-            ready: true,
-            account: {
-              email: "approved@example.com",
+          ready: true,
+          account: {
+            userId: "0f54f1be-129d-4adb-a731-6fd54cfc1bc1",
+            email: "approved@example.com",
               accountStatus: "approved",
             },
           }),
@@ -221,6 +276,9 @@ describe("AccessGate session controls", () => {
       </AccessGate>,
     );
 
+    expect(await screen.findByLabelText("Session storage scope")).toHaveTextContent(
+      "account:0f54f1be-129d-4adb-a731-6fd54cfc1bc1",
+    );
     fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/auth/session", {

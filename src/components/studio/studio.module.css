@@ -487,7 +487,11 @@
 }
 
 .primaryButton:disabled,
-.secondaryButton:disabled {
+.secondaryButton:disabled,
+.textButton:disabled,
+.missingAnchor:disabled,
+.candidateEmpty:disabled,
+.directorAction:disabled {
   cursor: not-allowed;
   opacity: 0.55;
   transform: none;
@@ -633,6 +637,29 @@
   padding: 8px 24px;
   border-bottom: 1px solid;
   font-size: 12px;
+}
+
+.planningNotice {
+  display: grid;
+  min-height: 48px;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 24px;
+  border-bottom: 1px solid rgba(127, 213, 255, 0.18);
+  background: rgba(12, 35, 46, 0.42);
+  color: #bceaff;
+  font-size: 11px;
+}
+
+.planningNotice span {
+  display: grid;
+  gap: 2px;
+}
+
+.planningNotice strong {
+  color: #e4f7ff;
+  font-size: 10px;
 }
 
 .notice {
@@ -1186,6 +1213,11 @@
 .missingAnchor:hover {
   border-color: var(--studio-citron);
   color: var(--studio-text);
+}
+
+.missingAnchor:disabled:hover {
+  border-color: #51574b;
+  color: var(--studio-muted);
 }
 
 .missingAnchor span {
@@ -2018,6 +2050,10 @@
 
 .directorAction:hover {
   background: #263112;
+}
+
+.directorAction:disabled:hover {
+  background: #1d250d;
 }
 
 .directorAction > span {

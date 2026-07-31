@@ -11,7 +11,7 @@ import {
 import {
   createStudioLoginSession,
   expiredSessionCookie,
-  getAccessState,
+  getOperatorRecoveryAccessState,
   sessionCookie,
   studioIdentityCookie,
   studioSessionMigrationCookies,
@@ -94,7 +94,7 @@ function crossSiteError(requestId: string): Response {
 
 export async function GET(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
-  const state = getAccessState(request);
+  const state = getOperatorRecoveryAccessState(request);
   const headers = new Headers();
   if (state.allowed && state.required) {
     for (const cookie of studioSessionMigrationCookies(request)) {
@@ -119,7 +119,7 @@ export async function POST(request: Request): Promise<Response> {
     return crossSiteError(requestId);
   }
 
-  const state = getAccessState(request);
+  const state = getOperatorRecoveryAccessState(request);
   if (!state.required) {
     return jsonResponse({
       ok: true,

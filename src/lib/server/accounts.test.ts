@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createAccountSessionToken } from "./auth";
+import { GET as accountSessionRoute } from "@/app/api/auth/session/route";
+
+import { createAccountSessionToken, getAccountSession } from "./auth";
 import { productQuery } from "./product-db";
 
 vi.mock("./product-db", () => ({
@@ -99,5 +101,83 @@ describe("account authorization", () => {
     if (!authorization.allowed) {
       expect(authorization.response.status).toBe(403);
     }
+  });
+
+  it("refreshes the v3 cookie and response from the latest account profile", async () => {
+    vi.mocked(productQuery).mockResolvedValueOnce({
+      rows: [row({ status: "approved", role: "admin" })],
+    } as never);
+
+    const response = await accountSessionRoute(
+      accountRequest({ status: "pending", role: "user" }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.clone().json()).toMatchObject({
+      authenticated: true,
+      account: {
+        userId: USER_ID,
+        accountStatus: "approved",
+        appRole: "admin",
+      },
+    });
+
+    const setCookie = response.headers.get("set-cookie");
+    expect(setCookie).toBeTruthy();
+    const cookiePair = setCookie!.split(";", 1)[0];
+    expect(
+      getAccountSession(
+        new Request("https://ugc.vixelai.com/api/auth/session", {
+          headers: { cookie: cookiePair },
+        }),
+      ),
+    ).toMatchObject({
+      userId: USER_ID,
+      accountStatus: "approved",
+      appRole: "admin",
+    });
+  });
+
+  it("uses current approval for product APIs instead of stale v3 claims", async () => {
+    vi.mocked(productQuery).mockResolvedValueOnce({
+      rows: [row({ status: "approved" })],
+    } as never);
+    const { requireCurrentStudioSession } = await import("./accounts");
+
+    await expect(
+      requireCurrentStudioSession(
+        accountRequest({ status: "pending" }),
+        "request-current-approval",
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it("blocks a stale approved v3 cookie after the account is suspended", async () => {
+    vi.mocked(productQuery).mockResolvedValueOnce({
+      rows: [row({ status: "suspended" })],
+    } as never);
+    const { requireCurrentStudioSession } = await import("./accounts");
+
+    const response = await requireCurrentStudioSession(
+      accountRequest({ status: "approved" }),
+      "request-current-suspension",
+    );
+    expect(response?.status).toBe(403);
+    expect(await response?.json()).toMatchObject({
+      error: { code: "account_suspended" },
+    });
+  });
+
+  it("fails product APIs closed when current account authorization is unavailable", async () => {
+    vi.mocked(productQuery).mockRejectedValueOnce(new Error("db unavailable"));
+    const { requireCurrentStudioSession } = await import("./accounts");
+
+    const response = await requireCurrentStudioSession(
+      accountRequest(),
+      "request-current-database",
+    );
+    expect(response?.status).toBe(503);
+    expect(await response?.json()).toMatchObject({
+      error: { code: "account_database_unavailable" },
+    });
   });
 });
