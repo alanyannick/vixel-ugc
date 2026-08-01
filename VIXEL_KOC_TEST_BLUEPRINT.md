@@ -1,11 +1,11 @@
-# Vixel KOC Studio Test Blueprint
+# Vixel Campaigns Test Blueprint
 
 ## Target
 
 - Main test environment: local production build, then Vercel production.
 - Login/test account: production uses the private-preview access code; local
   planning does not require it.
-- Acceptance target: a new user can move from homepage to a saved KOC campaign, approve one creative route, create a stage plan, run provider-backed or demo-safe generation, review candidates, reload, and recover the same project.
+- Acceptance target: an approved user can move from homepage to a saved UGC Campaign, approve one creative route, create a stage plan, run readiness-gated generation, review candidates, reload, and recover the same project.
 
 ## P0 Must Pass
 

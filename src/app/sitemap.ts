@@ -5,9 +5,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const entries = [
     {
       path: "/",
-      lastModified: "2026-07-31",
+      lastModified: "2026-08-01",
       changeFrequency: "weekly" as const,
       priority: 1,
+    },
+    {
+      path: "/ai-video-generator-for-product-marketing",
+      lastModified: "2026-08-01",
+      changeFrequency: "monthly" as const,
+      priority: 0.95,
     },
     {
       path: "/ugc-ad-generator",
@@ -23,13 +29,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       path: "/what-is-ai-ugc",
-      lastModified: "2026-07-30",
+      lastModified: "2026-08-01",
       changeFrequency: "monthly" as const,
       priority: 0.85,
     },
     {
       path: "/guides/ugc-vs-koc",
-      lastModified: "2026-07-30",
+      lastModified: "2026-08-01",
       changeFrequency: "monthly" as const,
       priority: 0.8,
     },
@@ -40,38 +46,44 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      path: "/compare/vixel-ai-video-generator-app",
+      lastModified: "2026-08-01",
+      changeFrequency: "monthly" as const,
+      priority: 0.75,
+    },
+    {
       path: "/access",
-      lastModified: "2026-07-31",
+      lastModified: "2026-08-01",
       changeFrequency: "monthly" as const,
       priority: 0.7,
     },
     {
       path: "/pricing",
-      lastModified: "2026-07-31",
+      lastModified: "2026-08-01",
       changeFrequency: "monthly" as const,
       priority: 0.8,
     },
     {
       path: "/waitlist",
-      lastModified: "2026-07-31",
+      lastModified: "2026-08-01",
       changeFrequency: "weekly" as const,
       priority: 0.9,
     },
     {
       path: "/faq",
-      lastModified: "2026-07-31",
+      lastModified: "2026-08-01",
       changeFrequency: "monthly" as const,
       priority: 0.7,
     },
     {
       path: "/privacy",
-      lastModified: "2026-07-31",
+      lastModified: "2026-08-01",
       changeFrequency: "yearly" as const,
       priority: 0.3,
     },
     {
       path: "/terms",
-      lastModified: "2026-07-30",
+      lastModified: "2026-08-01",
       changeFrequency: "yearly" as const,
       priority: 0.3,
     },

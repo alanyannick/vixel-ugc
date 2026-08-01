@@ -6,6 +6,10 @@ vi.mock("@/lib/server/database-readiness", () => ({
   probeMediaLedgerReadiness: vi.fn(async () => ({ status: "ready" })),
 }));
 
+vi.mock("@/lib/server/billing", () => ({
+  requirePaidGenerationAccess: vi.fn(async () => null),
+}));
+
 import {
   createSessionToken,
   getAccessState,
@@ -151,8 +155,12 @@ describe("server environment", () => {
     expect(JSON.parse(text)).toMatchObject({
       providerConfigured: true,
       liveGeneration: true,
+      paidReady: false,
       databaseConfigured: true,
-      checks: { liveGeneration: "not_ready" },
+      checks: {
+        liveGeneration: "not_ready",
+        provider: "configured",
+      },
       issues: [
         "live_generation_account_auth_not_ready",
         "live_generation_billing_not_ready",

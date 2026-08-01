@@ -342,7 +342,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
         );
         setState("recovery");
       } else {
-        setNotice("Signed out of Vixel UGC.");
+        setNotice("Signed out of Vixel Campaigns.");
         setState("email");
       }
       setSessionKind("none");
@@ -381,8 +381,8 @@ export function AccessGate({ children }: { children: ReactNode }) {
     return (
       <div className={styles.gatePage} data-studio-shell>
         <IconMark className={styles.gateMark} />
-        <p className={styles.gateEyebrow}>Vixel UGC Studio</p>
-        <p className={styles.gateChecking}>Checking studio access…</p>
+        <p className={styles.gateEyebrow}>Vixel Campaigns</p>
+        <p className={styles.gateChecking}>Checking UGC Campaign access…</p>
       </div>
     );
   }
@@ -398,7 +398,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
               Waitlist received
             </span>
           </div>
-          <p className={styles.gateEyebrow}>Vixel UGC private beta</p>
+          <p className={styles.gateEyebrow}>Vixel Campaigns private beta</p>
           <h1 id="gate-title">You’re on the list.</h1>
           <p>
             Your account is ready. Studio opens after an operator approves your
@@ -426,12 +426,12 @@ export function AccessGate({ children }: { children: ReactNode }) {
             {accountMode ? "Email access" : "Emergency access"}
           </span>
         </div>
-        <p className={styles.gateEyebrow}>Vixel UGC Studio</p>
+        <p className={styles.gateEyebrow}>Vixel Campaigns</p>
         <h1 id="gate-title">
           {state === "otp"
             ? "Check your inbox."
             : accountMode
-              ? "Enter the campaign room."
+              ? "Enter the UGC Campaign workspace."
               : "Emergency operator access."}
         </h1>
         <p>

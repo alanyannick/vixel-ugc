@@ -1,6 +1,6 @@
 ## Why
 
-Vixel UGC has a strong planning and paid-generation core, but it is still
+Vixel Campaigns has a strong planning and paid-generation core, but it is still
 gated by a shared access code and local browser state. The beta now needs a
 safe customer entry, durable accounts and data, operator-controlled admission,
 and subscription entitlement without weakening the existing paid-media

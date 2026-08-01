@@ -44,7 +44,7 @@ function shell(input: {
       <h1 style="margin:0;font-size:38px;line-height:1.05;letter-spacing:-.04em">${escapeHtml(input.heading)}</h1>
       <p style="margin:22px 0 0;color:#b3b8ae;font-size:16px;line-height:1.65">${escapeHtml(input.body)}</p>
       ${action}
-      <p style="margin:42px 0 0;padding-top:18px;border-top:1px solid #2b2f27;color:#777d72;font-size:12px;line-height:1.6">Vixel UGC · Source-grounded creator campaign planning</p>
+      <p style="margin:42px 0 0;padding-top:18px;border-top:1px solid #2b2f27;color:#777d72;font-size:12px;line-height:1.6">Vixel Campaigns · AI Product-to-UGC Campaign Studio</p>
     </div>
   </body>
 </html>`;
@@ -66,9 +66,9 @@ export function lifecycleEmail(
   const greeting = `Hi${name(payload)},`;
   switch (type) {
     case "waitlist_confirmation": {
-      const body = `${greeting} your Vixel UGC beta request is recorded. We review access by product fit and expected production volume, and we’ll email you when the campaign room is ready.`;
+      const body = `${greeting} your Vixel Campaigns beta request is recorded. We review access by product fit and expected production volume, and we’ll email you when the Campaign Studio is ready.`;
       return {
-        subject: "You’re on the Vixel UGC beta list",
+        subject: "You’re on the Vixel Campaigns beta list",
         text: body,
         html: shell({
           eyebrow: "Waitlist confirmed",
@@ -80,9 +80,9 @@ export function lifecycleEmail(
       };
     }
     case "welcome": {
-      const body = `${greeting} your passwordless Vixel UGC account is ready. If your beta access is still pending, the Studio will open automatically after approval.`;
+      const body = `${greeting} your passwordless Vixel Campaigns account is ready. If your beta access is still pending, the Campaign Studio will open automatically after approval.`;
       return {
-        subject: "Your Vixel UGC account is ready",
+        subject: "Your Vixel Campaigns account is ready",
         text: body,
         html: shell({
           eyebrow: "Account ready",
@@ -94,9 +94,9 @@ export function lifecycleEmail(
       };
     }
     case "waitlist_approved": {
-      const body = `${greeting} your Vixel UGC beta request has been approved. An operator can now issue your Studio invitation.`;
+      const body = `${greeting} your Vixel Campaigns beta request has been approved. An operator can now issue your Campaign Studio invitation.`;
       return {
-        subject: "Your Vixel UGC beta access is approved",
+        subject: "Your Vixel Campaigns beta access is approved",
         text: body,
         html: shell({
           eyebrow: "Beta approved",
@@ -106,9 +106,9 @@ export function lifecycleEmail(
       };
     }
     case "invitation": {
-      const body = `${greeting} your Vixel UGC Studio invitation is live. Sign in with this email to enter the campaign room.`;
+      const body = `${greeting} your Vixel Campaigns invitation is live. Sign in with this email to enter the Campaign Studio.`;
       return {
-        subject: "Your Vixel UGC Studio invitation",
+        subject: "Your Vixel Campaigns invitation",
         text: `${body}\n\n${siteUrl}/studio`,
         html: shell({
           eyebrow: "Studio invitation",
@@ -120,9 +120,9 @@ export function lifecycleEmail(
       };
     }
     case "invitation_reminder": {
-      const body = `${greeting} a quick reminder that your Vixel UGC Studio invitation is still available. Sign in with this email before the invitation window closes.`;
+      const body = `${greeting} a quick reminder that your Vixel Campaigns invitation is still available. Sign in with this email before the invitation window closes.`;
       return {
-        subject: "Reminder: your Vixel UGC invitation is waiting",
+        subject: "Reminder: your Vixel Campaigns invitation is waiting",
         text: `${body}\n\n${siteUrl}/studio`,
         html: shell({
           eyebrow: "Invitation reminder",

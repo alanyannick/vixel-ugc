@@ -1,4 +1,8 @@
-# Vixel UGC Release Evidence
+# Historical Vixel UGC Release Evidence
+
+This snapshot records the production baseline before the Vixel Campaigns
+identity release; its deployment ID, commit, route count, and health labels are
+preserved as observed rather than rewritten retroactively.
 
 ## Release identity
 
@@ -91,6 +95,11 @@ providerTransportSecure=true
 commit=6186d29211703fc24f4099cb0a1fb2a3e72102c6
 ```
 
+`provider=ready` is the historical response label captured from that commit. It
+meant that a secure provider configuration was present; it did not prove
+provider reachability or a successful paid generation. Current code reports
+this configuration-only state as `provider=configured`.
+
 Verified response policy:
 
 - HSTS: `max-age=63072000; includeSubDomains; preload`
@@ -103,7 +112,7 @@ Verified response policy:
 
 ## Visual artifacts
 
-The checked-in `local/` screenshots capture the current Vixel UGC acquisition
+The checked-in `local/` screenshots capture the historical Vixel UGC acquisition
 and Studio surfaces used for visual review. Files under `production/` other
 than `qa-results.json` are retained as the pre-cutover KOC baseline for visual
 regression history; they are not claimed as screenshots of the deployment

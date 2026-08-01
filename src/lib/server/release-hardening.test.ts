@@ -72,6 +72,7 @@ describe("release runtime readiness", () => {
       },
       issues: [],
       liveGeneration: false,
+      paidReady: false,
     });
   });
 
@@ -89,11 +90,12 @@ describe("release runtime readiness", () => {
       checks: {
         liveness: true,
         readiness: false,
-        provider: "not_ready",
+        provider: "not_configured",
         ledger: "not_ready",
       },
       providerConfigured: false,
       providerTransportSecure: false,
+      paidReady: false,
     });
     expect(body.issues).toEqual(
       expect.arrayContaining([

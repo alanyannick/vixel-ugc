@@ -1,4 +1,4 @@
-# Vixel UGC product launch draft
+# Vixel Campaigns product launch draft
 
 Turn the current planning beta into an account-based, operator-controlled UGC
 product without weakening the paid-media safety boundary.

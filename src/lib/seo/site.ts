@@ -3,18 +3,22 @@ import type { Metadata } from "next";
 const canonicalUrl = "https://ugc.vixelai.com";
 
 export const siteConfig = {
-  name: "Vixel UGC Studio",
-  shortName: "Vixel UGC",
+  name: "Vixel Campaigns",
+  shortName: "Campaigns",
   description:
-    "A source-grounded AI UGC campaign planning beta. Live image and video generation requires a deployment with provider and ledger readiness.",
+    "Vixel Campaigns is an AI Product-to-UGC Campaign Studio for grounded creator ad plans, cloud recovery, and readiness-gated media generation.",
   url: canonicalUrl,
   locale: "en_US",
   keywords: [
+    "AI ad studio",
+    "AI UGC campaign",
+    "AI video ads",
     "AI UGC video generator",
     "UGC ad generator",
     "AI product video generator",
     "creator-style video ads",
     "KOC video generator",
+    "KOC campaign planner",
     "product truth",
     "TikTok UGC ads",
     "Reels video ads",

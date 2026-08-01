@@ -1,10 +1,10 @@
-# Vixel UGC Studio Product Blueprint
+# Vixel Campaigns Product Blueprint
 
 ## 1. Product Definition
 
-Vixel UGC Studio is an AI campaign workspace for teams that need creator-style
-product videos without losing product truth, human credibility, or platform
-native expression.
+Vixel Campaigns is an AI Product-to-UGC Campaign Studio for teams that need
+creator-style product videos without losing product truth, human credibility,
+or platform-native expression.
 
 The product's job is not to generate a pretty clip from a prompt. It is to make
 the decisions and evidence behind that clip inspectable:
@@ -44,16 +44,19 @@ invented claim is a product failure.
 ```text
 Public
 ├── Home
-├── AI UGC workflow
+├── AI Product-to-UGC Campaign workflow
 ├── What is AI UGC?
 ├── UGC vs KOC guide
 ├── Product truth guide
 ├── FAQ
 ├── Beta access
+├── Pricing
+├── Waitlist
 ├── Privacy
 └── Terms
 
 Studio
+├── Email OTP account access
 ├── Campaigns
 ├── New campaign
 ├── Campaign board
@@ -62,20 +65,25 @@ Studio
 │   ├── Plan/checkpoints
 │   ├── Assets and candidates
 │   └── Export
-└── Access gate
+├── Cloud save and recovery
+└── Billing and generation readiness
+
+Operations
+├── Waitlist review
+├── Account approval and invitation
+└── Provider, billing, and runtime health
 ```
 
 ## 4. Visible Product Model
 
-The user sees one Director.
-
-The Director chooses one of three internal paths:
+The user sees one UGC Campaign workflow. The Creative Router chooses one of
+three internal paths:
 
 - `direct`: safe, local, reversible operations such as renaming or export.
 - `guided`: a small missing decision blocks trustworthy work.
 - `planned`: multi-stage, paid, asynchronous, or approval-sensitive work.
 
-Router, Planner, and Executor are not separate characters. They are typed
+Routing, planning, and execution are not separate characters. They are typed
 responsibilities behind one surface.
 
 ## 5. AI UGC Workflow
@@ -126,7 +134,12 @@ CTA/logo, or music mix is required.
 
 ## 6. Canonical Data Boundaries
 
+- Supabase identity owns the account boundary; approval state controls product
+  access independently from OTP authentication.
 - Campaign owns product facts, decisions, accepted artifacts, and revision.
+- Authenticated cloud campaign snapshots are scoped to the current account.
+  Browser state remains useful for the demo, local recovery, and JSON export;
+  it is not the cross-device account record.
 - The stored domain `ExecutionPlan` owns execution topology and runtime state;
   the Studio rail reads it directly.
 - A PostgreSQL media-ledger job owns provider submission and recovery.
@@ -139,8 +152,9 @@ CTA/logo, or music mix is required.
 
 - Product claims require a source.
 - Provider credentials never reach the browser.
-- Live generation requires an authenticated studio session, explicit deployment
-  flag, HTTPS provider, and isolated PostgreSQL ledger.
+- Live generation requires an approved account, active server-owned billing
+  entitlement, secure server session configuration, explicit deployment flag,
+  HTTPS provider, isolated PostgreSQL ledger, and healthy runtime dependencies.
 - Paid input approval is a short-lived server HMAC tied to the canonical input,
   signed recovery subject, provider model, adapter build, and idempotency key.
 - Changing prompt, model, references, ratio, duration, or audio invalidates the

@@ -13,10 +13,10 @@ import { createPageMetadata } from "@/lib/seo/site";
 
 const path = "/what-is-ai-ugc";
 const description =
-  "AI UGC is creator-style advertising media produced with generative AI. Learn how it differs from filmed UGC and KOC marketing, and where product evidence still matters.";
+  "AI UGC is creator-style ad media made with generative AI. Learn how it differs from filmed UGC and KOC, and why product evidence still matters.";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "What is AI UGC? Creator-style video ads explained",
+  title: "What is AI UGC? Creator ads explained",
   description,
   path,
 });
@@ -58,7 +58,7 @@ export default function WhatIsAiUgcPage() {
             description,
             path,
             datePublished: "2026-07-30",
-            dateModified: "2026-07-30",
+            dateModified: "2026-08-01",
           }),
           faqSchema(guideFaq),
         ]}

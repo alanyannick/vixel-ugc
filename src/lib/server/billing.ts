@@ -6,6 +6,7 @@ import type { PoolClient } from "pg";
 import { FOUNDING_BETA_OFFER } from "@/lib/product-offer";
 
 import { authorizeAccount } from "./accounts";
+import { apiError } from "./api";
 import { getServerRuntimeConfig } from "./env";
 import {
   productQuery,
@@ -52,6 +53,13 @@ type StripeClient = Pick<
 
 let testStripeClient: StripeClient | null = null;
 
+// The only billable offer is monthly. A 45-day ceiling tolerates delayed
+// delivery around a renewal while preventing an old webhook projection from
+// granting access indefinitely. The current period must independently still
+// be in the future.
+const ENTITLEMENT_PROJECTION_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
+const PROVIDER_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
 function stripeClient(): StripeClient {
   if (testStripeClient) return testStripeClient;
   const key = process.env.STRIPE_SECRET_KEY?.trim();
@@ -61,12 +69,46 @@ function stripeClient(): StripeClient {
 
 function iso(value: Date | string | null): string | null {
   if (value === null) return null;
-  return value instanceof Date
-    ? value.toISOString()
-    : new Date(value).toISOString();
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+}
+
+function timestamp(value: Date | string | null): number | null {
+  if (value === null) return null;
+  const milliseconds =
+    value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(milliseconds) ? milliseconds : null;
+}
+
+function hasCurrentEntitlement(
+  row: SubscriptionRow | null,
+  expectedPriceId: string | null,
+  now = Date.now(),
+): boolean {
+  if (
+    !row ||
+    !expectedPriceId ||
+    !row.stripe_customer_id ||
+    !row.stripe_subscription_id ||
+    row.stripe_price_id !== expectedPriceId ||
+    (row.status !== "active" && row.status !== "trialing")
+  ) {
+    return false;
+  }
+
+  const periodEnd = timestamp(row.current_period_end);
+  const projectedAt = timestamp(row.last_provider_event_at);
+  if (periodEnd === null || projectedAt === null) return false;
+
+  return (
+    periodEnd > now &&
+    projectedAt <= now + PROVIDER_CLOCK_SKEW_MS &&
+    now - projectedAt <= ENTITLEMENT_PROJECTION_MAX_AGE_MS
+  );
 }
 
 function publicState(row: SubscriptionRow | null): BillingState {
+  const expectedPriceId = process.env.STRIPE_PRICE_UGC_BETA?.trim() || null;
   return {
     status: row?.status ?? "none",
     customerConfigured: Boolean(row?.stripe_customer_id),
@@ -74,7 +116,7 @@ function publicState(row: SubscriptionRow | null): BillingState {
     priceId: row?.stripe_price_id ?? null,
     currentPeriodEnd: iso(row?.current_period_end ?? null),
     cancelAtPeriodEnd: row?.cancel_at_period_end ?? false,
-    entitled: row?.status === "active" || row?.status === "trialing",
+    entitled: hasCurrentEntitlement(row, expectedPriceId),
   };
 }
 
@@ -115,14 +157,13 @@ function unixDate(value: number | null | undefined): Date | null {
   return typeof value === "number" ? new Date(value * 1000) : null;
 }
 
-function subscriptionPeriodEnd(
+function subscriptionEntitlementItem(
   subscription: Stripe.Subscription,
-): Date | null {
-  const latest = subscription.items.data.reduce(
-    (maximum, item) => Math.max(maximum, item.current_period_end ?? 0),
-    0,
-  );
-  return unixDate(latest || null);
+): Stripe.SubscriptionItem | null {
+  if (subscription.items.data.length !== 1) return null;
+  const item = subscription.items.data[0];
+  if (!item?.price.id || !item.current_period_end) return null;
+  return item;
 }
 
 export class BillingError extends Error {
@@ -284,7 +325,6 @@ export async function createCheckoutSession(input: {
     `
       UPDATE vixel_ugc.subscriptions
       SET
-        stripe_price_id = $2,
         status = CASE
           WHEN status IN ('active', 'trialing') THEN status
           ELSE 'checkout_pending'
@@ -300,7 +340,7 @@ export async function createCheckoutSession(input: {
         cancel_at_period_end,
         last_provider_event_at
     `,
-    [input.userId, priceId],
+    [input.userId],
   );
   return { url: checkout.url, state: publicState(result.rows[0] ?? null) };
 }
@@ -416,23 +456,13 @@ export async function projectStripeEvent(input: {
           UPDATE vixel_ugc.subscriptions
           SET
             stripe_customer_id = $2,
-            stripe_subscription_id = COALESCE($3, stripe_subscription_id),
-            status = CASE
-              WHEN status IN ('active', 'trialing') THEN status
-              ELSE 'checkout_pending'
-            END,
-            last_provider_event_at = $4
+            stripe_subscription_id = COALESCE(stripe_subscription_id, $3)
           WHERE user_id = $1
-            AND (
-              last_provider_event_at IS NULL
-              OR last_provider_event_at <= $4
-            )
         `,
         [
           userId,
           customer,
           subscriptionId(checkout.subscription),
-          unixDate(input.event.created),
         ],
       );
       return { replayed: false, projected: true };
@@ -451,14 +481,14 @@ export async function projectStripeEvent(input: {
         customer,
       );
       if (!userId) return { replayed: false, projected: false };
-      const item = subscription.items.data[0];
+      const item = subscriptionEntitlementItem(subscription);
       await client.query(
         `
           UPDATE vixel_ugc.subscriptions
           SET
             stripe_customer_id = $2,
             stripe_subscription_id = $3,
-            stripe_price_id = COALESCE($4, stripe_price_id),
+            stripe_price_id = $4,
             status = $5,
             current_period_end = $6,
             cancel_at_period_end = $7,
@@ -475,7 +505,7 @@ export async function projectStripeEvent(input: {
           subscription.id,
           item?.price.id ?? null,
           stripeStatus(subscription.status),
-          subscriptionPeriodEnd(subscription),
+          unixDate(item?.current_period_end),
           subscription.cancel_at_period_end,
           unixDate(input.event.created),
         ],
@@ -492,9 +522,7 @@ export async function requirePaidGenerationAccess(
   requestId: string,
 ): Promise<Response | null> {
   const config = getServerRuntimeConfig();
-  if (!config.product.features.accountAuth.enabled) return null;
   if (!config.product.features.accountAuth.ready) {
-    const { apiError } = await import("./api");
     return apiError(
       503,
       "account_auth_not_ready",
@@ -503,12 +531,22 @@ export async function requirePaidGenerationAccess(
       requestId,
     );
   }
-  const authorization = await authorizeAccount(request, requestId, {
-    approved: true,
-  });
+  let authorization;
+  try {
+    authorization = await authorizeAccount(request, requestId, {
+      approved: true,
+    });
+  } catch {
+    return apiError(
+      503,
+      "entitlement_check_unavailable",
+      "Paid generation authorization is temporarily unavailable.",
+      true,
+      requestId,
+    );
+  }
   if (!authorization.allowed) return authorization.response;
   if (!config.product.features.billing.ready) {
-    const { apiError } = await import("./api");
     return apiError(
       503,
       "billing_not_ready",
@@ -517,13 +555,23 @@ export async function requirePaidGenerationAccess(
       requestId,
     );
   }
-  const state = await getBillingState(authorization.account.userId);
+  let state: BillingState;
+  try {
+    state = await getBillingState(authorization.account.userId);
+  } catch {
+    return apiError(
+      503,
+      "entitlement_check_unavailable",
+      "Paid generation authorization is temporarily unavailable.",
+      true,
+      requestId,
+    );
+  }
   if (!state.entitled) {
-    const { apiError } = await import("./api");
     return apiError(
       402,
       "subscription_required",
-      "An active subscription is required for paid generation.",
+      "A current subscription for this product is required for paid generation.",
       false,
       requestId,
     );

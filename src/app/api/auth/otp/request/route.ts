@@ -37,7 +37,7 @@ export async function POST(request: Request): Promise<Response> {
     return apiError(
       403,
       "cross_site_request_blocked",
-      "This request must originate from Vixel UGC.",
+      "This request must originate from Vixel Campaigns.",
       false,
       requestId,
     );
