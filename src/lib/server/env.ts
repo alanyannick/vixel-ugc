@@ -19,7 +19,6 @@ export type ServerRuntimeConfig = {
       configured: boolean;
       url: string | null;
       publishableKeyConfigured: boolean;
-      secretKeyConfigured: boolean;
     };
     turnstile: {
       configured: boolean;
@@ -72,6 +71,8 @@ export type FeatureReadiness = {
   missing: string[];
 };
 
+export type StripeRuntimeMode = "live" | "test";
+
 export type PublicProductConfig = {
   siteUrl: string | null;
   supabaseUrl: string | null;
@@ -85,12 +86,35 @@ const DEFAULT_VIDEO_MODEL = "veo-3.1-fast-generate-preview";
 export const MIN_ACCESS_CODE_BYTES = 16;
 export const MIN_SESSION_SECRET_BYTES = 32;
 
-export function envValue(
-  env: NodeJS.ProcessEnv,
-  name: string,
-): string | null {
+export function envValue(env: NodeJS.ProcessEnv, name: string): string | null {
   const value = env[name]?.trim();
   return value ? value : null;
+}
+
+export function stripeSecretKeyMode(
+  key: string | null | undefined,
+): StripeRuntimeMode | null {
+  const value = key?.trim() ?? "";
+  if (value.startsWith("sk_live_") || value.startsWith("rk_live_")) {
+    return "live";
+  }
+  if (value.startsWith("sk_test_") || value.startsWith("rk_test_")) {
+    return "test";
+  }
+  return null;
+}
+
+/**
+ * Vercel Production is the only deployment allowed to use live Stripe data.
+ * Preview, Development, custom/unknown targets, and non-Vercel local builds
+ * (including `next build` with NODE_ENV=production) safely default to test.
+ */
+export function expectedStripeRuntimeMode(
+  env: NodeJS.ProcessEnv = nodeEnvironment,
+): StripeRuntimeMode {
+  return envValue(env, "VERCEL_ENV")?.toLowerCase() === "production"
+    ? "live"
+    : "test";
 }
 
 function enabled(env: NodeJS.ProcessEnv, name: string): boolean {
@@ -158,9 +182,7 @@ export function normalizeNewApiBase(
   if (!["http:", "https:"].includes(url.protocol)) return null;
   if (url.username || url.password || url.search || url.hash) return null;
 
-  const segments = url.pathname
-    .split("/")
-    .filter(Boolean);
+  const segments = url.pathname.split("/").filter(Boolean);
   if (segments.at(-1)?.toLowerCase() === "v1") segments.pop();
   url.pathname = segments.length ? `/${segments.join("/")}` : "";
 
@@ -188,11 +210,7 @@ export function getServerRuntimeConfig(
     env,
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   );
-  const supabaseSecretKey = envValue(env, "SUPABASE_SECRET_KEY");
-  const turnstileSiteKey = envValue(
-    env,
-    "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
-  );
+  const turnstileSiteKey = envValue(env, "NEXT_PUBLIC_TURNSTILE_SITE_KEY");
   const turnstileSecretKey = envValue(env, "TURNSTILE_SECRET_KEY");
   const resendApiKey = envValue(env, "RESEND_API_KEY");
   const resendFrom = envValue(env, "RESEND_TRANSACTIONAL_FROM");
@@ -201,14 +219,14 @@ export function getServerRuntimeConfig(
   const stripeWebhookSecret = envValue(env, "STRIPE_WEBHOOK_SECRET");
   const stripePrice = envValue(env, "STRIPE_PRICE_UGC_BETA");
   const cronSecret = envValue(env, "CRON_SECRET");
-  const supabaseConfigured = Boolean(
-    supabaseUrl && supabasePublishableKey && supabaseSecretKey,
-  );
-  const turnstileConfigured = Boolean(
-    turnstileSiteKey && turnstileSecretKey,
-  );
+  const supabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
+  const turnstileConfigured = Boolean(turnstileSiteKey && turnstileSecretKey);
   const resendConfigured = Boolean(resendApiKey && resendFrom);
-  const stripeConfigured = Boolean(stripeSecret && siteUrl);
+  const stripeConfigured = Boolean(
+    stripeSecret &&
+    siteUrl &&
+    stripeSecretKeyMode(stripeSecret) === expectedStripeRuntimeMode(env),
+  );
   const normalizedBase = normalizeNewApiBase(envValue(env, "NEWAPI_BASE_URL"));
   const providerTransportSecure = Boolean(
     normalizedBase?.rootBaseUrl.startsWith("https://"),
@@ -244,7 +262,9 @@ export function getServerRuntimeConfig(
     [
       [databaseConfigured, "database"],
       [supabaseConfigured, "supabase"],
-      [!production || turnstileConfigured, "turnstile"],
+      // Supabase CAPTCHA is project-wide, so every environment using this Auth
+      // project must forward a valid provider token, not only Production.
+      [turnstileConfigured, "turnstile"],
     ],
   );
   const cloudCampaignsFeature = featureReadiness(
@@ -263,16 +283,13 @@ export function getServerRuntimeConfig(
       [Boolean(cronSecret), "cron"],
     ],
   );
-  const billingFeature = featureReadiness(
-    enabled(env, "ENABLE_BILLING"),
-    [
-      [databaseConfigured, "database"],
-      [accountAuthFeature.ready, "account_auth"],
-      [stripeConfigured, "stripe"],
-      [Boolean(stripeWebhookSecret), "stripe_webhook"],
-      [Boolean(stripePrice), "stripe_price"],
-    ],
-  );
+  const billingFeature = featureReadiness(enabled(env, "ENABLE_BILLING"), [
+    [databaseConfigured, "database"],
+    [accountAuthFeature.ready, "account_auth"],
+    [stripeConfigured, "stripe"],
+    [Boolean(stripeWebhookSecret), "stripe_webhook"],
+    [Boolean(stripePrice), "stripe_price"],
+  ]);
 
   return {
     production,
@@ -284,7 +301,6 @@ export function getServerRuntimeConfig(
         configured: supabaseConfigured,
         url: supabaseUrl,
         publishableKeyConfigured: Boolean(supabasePublishableKey),
-        secretKeyConfigured: Boolean(supabaseSecretKey),
       },
       turnstile: {
         configured: turnstileConfigured,
@@ -345,8 +361,10 @@ export function getPublicProductConfig(
   return {
     siteUrl: config.product.siteUrl,
     supabaseUrl: config.product.supabase.url,
-    supabasePublishableKey:
-      envValue(env, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+    supabasePublishableKey: envValue(
+      env,
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    ),
     turnstileSiteKey: config.product.turnstile.siteKey,
   };
 }

@@ -13,7 +13,6 @@ import {
   requestSupabaseEmailOtp,
   SupabaseAuthError,
 } from "@/lib/server/supabase-auth";
-import { verifyTurnstile } from "@/lib/server/turnstile";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -22,14 +21,6 @@ const requestSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(320),
   captchaToken: z.string().max(4_096).optional(),
 });
-
-function remoteIp(request: Request): string | undefined {
-  return request.headers
-    .get("x-forwarded-for")
-    ?.split(",", 1)[0]
-    ?.trim()
-    .slice(0, 64);
-}
 
 export async function POST(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
@@ -78,32 +69,35 @@ export async function POST(request: Request): Promise<Response> {
       requestId,
     );
   }
-  if (
-    !(await verifyTurnstile({
-      token: parsed.data.captchaToken ?? "",
-      remoteIp: remoteIp(request),
-      expectedAction: "otp",
-    }))
-  ) {
+  const captchaToken = parsed.data.captchaToken?.trim();
+  if (!captchaToken) {
     return apiError(
       403,
       "bot_check_failed",
-      "The security check could not be verified.",
+      "Complete the security check before requesting a sign-in code.",
       true,
       requestId,
     );
   }
-
   try {
-    await requestSupabaseEmailOtp(parsed.data);
+    await requestSupabaseEmailOtp({
+      email: parsed.data.email,
+      captchaToken,
+    });
   } catch (error) {
+    const botCheckFailed =
+      error instanceof SupabaseAuthError && error.code === "bot_check_failed";
     return apiError(
-      error instanceof SupabaseAuthError &&
-        error.code === "auth_not_configured"
-        ? 503
-        : 502,
-      "otp_request_failed",
-      "The sign-in code could not be sent. Try again shortly.",
+      botCheckFailed
+        ? 403
+        : error instanceof SupabaseAuthError &&
+            error.code === "auth_not_configured"
+          ? 503
+          : 502,
+      botCheckFailed ? "bot_check_failed" : "otp_request_failed",
+      botCheckFailed
+        ? "The security check could not be verified. Retry the challenge."
+        : "The sign-in code could not be sent. Try again shortly.",
       true,
       requestId,
     );

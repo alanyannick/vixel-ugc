@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  probeMediaLedgerReadinessMock,
-  probeProductDatabaseReadinessMock,
-} = vi.hoisted(() => ({
-  probeMediaLedgerReadinessMock: vi.fn(),
-  probeProductDatabaseReadinessMock: vi.fn(),
-}));
+const { probeMediaLedgerReadinessMock, probeProductDatabaseReadinessMock } =
+  vi.hoisted(() => ({
+    probeMediaLedgerReadinessMock: vi.fn(),
+    probeProductDatabaseReadinessMock: vi.fn(),
+  }));
 
 vi.mock("@/lib/server/database-readiness", () => ({
   probeMediaLedgerReadiness: probeMediaLedgerReadinessMock,
@@ -27,10 +25,11 @@ function configureLiveRuntime(): void {
   vi.stubEnv("ENABLE_ACCOUNT_AUTH", "true");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "publishable-key");
-  vi.stubEnv("SUPABASE_SECRET_KEY", "secret-key");
+  vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "turnstile-site-key");
+  vi.stubEnv("TURNSTILE_SECRET_KEY", "turnstile-secret-key");
   vi.stubEnv("ENABLE_BILLING", "true");
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://ugc.example.test");
-  vi.stubEnv("STRIPE_SECRET_KEY", "stripe-secret-key");
+  vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_health");
   vi.stubEnv("STRIPE_WEBHOOK_SECRET", "stripe-webhook-secret");
   vi.stubEnv("STRIPE_PRICE_UGC_BETA", "price_beta");
 }
@@ -193,7 +192,6 @@ describe("health ledger readiness", () => {
     );
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "publishable-key");
-    vi.stubEnv("SUPABASE_SECRET_KEY", "secret-key");
     probeProductDatabaseReadinessMock.mockResolvedValueOnce({
       status: "not_ready",
     });
@@ -220,10 +218,9 @@ describe("health ledger readiness", () => {
       NEXT_PUBLIC_SITE_URL: "https://ugc.example.test",
       NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "publishable-key",
-      SUPABASE_SECRET_KEY: "secret-key",
       ENABLE_CLOUD_CAMPAIGNS: "true",
       ENABLE_BILLING: "true",
-      STRIPE_SECRET_KEY: "stripe-secret-key",
+      STRIPE_SECRET_KEY: "sk_test_health",
       STRIPE_WEBHOOK_SECRET: "stripe-webhook-secret",
       STRIPE_PRICE_UGC_BETA: "price_beta",
     });

@@ -84,6 +84,6 @@ export async function verifyTurnstile(input: {
       secret,
       env,
     }) &&
-    (!result.action || result.action === input.expectedAction)
+    result.action === input.expectedAction
   );
 }

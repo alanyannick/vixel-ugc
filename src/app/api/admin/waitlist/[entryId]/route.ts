@@ -23,6 +23,7 @@ const mutationSchema = z.discriminatedUnion("operation", [
   z.object({
     operation: z.literal("transition"),
     action: z.enum(["approve", "reject", "invite", "revoke"]),
+    reason: z.string().max(240).optional(),
   }),
   z.object({
     operation: z.literal("note"),
@@ -92,6 +93,7 @@ export async function PATCH(
         ? await transitionWaitlist({
             entryId,
             action: parsed.data.action,
+            reason: parsed.data.reason,
             actorUserId: authorization.account.userId,
             requestId,
           })
@@ -104,8 +106,16 @@ export async function PATCH(
     return jsonResponse({ ok: true, requestId, entry });
   } catch (error) {
     if (error instanceof WaitlistTransitionError) {
+      const status =
+        error.code === "not_found"
+          ? 404
+          : error.code === "actor_not_authorized"
+            ? 403
+            : error.code === "invalid_reason"
+              ? 400
+              : 409;
       return apiError(
-        error.code === "not_found" ? 404 : 409,
+        status,
         error.code,
         error.message,
         false,

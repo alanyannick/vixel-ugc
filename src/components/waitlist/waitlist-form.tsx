@@ -2,8 +2,13 @@
 
 import { FormEvent, useCallback, useState } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 
-import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import {
+  TurnstileWidget,
+  type TurnstileState,
+  turnstileVerificationRequired,
+} from "@/components/auth/turnstile-widget";
 
 type WaitlistFormProps = {
   initialIntent?: string;
@@ -24,18 +29,38 @@ export function WaitlistForm({
   source = "waitlist-page",
 }: WaitlistFormProps) {
   const [captchaToken, setCaptchaToken] = useState("");
+  const captchaRequired = turnstileVerificationRequired();
+  const [captchaVerified, setCaptchaVerified] = useState(!captchaRequired);
+  const [captchaAttempt, setCaptchaAttempt] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [complete, setComplete] = useState(false);
+  const [completedEmail, setCompletedEmail] = useState("");
   const [error, setError] = useState("");
   const onCaptchaToken = useCallback((value: string) => {
     setCaptchaToken(value);
   }, []);
+  const onCaptchaState = useCallback((state: TurnstileState) => {
+    setCaptchaVerified(!state.required || state.verified);
+  }, []);
+
+  const resetCaptcha = useCallback(() => {
+    setCaptchaToken("");
+    setCaptchaVerified(!turnstileVerificationRequired());
+    setCaptchaAttempt((value) => value + 1);
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (captchaRequired && !captchaVerified) {
+      setError("Complete the security check before joining the waitlist.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     const data = new FormData(event.currentTarget);
+    const submittedEmail = String(data.get("email") ?? "")
+      .trim()
+      .toLowerCase();
     const intent = String(data.get("intent") ?? "").trim();
     const productUrl = String(data.get("productUrl") ?? "").trim();
     try {
@@ -56,8 +81,10 @@ export function WaitlistForm({
         }),
       });
       if (!response.ok) throw new Error(await responseMessage(response));
+      setCompletedEmail(submittedEmail);
       setComplete(true);
     } catch (caught) {
+      resetCaptcha();
       setError(
         caught instanceof Error
           ? caught.message
@@ -78,6 +105,17 @@ export function WaitlistForm({
           We sent a confirmation and will email you again when your Studio
           access is approved.
         </p>
+        <div className="waitlist-success-next">
+          <span>Next step</span>
+          <p>
+            Create your passwordless account with <strong>{completedEmail}</strong>
+            {" "}so this request stays linked to your Studio access.
+          </p>
+          <Link className="button button--citron" href="/studio">
+            Set up account or sign in
+            <ArrowRight aria-hidden="true" size={18} />
+          </Link>
+        </div>
       </div>
     );
   }
@@ -154,13 +192,22 @@ export function WaitlistForm({
           account emails are separate.
         </span>
       </label>
-      <TurnstileWidget action="waitlist" onToken={onCaptchaToken} />
+      <TurnstileWidget
+        key={captchaAttempt}
+        action="waitlist"
+        onStateChange={onCaptchaState}
+        onToken={onCaptchaToken}
+      />
       {error ? (
         <p className="waitlist-error" role="alert">
           {error}
         </p>
       ) : null}
-      <button className="button button--citron" disabled={submitting} type="submit">
+      <button
+        className="button button--citron"
+        disabled={submitting || (captchaRequired && !captchaVerified)}
+        type="submit"
+      >
         {submitting ? "Joining…" : "Join the private beta"}
         <ArrowRight aria-hidden="true" size={18} />
       </button>

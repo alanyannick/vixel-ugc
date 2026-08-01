@@ -66,16 +66,16 @@ export function lifecycleEmail(
   const greeting = `Hi${name(payload)},`;
   switch (type) {
     case "waitlist_confirmation": {
-      const body = `${greeting} your Vixel Campaigns beta request is recorded. We review access by product fit and expected production volume, and we’ll email you when the Campaign Studio is ready.`;
+      const body = `${greeting} your Vixel Campaigns beta request is recorded. Next, create your passwordless account or sign in to the Campaign Studio with this same email so your request stays linked. We review access by product fit and expected production volume, and we’ll email you when the Campaign Studio is ready.`;
       return {
         subject: "You’re on the Vixel Campaigns beta list",
-        text: body,
+        text: `${body}\n\n${siteUrl}/studio`,
         html: shell({
           eyebrow: "Waitlist confirmed",
           heading: "Your place is recorded.",
           body,
-          actionLabel: "See the product",
-          actionUrl: siteUrl,
+          actionLabel: "Set up account or sign in",
+          actionUrl: `${siteUrl}/studio`,
         }),
       };
     }
@@ -94,14 +94,16 @@ export function lifecycleEmail(
       };
     }
     case "waitlist_approved": {
-      const body = `${greeting} your Vixel Campaigns beta request has been approved. An operator can now issue your Campaign Studio invitation.`;
+      const body = `${greeting} your Vixel Campaigns beta request has been approved. Use this same email to create your passwordless account or sign in to the Campaign Studio.`;
       return {
         subject: "Your Vixel Campaigns beta access is approved",
-        text: body,
+        text: `${body}\n\n${siteUrl}/studio`,
         html: shell({
           eyebrow: "Beta approved",
-          heading: "You’re through the first gate.",
+          heading: "The campaign room is open.",
           body,
+          actionLabel: "Enter Studio",
+          actionUrl: `${siteUrl}/studio`,
         }),
       };
     }

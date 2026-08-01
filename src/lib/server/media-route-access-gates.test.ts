@@ -104,7 +104,8 @@ function configureProductRuntime(input: GateCase): void {
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     "sb_publishable_test",
   );
-  vi.stubEnv("SUPABASE_SECRET_KEY", "sb_secret_test");
+  vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "turnstile_site_safe");
+  vi.stubEnv("TURNSTILE_SECRET_KEY", "turnstile_secret_safe");
   vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_safe");
   vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_safe");
   vi.stubEnv("STRIPE_PRICE_UGC_BETA", "price_safe");

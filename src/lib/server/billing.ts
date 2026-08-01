@@ -7,11 +7,13 @@ import { FOUNDING_BETA_OFFER } from "@/lib/product-offer";
 
 import { authorizeAccount } from "./accounts";
 import { apiError } from "./api";
-import { getServerRuntimeConfig } from "./env";
 import {
-  productQuery,
-  withProductTransaction,
-} from "./product-db";
+  expectedStripeRuntimeMode,
+  getServerRuntimeConfig,
+  stripeSecretKeyMode,
+  type StripeRuntimeMode,
+} from "./env";
+import { productQuery, withProductTransaction } from "./product-db";
 
 export type BillingStatus =
   | "none"
@@ -48,10 +50,20 @@ type SubscriptionRow = {
 
 type StripeClient = Pick<
   Stripe,
-  "customers" | "checkout" | "billingPortal" | "prices" | "webhooks"
+  | "customers"
+  | "checkout"
+  | "billingPortal"
+  | "prices"
+  | "subscriptions"
+  | "webhooks"
 >;
 
 let testStripeClient: StripeClient | null = null;
+
+const VIXEL_UGC_PRODUCT = "vixel-ugc";
+const CHECKOUT_SESSION_TTL_SECONDS = 31 * 60;
+const USER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // The only billable offer is monthly. A 45-day ceiling tolerates delayed
 // delivery around a renewal while preventing an old webhook projection from
@@ -60,10 +72,21 @@ let testStripeClient: StripeClient | null = null;
 const ENTITLEMENT_PROJECTION_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
 const PROVIDER_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
+function configuredStripeRuntime(): {
+  key: string;
+  mode: StripeRuntimeMode;
+} {
+  const key = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+  const mode = expectedStripeRuntimeMode();
+  if (!key || stripeSecretKeyMode(key) !== mode) {
+    throw new BillingError("billing_not_configured");
+  }
+  return { key, mode };
+}
+
 function stripeClient(): StripeClient {
+  const { key } = configuredStripeRuntime();
   if (testStripeClient) return testStripeClient;
-  const key = process.env.STRIPE_SECRET_KEY?.trim();
-  if (!key) throw new BillingError("billing_not_configured");
   return new Stripe(key, { maxNetworkRetries: 2 });
 }
 
@@ -157,13 +180,12 @@ function unixDate(value: number | null | undefined): Date | null {
   return typeof value === "number" ? new Date(value * 1000) : null;
 }
 
-function subscriptionEntitlementItem(
-  subscription: Stripe.Subscription,
-): Stripe.SubscriptionItem | null {
-  if (subscription.items.data.length !== 1) return null;
-  const item = subscription.items.data[0];
-  if (!item?.price.id || !item.current_period_end) return null;
-  return item;
+function subscriptionPeriodEnd(subscription: Stripe.Subscription): Date | null {
+  const latest = subscription.items.data.reduce(
+    (maximum, item) => Math.max(maximum, item.current_period_end ?? 0),
+    0,
+  );
+  return unixDate(latest || null);
 }
 
 export class BillingError extends Error {
@@ -173,6 +195,7 @@ export class BillingError extends Error {
       | "billing_webhook_not_configured"
       | "billing_price_not_configured"
       | "billing_price_invalid"
+      | "billing_subscription_exists"
       | "billing_customer_missing"
       | "billing_event_invalid"
       | "subscription_required",
@@ -185,28 +208,57 @@ export class BillingError extends Error {
 async function assertFoundingBetaPrice(priceId: string): Promise<void> {
   let price: Stripe.Price;
   try {
-    price = await stripeClient().prices.retrieve(priceId);
+    price = await stripeClient().prices.retrieve(priceId, {
+      expand: ["product"],
+    });
   } catch {
     throw new BillingError("billing_price_invalid");
   }
 
   const recurring = price.recurring;
+  const product = price.product;
+  const expandedProduct =
+    product !== null &&
+    product !== undefined &&
+    typeof product !== "string" &&
+    !("deleted" in product && product.deleted)
+      ? product
+      : null;
+  const productReady =
+    expandedProduct?.active === true &&
+    expandedProduct.metadata?.product === VIXEL_UGC_PRODUCT;
+  const expectedMode = expectedStripeRuntimeMode();
+  const expectedLiveMode = expectedMode === "live";
   if (
+    price.id !== priceId ||
     !price.active ||
     price.type !== "recurring" ||
     price.unit_amount !== FOUNDING_BETA_OFFER.amountCents ||
     price.currency.toLowerCase() !== FOUNDING_BETA_OFFER.currency ||
     recurring?.interval !== FOUNDING_BETA_OFFER.interval ||
     recurring.interval_count !== FOUNDING_BETA_OFFER.intervalCount ||
-    recurring.usage_type !== "licensed"
+    recurring.usage_type !== "licensed" ||
+    price.metadata?.product !== VIXEL_UGC_PRODUCT ||
+    !productReady ||
+    price.livemode !== expectedLiveMode ||
+    expandedProduct?.livemode !== price.livemode
   ) {
     throw new BillingError("billing_price_invalid");
   }
 }
 
-export async function getBillingState(
-  userId: string,
-): Promise<BillingState> {
+function providerSubscriptionBlocksCheckout(
+  subscription: Stripe.Subscription,
+  customer: string,
+): boolean {
+  return (
+    customerId(subscription.customer) === customer &&
+    subscription.status !== "canceled" &&
+    subscription.status !== "incomplete_expired"
+  );
+}
+
+export async function getBillingState(userId: string): Promise<BillingState> {
   const result = await productQuery<SubscriptionRow>(
     `
       SELECT
@@ -227,53 +279,125 @@ export async function getBillingState(
   return publicState(result.rows[0] ?? null);
 }
 
-async function ensureStripeCustomer(input: {
-  userId: string;
-  email: string;
-}): Promise<string> {
-  return withProductTransaction(async (client) => {
-    await client.query(
-      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-      [`vixel-ugc-customer:${input.userId}`],
-    );
-    const existing = await client.query<{
-      stripe_customer_id: string;
-    }>(
-      `
-        SELECT stripe_customer_id
-        FROM vixel_ugc.subscriptions
-        WHERE user_id = $1
-        LIMIT 1
-      `,
-      [input.userId],
-    );
-    if (existing.rows[0]) return existing.rows[0].stripe_customer_id;
+async function ensureStripeCustomer(
+  client: PoolClient,
+  input: { userId: string; email: string },
+): Promise<{
+  customer: string;
+  subscriptionId: string | null;
+}> {
+  const existing = await client.query<{
+    stripe_customer_id: string;
+    stripe_subscription_id: string | null;
+    status: BillingStatus;
+  }>(
+    `
+      SELECT stripe_customer_id, stripe_subscription_id, status
+      FROM vixel_ugc.subscriptions
+      WHERE user_id = $1
+      LIMIT 1
+      FOR UPDATE
+    `,
+    [input.userId],
+  );
+  if (existing.rows[0]) {
+    return {
+      customer: existing.rows[0].stripe_customer_id,
+      subscriptionId: existing.rows[0].stripe_subscription_id,
+    };
+  }
 
-    const created = await stripeClient().customers.create(
-      {
-        email: input.email,
-        metadata: {
-          product: "vixel-ugc",
-          vixel_user_id: input.userId,
-        },
+  const created = await stripeClient().customers.create(
+    {
+      email: input.email,
+      metadata: {
+        product: VIXEL_UGC_PRODUCT,
+        vixel_user_id: input.userId,
       },
-      {
-        idempotencyKey: `vixel-ugc/customer/${input.userId}`,
-      },
-    );
-    await client.query(
-      `
-        INSERT INTO vixel_ugc.subscriptions (
-          user_id,
-          stripe_customer_id,
-          status
-        )
-        VALUES ($1, $2, 'none')
-        ON CONFLICT (user_id) DO NOTHING
-      `,
-      [input.userId, created.id],
-    );
-    return created.id;
+    },
+    {
+      idempotencyKey: `vixel-ugc/customer/${input.userId}`,
+    },
+  );
+  await client.query(
+    `
+      INSERT INTO vixel_ugc.subscriptions (
+        user_id,
+        stripe_customer_id,
+        status
+      )
+      VALUES ($1, $2, 'none')
+      ON CONFLICT (user_id) DO NOTHING
+    `,
+    [input.userId, created.id],
+  );
+  return { customer: created.id, subscriptionId: null };
+}
+
+function checkoutSessionCustomerId(
+  session: Stripe.Checkout.Session,
+): string | null {
+  if (typeof session.customer === "string") return session.customer;
+  return session.customer?.id ?? null;
+}
+
+function checkoutSessionMatches(
+  session: Stripe.Checkout.Session,
+  input: {
+    customer: string;
+    userId: string;
+    priceId: string;
+  },
+): boolean {
+  const lineItems = session.line_items?.data ?? [];
+  const lineItem = lineItems[0];
+  return (
+    session.mode === "subscription" &&
+    checkoutSessionCustomerId(session) === input.customer &&
+    session.client_reference_id === input.userId &&
+    session.metadata?.product === VIXEL_UGC_PRODUCT &&
+    session.metadata?.vixel_user_id === input.userId &&
+    lineItems.length === 1 &&
+    lineItem?.price?.id === input.priceId &&
+    (lineItem.quantity === null || lineItem.quantity === 1)
+  );
+}
+
+function reusableCheckoutSession(input: {
+  sessions: Stripe.Checkout.Session[];
+  customer: string;
+  userId: string;
+  priceId: string;
+  nowSeconds: number;
+}): Stripe.Checkout.Session | null {
+  return (
+    input.sessions.find((session) => {
+      return (
+        session.status === "open" &&
+        typeof session.url === "string" &&
+        session.url.startsWith("https://checkout.stripe.com/") &&
+        (session.expires_at ?? 0) > input.nowSeconds &&
+        checkoutSessionMatches(session, input)
+      );
+    }) ?? null
+  );
+}
+
+function matchingCompletedSubscriptionIds(input: {
+  sessions: Stripe.Checkout.Session[];
+  customer: string;
+  userId: string;
+  priceId: string;
+}): string[] {
+  return input.sessions.flatMap((candidate) => {
+    if (
+      candidate.status !== "complete" ||
+      !checkoutSessionMatches(candidate, input)
+    ) {
+      return [];
+    }
+    const id = subscriptionId(candidate.subscription);
+    return id ? [id] : [];
   });
 }
 
@@ -293,56 +417,117 @@ export async function createCheckoutSession(input: {
   }
 
   await assertFoundingBetaPrice(priceId);
-  const customer = await ensureStripeCustomer(input);
-  const checkout = await stripeClient().checkout.sessions.create(
-    {
-      mode: "subscription",
+  return withProductTransaction(async (client) => {
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [`vixel-ugc-checkout:${input.userId}`],
+    );
+    const identity = await ensureStripeCustomer(client, input);
+    const customer = identity.customer;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const checkoutSessions = await stripeClient().checkout.sessions.list({
       customer,
-      client_reference_id: input.userId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      allow_promotion_codes: true,
-      billing_address_collection: "auto",
-      success_url: `${config.product.siteUrl}/studio?billing=success`,
-      cancel_url: `${config.product.siteUrl}/pricing?billing=canceled`,
-      metadata: {
-        product: "vixel-ugc",
-        vixel_user_id: input.userId,
-      },
-      subscription_data: {
-        metadata: {
-          product: "vixel-ugc",
-          vixel_user_id: input.userId,
+      limit: 100,
+      expand: ["data.line_items"],
+    });
+    const subscriptions = await stripeClient().subscriptions.list({
+      customer,
+      status: "all",
+      limit: 100,
+    });
+    const providerSubscriptions = [...subscriptions.data];
+    const knownSubscriptionIds = new Set(
+      providerSubscriptions.map((subscription) => subscription.id),
+    );
+    const subscriptionIdsToReconcile = new Set([
+      ...(identity.subscriptionId ? [identity.subscriptionId] : []),
+      ...matchingCompletedSubscriptionIds({
+        sessions: checkoutSessions.data,
+        customer,
+        userId: input.userId,
+        priceId,
+      }),
+    ]);
+    for (const subscriptionIdToReconcile of subscriptionIdsToReconcile) {
+      if (knownSubscriptionIds.has(subscriptionIdToReconcile)) continue;
+      const subscription = await stripeClient().subscriptions.retrieve(
+        subscriptionIdToReconcile,
+      );
+      providerSubscriptions.push(subscription);
+      knownSubscriptionIds.add(subscription.id);
+    }
+    if (
+      providerSubscriptions.some((subscription) =>
+        providerSubscriptionBlocksCheckout(subscription, customer),
+      )
+    ) {
+      throw new BillingError("billing_subscription_exists");
+    }
+    const reusable = reusableCheckoutSession({
+      sessions: checkoutSessions.data,
+      customer,
+      userId: input.userId,
+      priceId,
+      nowSeconds,
+    });
+    const checkout =
+      reusable ??
+      (await stripeClient().checkout.sessions.create(
+        {
+          mode: "subscription",
+          customer,
+          client_reference_id: input.userId,
+          line_items: [{ price: priceId, quantity: 1 }],
+          allow_promotion_codes: true,
+          billing_address_collection: "auto",
+          expires_at: nowSeconds + CHECKOUT_SESSION_TTL_SECONDS,
+          success_url: `${config.product.siteUrl}/studio?billing=success`,
+          cancel_url: `${config.product.siteUrl}/pricing?billing=canceled`,
+          metadata: {
+            product: VIXEL_UGC_PRODUCT,
+            vixel_user_id: input.userId,
+            price_id: priceId,
+          },
+          subscription_data: {
+            metadata: {
+              product: VIXEL_UGC_PRODUCT,
+              vixel_user_id: input.userId,
+            },
+          },
         },
-      },
-    },
-    {
-      idempotencyKey: `vixel-ugc/checkout/${input.userId}/${input.requestKey}`,
-    },
-  );
-  if (!checkout.url) throw new BillingError("billing_not_configured");
+        {
+          idempotencyKey: `vixel-ugc/checkout/${input.userId}/${input.requestKey}`,
+        },
+      ));
+    if (!checkout.url) throw new BillingError("billing_not_configured");
 
-  const result = await productQuery<SubscriptionRow>(
-    `
-      UPDATE vixel_ugc.subscriptions
-      SET
-        status = CASE
-          WHEN status IN ('active', 'trialing') THEN status
-          ELSE 'checkout_pending'
-        END
-      WHERE user_id = $1
-      RETURNING
-        user_id,
-        stripe_customer_id,
-        stripe_subscription_id,
-        stripe_price_id,
-        status,
-        current_period_end,
-        cancel_at_period_end,
-        last_provider_event_at
-    `,
-    [input.userId],
-  );
-  return { url: checkout.url, state: publicState(result.rows[0] ?? null) };
+    const result = await client.query<SubscriptionRow>(
+      `
+        UPDATE vixel_ugc.subscriptions
+        SET
+          stripe_subscription_id = NULL,
+          stripe_price_id = NULL,
+          status = 'checkout_pending',
+          current_period_end = NULL,
+          cancel_at_period_end = false
+        WHERE user_id = $1
+        RETURNING
+          user_id,
+          stripe_customer_id,
+          stripe_subscription_id,
+          stripe_price_id,
+          status,
+          current_period_end,
+          cancel_at_period_end,
+          last_provider_event_at
+      `,
+      [input.userId],
+    );
+    return {
+      url: checkout.url,
+      state: publicState(result.rows[0] ?? null),
+    };
+  });
 }
 
 export async function createBillingPortalSession(input: {
@@ -377,9 +562,7 @@ export async function constructStripeEvent(
   const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   if (!secret) throw new BillingError("billing_webhook_not_configured");
   try {
-    const fullClient =
-      testStripeClient ??
-      new Stripe(process.env.STRIPE_SECRET_KEY?.trim() || "sk_test_missing");
+    const fullClient = stripeClient();
     return fullClient.webhooks.constructEvent(rawBody, signature, secret);
   } catch (error) {
     if (error instanceof BillingError) throw error;
@@ -392,7 +575,10 @@ async function resolveEventUserId(
   metadataUserId: string | null,
   customer: string | null,
 ): Promise<string | null> {
-  if (metadataUserId) return metadataUserId;
+  if (metadataUserId && USER_ID_PATTERN.test(metadataUserId)) {
+    return metadataUserId.toLowerCase();
+  }
+  if (metadataUserId) return null;
   if (!customer) return null;
   const result = await client.query(
     `
@@ -408,10 +594,121 @@ async function resolveEventUserId(
     : null;
 }
 
+function subscriptionMatchesExpectedProduct(input: {
+  subscription: Stripe.Subscription;
+  customer: string;
+  userId: string;
+  priceId: string;
+}): boolean {
+  const item = input.subscription.items.data[0];
+  return (
+    input.subscription.id.length > 0 &&
+    customerId(input.subscription.customer) === input.customer &&
+    input.subscription.metadata.product === VIXEL_UGC_PRODUCT &&
+    input.subscription.metadata.vixel_user_id?.toLowerCase() === input.userId &&
+    input.subscription.items.data.length === 1 &&
+    item?.price.id === input.priceId &&
+    (item.quantity === null || item.quantity === 1)
+  );
+}
+
+function timestampMillis(value: Date | string | null): number | null {
+  if (value === null) return null;
+  const milliseconds =
+    value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(milliseconds) ? milliseconds : null;
+}
+
+async function stripeProjectionPriceId(
+  event: Stripe.Event,
+): Promise<string | null> {
+  const priceId = process.env.STRIPE_PRICE_UGC_BETA?.trim();
+  if (
+    !priceId ||
+    (event.type !== "customer.subscription.created" &&
+      event.type !== "customer.subscription.updated")
+  ) {
+    return priceId ?? null;
+  }
+
+  const subscription = event.data?.object as Stripe.Subscription | undefined;
+  if (!subscription) return priceId;
+  const customer = customerId(subscription.customer);
+  const metadataUserId = subscription.metadata.vixel_user_id?.toLowerCase();
+  const canGrant =
+    (subscription.status === "active" || subscription.status === "trialing") &&
+    Boolean(metadataUserId && USER_ID_PATTERN.test(metadataUserId)) &&
+    subscriptionMatchesExpectedProduct({
+      subscription,
+      customer,
+      userId: metadataUserId ?? "",
+      priceId,
+    });
+  if (!canGrant) return priceId;
+
+  const config = getServerRuntimeConfig();
+  if (!config.product.stripe.configured) {
+    throw new BillingError("billing_not_configured");
+  }
+  if (!config.product.stripe.webhookConfigured) {
+    throw new BillingError("billing_webhook_not_configured");
+  }
+  // Only an event capable of granting entitlement needs a healthy provider
+  // contract. Degrading, contract-invalid, and deleted events must still clear
+  // an existing entitlement when Stripe's Price API is unavailable.
+  await assertFoundingBetaPrice(priceId);
+  return priceId;
+}
+
+async function projectNonEntitlingSubscription(
+  client: PoolClient,
+  input: {
+    userId: string;
+    customer: string;
+    subscription: Stripe.Subscription;
+    providerOccurredAt: Date;
+    deleted: boolean;
+  },
+): Promise<boolean> {
+  const projected = await client.query(
+    `
+      UPDATE vixel_ugc.subscriptions
+      SET
+        stripe_price_id = NULL,
+        status = $4,
+        current_period_end = $5,
+        cancel_at_period_end = $6,
+        last_provider_event_at = $7
+      WHERE user_id = $1
+        AND stripe_customer_id = $2
+        AND stripe_subscription_id = $3
+        AND (
+          last_provider_event_at IS NULL
+          OR last_provider_event_at <= $7
+        )
+    `,
+    [
+      input.userId,
+      input.customer,
+      input.subscription.id,
+      input.deleted ? "canceled" : stripeStatus(input.subscription.status),
+      subscriptionPeriodEnd(input.subscription),
+      input.deleted || input.subscription.cancel_at_period_end,
+      input.providerOccurredAt,
+    ],
+  );
+  return (projected.rowCount ?? 0) > 0;
+}
+
 export async function projectStripeEvent(input: {
   event: Stripe.Event;
   rawBody: string;
 }): Promise<{ replayed: boolean; projected: boolean }> {
+  const { mode } = configuredStripeRuntime();
+  if (input.event.livemode !== (mode === "live")) {
+    throw new BillingError("billing_event_invalid");
+  }
+  const projectionPriceId = await stripeProjectionPriceId(input.event);
   return withProductTransaction(async (client) => {
     const recorded = await client.query<{ id: string }>(
       `
@@ -437,35 +734,55 @@ export async function projectStripeEvent(input: {
 
     if (input.event.type === "checkout.session.completed") {
       const checkout = input.event.data.object as Stripe.Checkout.Session;
+      if (
+        checkout.mode !== "subscription" ||
+        checkout.metadata?.product !== VIXEL_UGC_PRODUCT
+      ) {
+        return { replayed: false, projected: false };
+      }
       const customer =
         typeof checkout.customer === "string"
           ? checkout.customer
-          : checkout.customer?.id ?? null;
+          : (checkout.customer?.id ?? null);
       const metadataUserId =
         checkout.metadata?.vixel_user_id ??
         checkout.client_reference_id ??
         null;
-      const userId = await resolveEventUserId(
-        client,
-        metadataUserId,
-        customer,
-      );
+      const userId = await resolveEventUserId(client, metadataUserId, customer);
       if (!userId || !customer) return { replayed: false, projected: false };
-      await client.query(
+      const providerOccurredAt = unixDate(input.event.created);
+      if (!providerOccurredAt) {
+        throw new BillingError("billing_event_invalid");
+      }
+      const projected = await client.query(
         `
           UPDATE vixel_ugc.subscriptions
           SET
             stripe_customer_id = $2,
             stripe_subscription_id = COALESCE(stripe_subscription_id, $3)
           WHERE user_id = $1
+            AND stripe_customer_id = $2
+            AND (
+              $3::text IS NULL
+              OR stripe_subscription_id IS NULL
+              OR stripe_subscription_id = $3
+            )
+            AND (
+              last_provider_event_at IS NULL
+              OR last_provider_event_at < $4
+            )
         `,
         [
           userId,
           customer,
           subscriptionId(checkout.subscription),
+          providerOccurredAt,
         ],
       );
-      return { replayed: false, projected: true };
+      return {
+        replayed: false,
+        projected: (projected.rowCount ?? 0) > 0,
+      };
     }
 
     if (
@@ -475,14 +792,129 @@ export async function projectStripeEvent(input: {
     ) {
       const subscription = input.event.data.object as Stripe.Subscription;
       const customer = customerId(subscription.customer);
-      const userId = await resolveEventUserId(
-        client,
-        subscription.metadata.vixel_user_id ?? null,
-        customer,
+      const providerOccurredAt = unixDate(input.event.created);
+      if (!providerOccurredAt) {
+        throw new BillingError("billing_event_invalid");
+      }
+      const boundCursor = await client.query<{
+        user_id: string;
+        stripe_subscription_id: string;
+        last_provider_event_at: Date | string | null;
+      }>(
+        `
+          SELECT user_id, stripe_subscription_id, last_provider_event_at
+          FROM vixel_ugc.subscriptions
+          WHERE stripe_customer_id = $1
+            AND stripe_subscription_id = $2
+          LIMIT 1
+          FOR UPDATE
+        `,
+        [customer, subscription.id],
       );
-      if (!userId) return { replayed: false, projected: false };
-      const item = subscriptionEntitlementItem(subscription);
-      await client.query(
+      const bound = boundCursor.rows[0];
+      const expectedPriceId = projectionPriceId;
+      const metadataUserId = USER_ID_PATTERN.test(
+        subscription.metadata.vixel_user_id ?? "",
+      )
+        ? (subscription.metadata.vixel_user_id ?? "").toLowerCase()
+        : null;
+      const contractUserId = bound?.user_id ?? metadataUserId;
+      const grantsEntitlement =
+        input.event.type !== "customer.subscription.deleted" &&
+        (subscription.status === "active" ||
+          subscription.status === "trialing") &&
+        Boolean(
+          expectedPriceId &&
+          contractUserId &&
+          subscriptionMatchesExpectedProduct({
+            subscription,
+            customer,
+            userId: contractUserId,
+            priceId: expectedPriceId,
+          }),
+        );
+
+      const userId = bound?.user_id ?? metadataUserId;
+      if (!userId) {
+        return { replayed: false, projected: false };
+      }
+      const current =
+        bound ??
+        (
+          await client.query<{
+            stripe_subscription_id: string | null;
+            last_provider_event_at: Date | string | null;
+          }>(
+            `
+              SELECT stripe_subscription_id, last_provider_event_at
+              FROM vixel_ugc.subscriptions
+              WHERE user_id = $1
+                AND stripe_customer_id = $2
+              LIMIT 1
+              FOR UPDATE
+            `,
+            [userId, customer],
+          )
+        ).rows[0];
+      if (
+        !current ||
+        (current.stripe_subscription_id !== null &&
+          current.stripe_subscription_id !== subscription.id)
+      ) {
+        return { replayed: false, projected: false };
+      }
+      const lastProviderEventAt = timestampMillis(
+        current.last_provider_event_at,
+      );
+      if (
+        lastProviderEventAt !== null &&
+        lastProviderEventAt > providerOccurredAt.getTime()
+      ) {
+        return { replayed: false, projected: false };
+      }
+      let canonicalSubscription = subscription;
+      if (lastProviderEventAt === providerOccurredAt.getTime()) {
+        // Stripe event times have one-second precision and delivery is unordered.
+        // On an equal-second collision, project the provider's current object
+        // instead of guessing which event snapshot is newer.
+        canonicalSubscription = await stripeClient().subscriptions.retrieve(
+          subscription.id,
+        );
+      }
+      const canonicalGrantsEntitlement =
+        Boolean(expectedPriceId) &&
+        (canonicalSubscription.status === "active" ||
+          canonicalSubscription.status === "trialing") &&
+        subscriptionMatchesExpectedProduct({
+          subscription: canonicalSubscription,
+          customer,
+          userId,
+          priceId: expectedPriceId ?? "",
+        });
+      if (!canonicalGrantsEntitlement) {
+        if (current.stripe_subscription_id !== subscription.id) {
+          return { replayed: false, projected: false };
+        }
+        const projected = await projectNonEntitlingSubscription(client, {
+          userId,
+          customer,
+          subscription: canonicalSubscription,
+          providerOccurredAt,
+          deleted: input.event.type === "customer.subscription.deleted",
+        });
+        return { replayed: false, projected };
+      }
+      if (!expectedPriceId) {
+        return { replayed: false, projected: false };
+      }
+      if (!grantsEntitlement) {
+        // An equal-second non-entitling snapshot can race a current active
+        // provider object. Verify the commercial contract before restoring it;
+        // a throw rolls back the event insert so Stripe can retry.
+        await assertFoundingBetaPrice(expectedPriceId);
+      }
+      const item = canonicalSubscription.items.data[0];
+      const projected = await client.query(
         `
           UPDATE vixel_ugc.subscriptions
           SET
@@ -494,23 +926,27 @@ export async function projectStripeEvent(input: {
             cancel_at_period_end = $7,
             last_provider_event_at = $8
           WHERE user_id = $1
+            AND stripe_customer_id = $2
             AND (
-              last_provider_event_at IS NULL
-              OR last_provider_event_at <= $8
+              stripe_subscription_id IS NULL
+              OR stripe_subscription_id = $3
             )
         `,
         [
           userId,
           customer,
-          subscription.id,
+          canonicalSubscription.id,
           item?.price.id ?? null,
-          stripeStatus(subscription.status),
-          unixDate(item?.current_period_end),
-          subscription.cancel_at_period_end,
-          unixDate(input.event.created),
+          stripeStatus(canonicalSubscription.status),
+          subscriptionPeriodEnd(canonicalSubscription),
+          canonicalSubscription.cancel_at_period_end,
+          providerOccurredAt,
         ],
       );
-      return { replayed: false, projected: true };
+      return {
+        replayed: false,
+        projected: (projected.rowCount ?? 0) > 0,
+      };
     }
 
     return { replayed: false, projected: false };
@@ -555,6 +991,17 @@ export async function requirePaidGenerationAccess(
       requestId,
     );
   }
+  try {
+    configuredStripeRuntime();
+  } catch {
+    return apiError(
+      503,
+      "billing_not_ready",
+      "Subscription billing is not ready.",
+      false,
+      requestId,
+    );
+  }
   let state: BillingState;
   try {
     state = await getBillingState(authorization.account.userId);
@@ -579,8 +1026,6 @@ export async function requirePaidGenerationAccess(
   return null;
 }
 
-export function installStripeClientForTests(
-  client: StripeClient | null,
-): void {
+export function installStripeClientForTests(client: StripeClient | null): void {
   testStripeClient = client;
 }

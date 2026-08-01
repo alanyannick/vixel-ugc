@@ -12,18 +12,17 @@ import {
 import { ArrowRight, KeyRound, LockKeyhole, MailCheck } from "lucide-react";
 import Link from "next/link";
 
-import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import {
+  TurnstileWidget,
+  type TurnstileState,
+  turnstileVerificationRequired,
+} from "@/components/auth/turnstile-widget";
 import { IconMark } from "@/components/studio/icon-mark";
 
 import styles from "./studio.module.css";
 
 type GateState =
-  | "checking"
-  | "open"
-  | "email"
-  | "otp"
-  | "pending"
-  | "recovery";
+  "checking" | "open" | "email" | "otp" | "pending" | "suspended" | "recovery";
 
 export type SessionKind = "none" | "account" | "recovery";
 
@@ -46,6 +45,10 @@ type AccountSessionResponse = {
   };
 };
 
+type AccountSessionErrorResponse = {
+  error?: { code?: string; message?: string };
+};
+
 const AccessGateSessionContext = createContext<AccessGateSession | null>(null);
 
 export function useAccessGateSession(): AccessGateSession {
@@ -60,9 +63,9 @@ async function responseMessage(
   response: Response,
   fallback: string,
 ): Promise<string> {
-  const body = (await response.json().catch(() => null)) as
-    | { error?: { message?: string } }
-    | null;
+  const body = (await response.json().catch(() => null)) as {
+    error?: { message?: string };
+  } | null;
   return body?.error?.message ?? fallback;
 }
 
@@ -74,13 +77,27 @@ export function AccessGate({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
+  const captchaRequired = turnstileVerificationRequired();
+  const [captchaVerified, setCaptchaVerified] = useState(!captchaRequired);
+  const [captchaAttempt, setCaptchaAttempt] = useState(0);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [operatorRecoveryEnabled, setOperatorRecoveryEnabled] =
-    useState(false);
+  const [operatorRecoveryEnabled, setOperatorRecoveryEnabled] = useState(false);
+
+  const onCaptchaToken = useCallback((value: string) => {
+    setCaptchaToken(value);
+  }, []);
+  const onCaptchaState = useCallback((captchaState: TurnstileState) => {
+    setCaptchaVerified(!captchaState.required || captchaState.verified);
+  }, []);
+  const resetCaptcha = useCallback(() => {
+    setCaptchaToken("");
+    setCaptchaVerified(!turnstileVerificationRequired());
+    setCaptchaAttempt((value) => value + 1);
+  }, []);
 
   const acceptAccountState = useCallback((body: AccountSessionResponse) => {
     if (body.authenticated) {
@@ -88,9 +105,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
       setSessionKind("account");
       setAccountUserId(body.account.userId);
       setAccessRequired(true);
-      setState(
-        body.account.accountStatus === "approved" ? "open" : "pending",
-      );
+      setState(body.account.accountStatus === "approved" ? "open" : "pending");
       return true;
     }
     if (body.ready) {
@@ -101,6 +116,19 @@ export function AccessGate({ children }: { children: ReactNode }) {
     }
     return false;
   }, []);
+
+  const acceptAccountError = useCallback(
+    (body: AccountSessionErrorResponse | null) => {
+      if (body?.error?.code !== "account_suspended") return false;
+      setSessionKind("account");
+      setAccountUserId(null);
+      setAccessRequired(true);
+      setError("");
+      setState("suspended");
+      return true;
+    },
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -117,10 +145,9 @@ export function AccessGate({ children }: { children: ReactNode }) {
         });
         if (!active) return;
         if (accountResponse.ok) {
-          const accountBody =
-            (await accountResponse.json().catch(() => null)) as
-              | AccountSessionResponse
-              | null;
+          const accountBody = (await accountResponse
+            .json()
+            .catch(() => null)) as AccountSessionResponse | null;
           if (
             accountBody &&
             (!operatorRecoveryRequested ||
@@ -138,10 +165,13 @@ export function AccessGate({ children }: { children: ReactNode }) {
               "Account access returned an incomplete session. Sign in again to continue.";
           }
         } else {
-          accountFailure = await responseMessage(
-            accountResponse,
-            "Account access could not be verified. Try again shortly.",
-          );
+          const accountError = (await accountResponse
+            .json()
+            .catch(() => null)) as AccountSessionErrorResponse | null;
+          accountFailure =
+            accountError?.error?.message ??
+            "Account access could not be verified. Try again shortly.";
+          if (acceptAccountError(accountError)) return;
         }
       } catch {
         accountFailure =
@@ -169,9 +199,12 @@ export function AccessGate({ children }: { children: ReactNode }) {
           setState("recovery");
           return;
         }
-        const recoveryBody = (await recoveryResponse.json().catch(() => null)) as
-          | { authenticated?: boolean; required?: boolean }
-          | null;
+        const recoveryBody = (await recoveryResponse
+          .json()
+          .catch(() => null)) as {
+          authenticated?: boolean;
+          required?: boolean;
+        } | null;
         if (!recoveryBody) {
           setError("Operator recovery returned an invalid response.");
           setState("recovery");
@@ -179,13 +212,8 @@ export function AccessGate({ children }: { children: ReactNode }) {
         }
         setAccountUserId(null);
         setAccessRequired(recoveryBody.required === true);
-        if (
-          recoveryBody.authenticated ||
-          recoveryBody.required === false
-        ) {
-          setSessionKind(
-            recoveryBody.required === false ? "none" : "recovery",
-          );
+        if (recoveryBody.authenticated || recoveryBody.required === false) {
+          setSessionKind(recoveryBody.required === false ? "none" : "recovery");
           setState("open");
         } else {
           setState("recovery");
@@ -203,12 +231,16 @@ export function AccessGate({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [acceptAccountState]);
+  }, [acceptAccountError, acceptAccountState]);
 
   async function requestOtp(event: FormEvent) {
     event.preventDefault();
     if (!email.trim()) {
       setError("Enter your email address.");
+      return;
+    }
+    if (captchaRequired && !captchaVerified) {
+      setError("Complete the security check before requesting a sign-in code.");
       return;
     }
     setSubmitting(true);
@@ -222,14 +254,20 @@ export function AccessGate({ children }: { children: ReactNode }) {
       });
       if (!response.ok) {
         throw new Error(
-          await responseMessage(response, "The sign-in code could not be sent."),
+          await responseMessage(
+            response,
+            "The sign-in code could not be sent.",
+          ),
         );
       }
       setNotice("A six-digit code is on its way. It expires shortly.");
       setState("otp");
     } catch (caught) {
+      resetCaptcha();
       setError(
-        caught instanceof Error ? caught.message : "The code could not be sent.",
+        caught instanceof Error
+          ? caught.message
+          : "The code could not be sent.",
       );
     } finally {
       setSubmitting(false);
@@ -259,20 +297,19 @@ export function AccessGate({ children }: { children: ReactNode }) {
         cache: "no-store",
       });
       if (!sessionResponse.ok) {
+        const sessionError = (await sessionResponse
+          .json()
+          .catch(() => null)) as AccountSessionErrorResponse | null;
+        if (acceptAccountError(sessionError)) return;
         throw new Error(
-          await responseMessage(
-            sessionResponse,
+          sessionError?.error?.message ??
             "Your account was verified, but Studio access could not be loaded.",
-          ),
         );
       }
-      const sessionBody = (await sessionResponse.json().catch(() => null)) as
-        | AccountSessionResponse
-        | null;
-      if (
-        !sessionBody?.authenticated ||
-        !acceptAccountState(sessionBody)
-      ) {
+      const sessionBody = (await sessionResponse
+        .json()
+        .catch(() => null)) as AccountSessionResponse | null;
+      if (!sessionBody?.authenticated || !acceptAccountState(sessionBody)) {
         throw new Error(
           "Your account was verified, but Studio returned an incomplete session.",
         );
@@ -306,9 +343,9 @@ export function AccessGate({ children }: { children: ReactNode }) {
           await responseMessage(response, "That recovery code is not valid."),
         );
       }
-      const body = (await response.json().catch(() => null)) as
-        | { required?: boolean }
-        | null;
+      const body = (await response.json().catch(() => null)) as {
+        required?: boolean;
+      } | null;
       setAccountUserId(null);
       setAccessRequired(body?.required !== false);
       setSessionKind(body?.required === false ? "none" : "recovery");
@@ -343,6 +380,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
         setState("recovery");
       } else {
         setNotice("Signed out of Vixel Campaigns.");
+        resetCaptcha();
         setState("email");
       }
       setSessionKind("none");
@@ -406,6 +444,35 @@ export function AccessGate({ children }: { children: ReactNode }) {
           </p>
           <div className={styles.gateActions}>
             <Link href="/">Return to product</Link>
+            <Link href="/pricing">Manage billing</Link>
+            <button type="button" onClick={() => void signOut()}>
+              Sign out
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (state === "suspended") {
+    return (
+      <div className={styles.gatePage} data-studio-shell>
+        <section className={styles.gateCard} aria-labelledby="gate-title">
+          <div className={styles.gateHeader}>
+            <IconMark className={styles.gateMark} />
+            <span className={styles.gateLock}>
+              <LockKeyhole size={16} />
+              Studio access suspended
+            </span>
+          </div>
+          <p className={styles.gateEyebrow}>Vixel Campaigns account</p>
+          <h1 id="gate-title">Studio access is suspended.</h1>
+          <p>
+            Product access is paused. If you have a paid subscription, you can
+            still open Stripe from Pricing to manage or cancel billing.
+          </p>
+          <div className={styles.gateActions}>
+            <Link href="/pricing">Manage billing</Link>
             <button type="button" onClick={() => void signOut()}>
               Sign out
             </button>
@@ -423,7 +490,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
           <IconMark className={styles.gateMark} />
           <span className={styles.gateLock}>
             {accountMode ? <MailCheck size={16} /> : <LockKeyhole size={16} />}
-            {accountMode ? "Email access" : "Emergency access"}
+            {accountMode ? "Email sign up or login" : "Emergency access"}
           </span>
         </div>
         <p className={styles.gateEyebrow}>Vixel Campaigns</p>
@@ -431,14 +498,14 @@ export function AccessGate({ children }: { children: ReactNode }) {
           {state === "otp"
             ? "Check your inbox."
             : accountMode
-              ? "Enter the UGC Campaign workspace."
+              ? "Create an account or sign in."
               : "Emergency operator access."}
         </h1>
         <p>
           {state === "otp"
             ? `Enter the six-digit code sent to ${email.trim().toLowerCase()}.`
             : accountMode
-              ? "Use your approved beta email. New accounts remain on the waitlist until an operator admits them."
+              ? "Use the same email you joined the waitlist with. We’ll send a six-digit code—no password needed. New accounts stay pending until approval."
               : "Use the recovery code only when email sign-in is unavailable."}
         </p>
 
@@ -454,12 +521,19 @@ export function AccessGate({ children }: { children: ReactNode }) {
                 placeholder="you@company.com"
                 type="email"
               />
-              <button type="submit" disabled={submitting}>
-                <span>{submitting ? "Sending" : "Send code"}</span>
+              <button
+                type="submit"
+                disabled={submitting || (captchaRequired && !captchaVerified)}
+              >
+                <span>{submitting ? "Sending" : "Send sign-in code"}</span>
                 <ArrowRight size={18} />
               </button>
             </div>
-            <TurnstileWidget onToken={setCaptchaToken} />
+            <TurnstileWidget
+              key={captchaAttempt}
+              onStateChange={onCaptchaState}
+              onToken={onCaptchaToken}
+            />
           </form>
         ) : null}
 
@@ -486,7 +560,10 @@ export function AccessGate({ children }: { children: ReactNode }) {
             <button
               className={styles.gateTextButton}
               type="button"
-              onClick={() => setState("email")}
+              onClick={() => {
+                resetCaptcha();
+                setState("email");
+              }}
             >
               Use a different email
             </button>
@@ -534,6 +611,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
                   "",
                   window.location.pathname,
                 );
+                resetCaptcha();
                 setState("email");
                 return;
               }

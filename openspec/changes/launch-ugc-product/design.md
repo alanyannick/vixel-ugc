@@ -29,6 +29,9 @@ remains the only production source.
 - Client-direct database mutation.
 - Reusing another Vixel product's database or subscription ledger.
 - Enabling live paid generation before provider and recovery proofs pass.
+- Adding Google or another social identity provider during private beta.
+- Copying Growth OS outreach, calendar, inbox, or content execution into this
+  product's operator console.
 
 ## Decisions
 
@@ -40,6 +43,19 @@ validates the Supabase user server-side and clears browser Supabase persistence.
 This keeps normal authorization compatible with the current server boundary and
 avoids long-lived refresh tokens in browser storage. Direct Supabase browser
 sessions were rejected because they would create a second authorization surface.
+
+Supabase Auth owns OTP-request CAPTCHA enforcement. The application forwards the
+single-use Cloudflare Turnstile token to `signInWithOtp` without first redeeming
+it through Siteverify, and CAPTCHA protection is enabled on the Supabase Auth
+project. This also protects the public Auth endpoint from clients that bypass the
+application route. Waitlist submissions remain application-owned and therefore
+continue to use application-side Siteverify with strict hostname and action
+checks.
+
+Private beta uses email OTP only. A future OAuth provider must exchange into the
+same Supabase user identity, call the same account-profile boundary, and issue
+the same application cookie. Provider-specific identity, email metadata, or a
+second session system MUST NOT become an authorization key.
 
 ### Private application schema and repository-only access
 
@@ -79,6 +95,46 @@ licensed usage type before creating a customer or Checkout session. Missing or
 drifted price and webhook configuration disables Checkout rather than weakening
 entitlement checks.
 
+Stripe mode follows deployment identity rather than Next.js build mode.
+`VERCEL_ENV=production` requires live Stripe resources. Vercel Preview and
+Development, custom or unknown targets, and a non-Vercel local process with no
+`VERCEL_ENV` all require test resources, including when a local production
+build sets `NODE_ENV=production`. This safe default prevents a local build or
+Preview branch from charging live customers. The server rejects a secret-key
+prefix, retrieved Price `livemode`, or incoming webhook Event `livemode` that
+does not match the expected deployment mode before Checkout side effects or
+webhook projection. Stripe webhook signing secrets do not encode mode, so the
+verified Event's `livemode` is still checked explicitly against the secret-key
+and deployment contract.
+
+Webhook entitlement is asymmetric and fail-closed. An active or trialing event
+can grant or restore access only after the configured Price and expanded Product
+pass the complete provider contract. A bound subscription that becomes
+past-due, canceled, deleted, or drifts in price, quantity, or metadata clears
+the local price entitlement while retaining the customer/subscription binding
+for billing management and a later valid recovery event. These revocations do
+not depend on a healthy Price lookup. Provider verification failures on a
+potential grant roll back the event-ledger insert so Stripe can retry rather
+than permanently deduping an unverified grant.
+
+Webhook projection grants entitlement only when the event belongs to the
+configured Founding Beta price, both the product and price carry the
+`product=vixel-ugc` metadata contract, the subscription contains exactly one
+licensed item with quantity one, and the customer is locally bound. Checkout
+does not create a second open flow or subscription for the same account.
+
+### Product-owned operator console
+
+The UGC operator console owns admissions, account status, the two-role
+permission model, subscription/generation summaries, a read-only product funnel,
+readiness, and audit evidence. It does not execute Growth OS campaigns. Account
+status and roles remain server-owned; sensitive changes require an actor, a
+meaningful reason, previous/next state, and last-admin protection. Metrics name
+their data source and generation time, and unavailable inputs never render as
+zero. The activation funnel places active entitlement before first paid
+generation and counts the final generation stage only within the currently
+entitled cohort.
+
 ### Public composer is a safe intent capture
 
 The first viewport contains one dominant composer and format examples, inspired
@@ -114,7 +170,7 @@ gates succeed.
    migrations and restricted grants.
 3. Deploy code with auth, email, billing, cloud persistence, and live generation
    readiness flags off.
-4. Configure Supabase custom SMTP/OTP, Turnstile, Resend, and Stripe secrets in
+4. Configure Supabase custom SMTP/OTP and Auth-level Turnstile, Resend, and Stripe secrets in
    Preview; verify waitlist, OTP, admin, email, and webhook paths.
 5. Promote the same commit to Production and repeat safe smoke checks.
 6. Enable account/cloud readiness, then billing. Enable live generation last
@@ -128,5 +184,12 @@ delivery, audit, or billing records.
 ## Open Questions
 
 - Included generation allowance and overage policy before live generation.
-- Initial admin Supabase user ID.
-- Final lifecycle sender display names and reply-to mailbox.
+
+## Resolved launch identities
+
+- The bootstrap operator is the approved `yummyym35@gmail.com` Supabase account,
+  configured by immutable Supabase user ID; additional administrators are
+  granted only after their own OTP verification.
+- Lifecycle mail uses `hello@vixelai.com` only as the transactional
+  sender/reply-to boundary for the private beta, not as the configured
+  bootstrap administrator.

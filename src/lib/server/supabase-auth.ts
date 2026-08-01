@@ -6,6 +6,7 @@ export class SupabaseAuthError extends Error {
   constructor(
     readonly code:
       | "auth_not_configured"
+      | "bot_check_failed"
       | "otp_request_failed"
       | "otp_verification_failed",
     message: string,
@@ -39,17 +40,26 @@ function authClient() {
 
 export async function requestSupabaseEmailOtp(input: {
   email: string;
-  captchaToken?: string;
+  captchaToken: string;
 }): Promise<void> {
   const client = authClient();
   const { error } = await client.auth.signInWithOtp({
     email: input.email,
     options: {
+      // Supabase Auth must redeem the single-use token itself. CAPTCHA is
+      // enabled at the Auth provider so direct calls with the public key are
+      // protected by the same challenge as this application route.
       captchaToken: input.captchaToken,
       shouldCreateUser: true,
     },
   });
   if (error) {
+    if (error.code === "captcha_failed") {
+      throw new SupabaseAuthError(
+        "bot_check_failed",
+        "The security check could not be verified.",
+      );
+    }
     throw new SupabaseAuthError(
       "otp_request_failed",
       "The sign-in code could not be sent.",
@@ -62,17 +72,25 @@ export async function verifySupabaseEmailOtp(input: {
   token: string;
 }): Promise<{ userId: string; email: string }> {
   const client = authClient();
+  const requestedEmail = input.email.trim().toLowerCase();
   const { data, error } = await client.auth.verifyOtp({
-    email: input.email,
+    email: requestedEmail,
     token: input.token,
     type: "email",
   });
+  const userId = data.user?.id?.trim().toLowerCase();
   const email = data.user?.email?.trim().toLowerCase();
-  if (error || !data.user?.id || !email) {
+  if (
+    error ||
+    !userId ||
+    !email ||
+    email.length > 320 ||
+    email !== requestedEmail
+  ) {
     throw new SupabaseAuthError(
       "otp_verification_failed",
       "The sign-in code is invalid or has expired.",
     );
   }
-  return { userId: data.user.id, email };
+  return { userId, email };
 }

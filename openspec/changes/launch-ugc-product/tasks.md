@@ -20,6 +20,10 @@
 - [x] 3.3 Add protected admin list, detail, filter, transition, and invitation APIs
 - [x] 3.4 Add pending-user and admin operator interfaces
 - [x] 3.5 Add waitlist state-machine, duplicate, and non-admin tests
+- [x] 3.6 Add unified user/access operations with suspend, restore, role-change,
+      reason, audit, self-protection, and last-admin protection
+- [x] 3.7 Add operator overview, product-owned growth funnel, readiness, and
+      audit evidence without importing Growth OS execution surfaces
 
 ## 4. Email lifecycle
 
@@ -44,6 +48,12 @@
 - [x] 6.4 Add server-owned subscription entitlement before paid generation
 - [x] 6.5 Add billing state UI and Checkout/webhook/entitlement tests
 - [x] 6.6 Publish and verify the USD $39 monthly Founding Beta price contract
+- [x] 6.7 Reject duplicate subscriptions and webhook entitlement from a
+      different price or customer
+- [x] 6.8 Isolate Stripe modes so Vercel Production requires live resources
+      while Preview, Development, and non-Vercel local builds require test resources
+- [x] 6.9 Revalidate the provider contract before webhook grants and revoke
+      stale entitlement when a bound subscription degrades or drifts
 
 ## 7. Product entry
 
@@ -51,19 +61,24 @@
 - [x] 7.2 Add format examples and safe intent carryover into waitlist/account onboarding
 - [x] 7.3 Add login, OTP verification, waitlist, pricing, and account status surfaces
 - [x] 7.4 Verify responsive layout, keyboard access, focus, contrast, and reduced motion
+- [x] 7.5 Continue a successful waitlist request into same-email passwordless
+      account setup and make Turnstile failures actionable and retryable
 
 ## 8. Provider and deployment setup
 
 - [x] 8.1 Configure scoped Cloudflare Turnstile widget for `ugc.vixelai.com`
-- [ ] 8.2 Configure Supabase custom SMTP, six-digit OTP, redirect allowlist, and keys
+- [ ] 8.2 Configure Supabase custom SMTP, six-digit OTP, redirect allowlist,
+      keys, and provider-level Turnstile CAPTCHA
 - [ ] 8.3 Configure purpose-named Resend lifecycle key, webhook, sender, segment, and topic
-- [ ] 8.4 Configure Stripe recurring product/price and webhook endpoint
+- [x] 8.4 Configure Stripe recurring product/price and webhook endpoint
 - [ ] 8.5 Configure Vercel Preview/Production environment variables and cron
 
 ## 9. Verification and release
 
 - [x] 9.1 Pass lint, types, unit, integration, production build, and single-worker browser tests
 - [ ] 9.2 Pass Preview waitlist, auth, admin, email, billing, and fail-closed generation smoke
-- [x] 9.3 Promote the verified commit to `main` and pass Production smoke
+- [ ] 9.3 Promote the verified commit to `main` and pass Production smoke
 - [x] 9.4 Update runbooks, environment example, workspace canonical docs, and rollback notes
 - [ ] 9.5 Enable paid generation only after authorized provider, ledger, recovery, and entitlement proofs
+- [x] 9.6 Keep Google Auth disabled for private beta while documenting the
+      single-identity/session boundary required before a future provider launch

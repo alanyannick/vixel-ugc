@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AdminWaitlist } from "@/components/admin/admin-waitlist";
+import { AdminConsole } from "@/components/admin/admin-console";
 
 export const metadata: Metadata = {
   title: "Vixel Campaigns Beta Operations",
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function AdminPage() {
-  return <AdminWaitlist />;
+  return <AdminConsole />;
 }

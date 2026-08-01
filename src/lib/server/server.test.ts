@@ -20,6 +20,7 @@ import {
   STUDIO_SESSION_TTL_SECONDS,
   verifySessionToken,
 } from "./auth";
+import * as billingServer from "./billing";
 import {
   approvalFingerprint,
   issueMediaApproval,
@@ -88,12 +89,12 @@ afterEach(() => {
 
 describe("server environment", () => {
   it("normalizes a NewAPI root without duplicating /v1", () => {
-    expect(
-      normalizeNewApiBase("https://gateway.example.test/api/v1/"),
-    ).toEqual({
-      rootBaseUrl: "https://gateway.example.test/api",
-      openAiBaseUrl: "https://gateway.example.test/api/v1",
-    });
+    expect(normalizeNewApiBase("https://gateway.example.test/api/v1/")).toEqual(
+      {
+        rootBaseUrl: "https://gateway.example.test/api",
+        openAiBaseUrl: "https://gateway.example.test/api/v1",
+      },
+    );
     expect(normalizeNewApiBase("file:///tmp/gateway")).toBeNull();
     expect(
       normalizeNewApiBase("https://user:pass@gateway.example.test/v1"),
@@ -122,6 +123,28 @@ describe("server environment", () => {
     });
     expect(insecureProduction.newApi.configured).toBe(false);
   });
+
+  it.each([
+    ["Vercel Production with live", "production", "sk_live_safe", true],
+    ["Vercel Production with test", "production", "sk_test_safe", false],
+    ["Vercel Preview with test", "preview", "sk_test_safe", true],
+    ["Vercel Preview with live", "preview", "sk_live_safe", false],
+    ["Vercel Development with test", "development", "rk_test_safe", true],
+    ["a custom target with test", "staging", "sk_test_safe", true],
+    ["a non-Vercel production build with test", null, "sk_test_safe", true],
+  ] as const)(
+    "binds Stripe readiness to deployment mode for %s",
+    (_label, vercelEnvironment, secretKey, configured) => {
+      const config = getServerRuntimeConfig({
+        NODE_ENV: "production",
+        ...(vercelEnvironment ? { VERCEL_ENV: vercelEnvironment } : {}),
+        NEXT_PUBLIC_SITE_URL: "https://ugc.example.test",
+        STRIPE_SECRET_KEY: secretKey,
+      });
+
+      expect(config.product.stripe.configured).toBe(configured);
+    },
+  );
 
   it("uses the canary-proven NewAPI models when overrides are absent", () => {
     const config = getServerRuntimeConfig({
@@ -276,10 +299,7 @@ describe("access-code session", () => {
       });
 
     const firstLogin = await accessLogin(loginRequest());
-    const firstSession = responseCookiePair(
-      firstLogin,
-      STUDIO_SESSION_COOKIE,
-    );
+    const firstSession = responseCookiePair(firstLogin, STUDIO_SESSION_COOKIE);
     const recoveryIdentity = responseCookiePair(
       firstLogin,
       STUDIO_IDENTITY_COOKIE,
@@ -370,18 +390,9 @@ describe("access-code session", () => {
 
     const browserA = await accessLogin(loginRequest());
     const browserB = await accessLogin(loginRequest());
-    const sessionA = responseCookiePair(
-      browserA,
-      STUDIO_SESSION_COOKIE,
-    );
-    const identityA = responseCookiePair(
-      browserA,
-      STUDIO_IDENTITY_COOKIE,
-    );
-    const identityB = responseCookiePair(
-      browserB,
-      STUDIO_IDENTITY_COOKIE,
-    );
+    const sessionA = responseCookiePair(browserA, STUDIO_SESSION_COOKIE);
+    const identityA = responseCookiePair(browserA, STUDIO_IDENTITY_COOKIE);
+    const identityB = responseCookiePair(browserB, STUDIO_IDENTITY_COOKIE);
     const ownerA = getStudioSessionIdentity(
       new Request("https://studio.example.test/studio", {
         headers: requestCookies(sessionA, identityA),
@@ -408,14 +419,8 @@ describe("access-code session", () => {
     const relogin = await accessLogin(
       loginRequest(requestCookies(sessionA, identityB).cookie),
     );
-    const repairedSession = responseCookiePair(
-      relogin,
-      STUDIO_SESSION_COOKIE,
-    );
-    const reloginIdentity = responseCookiePair(
-      relogin,
-      STUDIO_IDENTITY_COOKIE,
-    );
+    const repairedSession = responseCookiePair(relogin, STUDIO_SESSION_COOKIE);
+    const reloginIdentity = responseCookiePair(relogin, STUDIO_IDENTITY_COOKIE);
     expect(
       getStudioSessionIdentity(
         new Request("https://studio.example.test/studio", {
@@ -631,6 +636,10 @@ describe("server-signed paid approval", () => {
   });
 
   it("rejects exact-input tampering before database or provider IO", async () => {
+    vi.spyOn(
+      billingServer,
+      "requirePaidGenerationAccess",
+    ).mockResolvedValueOnce(null);
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("STUDIO_ACCESS_CODE", "protected-access-code");
     vi.stubEnv(
@@ -797,9 +806,11 @@ describe("image provider", () => {
 
   it("never automatically resubmits an ambiguous paid image request", async () => {
     stubProviderEnvironment();
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response('{"error":"temporary"}', { status: 503 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('{"error":"temporary"}', { status: 503 }),
+      );
 
     await expect(
       generateNewApiImage({
@@ -850,9 +861,7 @@ describe("image provider", () => {
     });
     expect(generated.mode).toBe("edit");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(
-      "https://newapi.example.test/v1/images/edits",
-    );
+    expect(url).toBe("https://newapi.example.test/v1/images/edits");
     expect(init.body).toBeInstanceOf(FormData);
   });
 
@@ -860,13 +869,13 @@ describe("image provider", () => {
     stubProviderEnvironment();
     const providerSecret = "provider-response-secret-value";
     const fetchMock = vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            error: `${providerSecret} unit-test-provider-key`,
-          }),
-          { status: 400 },
-        ),
-      );
+      new Response(
+        JSON.stringify({
+          error: `${providerSecret} unit-test-provider-key`,
+        }),
+        { status: 400 },
+      ),
+    );
     const error = await generateNewApiImage({
       prompt: "A clean product still life.",
       size: "1024x1024",
@@ -883,6 +892,10 @@ describe("image provider", () => {
   });
 
   it("fails before fetch when the provider key is missing", async () => {
+    vi.spyOn(
+      billingServer,
+      "requirePaidGenerationAccess",
+    ).mockResolvedValueOnce(null);
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("STUDIO_ACCESS_CODE", "protected-access-code");
     vi.stubEnv(
@@ -1029,12 +1042,14 @@ describe("video provider", () => {
   it("normalizes video status, progress, and result URL", () => {
     expect(
       normalizeVideoProviderResponse({
-        data: [{
-          task_id: "task_video_123",
-          status: "SUCCESS",
-          progress: "100%",
-          result_url: "https://cdn.example.test/video.mp4",
-        }],
+        data: [
+          {
+            task_id: "task_video_123",
+            status: "SUCCESS",
+            progress: "100%",
+            result_url: "https://cdn.example.test/video.mp4",
+          },
+        ],
       }),
     ).toEqual({
       taskId: "task_video_123",
@@ -1068,9 +1083,7 @@ describe("video provider", () => {
     expect(submitted.result.taskId).toBe("task_submit_123");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(
-      "https://newapi.example.test/v1/video/generations",
-    );
+    expect(url).toBe("https://newapi.example.test/v1/video/generations");
     expect(new Headers(init.headers).get("idempotency-key")).toBe(
       "video:stable-submit-key",
     );
@@ -1092,9 +1105,11 @@ describe("video provider", () => {
   it("uses a sanitized error for rejected video submissions", async () => {
     stubProviderEnvironment();
     const hidden = "hidden-provider-diagnostic";
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: hidden }), { status: 500 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: hidden }), { status: 500 }),
+      );
     const error = await submitNewApiVideo({
       prompt: "A restrained camera push.",
       durationSec: 4,
