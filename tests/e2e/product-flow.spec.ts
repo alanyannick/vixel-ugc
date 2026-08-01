@@ -10,7 +10,9 @@ test("marketing page communicates the source-grounded workflow", async ({
     page.getByRole("link", { name: "Vixel Campaigns home" }),
   ).toBeVisible();
   await expect(
-    page.getByText(/VIXEL CAMPAIGNS \/ AI PRODUCT-TO-UGC/).first(),
+    page
+      .getByText(/VIXEL CAMPAIGNS \/ PRIVATE BETA \/ AI PRODUCT-TO-UGC/)
+      .first(),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {

@@ -72,6 +72,7 @@ describe("release runtime readiness", () => {
       },
       issues: [],
       liveGeneration: false,
+      paidReady: false,
     });
   });
 
@@ -94,6 +95,7 @@ describe("release runtime readiness", () => {
       },
       providerConfigured: false,
       providerTransportSecure: false,
+      paidReady: false,
     });
     expect(body.issues).toEqual(
       expect.arrayContaining([

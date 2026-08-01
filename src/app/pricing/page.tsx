@@ -22,11 +22,12 @@ const features = [
   "Cloud campaign save and recovery",
   "Eligibility for reviewed image and video generation when enabled",
   "Exact paid-input receipts and replay protection",
-  "Stripe-hosted checkout and billing management",
+  "Stripe-hosted checkout and billing management when enabled",
 ] as const;
 
 export default function PricingPage() {
   const runtime = getServerRuntimeConfig();
+  const billingReady = runtime.product.features.billing.ready;
 
   return (
     <>
@@ -48,16 +49,22 @@ export default function PricingPage() {
             Waitlist and planning never trigger provider spend. An approved
             account and active recurring subscription are required before paid
             generation can run, along with provider, approval, ledger, quota,
-            feature-flag, and runtime-health readiness.
+            feature-flag, and runtime-health readiness.{" "}
+            {billingReady
+              ? "Billing is open for approved accounts on this deployment."
+              : "Billing and Checkout are currently closed on this deployment."}
           </span>
         </div>
         <article className="pricing-card">
           <header>
-            <span>Founding beta</span>
+            <span>
+              {billingReady ? "Founding beta" : "Planned founding beta"}
+            </span>
             <strong>{formatFoundingBetaPrice()} / month</strong>
             <small>
-              Recurring monthly access. Renewal details appear in Stripe
-              Checkout.
+              {billingReady
+                ? "Recurring monthly access. Renewal details appear in Stripe Checkout."
+                : "Planned recurring price. No subscription can be purchased on this deployment yet."}
             </small>
           </header>
           <ul>
@@ -68,14 +75,16 @@ export default function PricingPage() {
               </li>
             ))}
           </ul>
-          <BillingPanel enabled={runtime.product.features.billing.ready} />
+          <BillingPanel enabled={billingReady} />
           <Link className="button button--outline-ink" href="/waitlist">
             Apply for beta access
             <ArrowRight aria-hidden="true" size={17} />
           </Link>
           <p>
             <ShieldCheck aria-hidden="true" size={16} />
-            Checkout and billing management are hosted by Stripe.
+            {billingReady
+              ? "Checkout and billing management are hosted by Stripe."
+              : "Joining the waitlist does not create a subscription or charge."}
           </p>
         </article>
       </section>

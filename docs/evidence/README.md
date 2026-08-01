@@ -95,6 +95,11 @@ providerTransportSecure=true
 commit=6186d29211703fc24f4099cb0a1fb2a3e72102c6
 ```
 
+`provider=ready` is the historical response label captured from that commit. It
+meant that a secure provider configuration was present; it did not prove
+provider reachability or a successful paid generation. Current code reports
+this configuration-only state as `provider=configured`.
+
 Verified response policy:
 
 - HSTS: `max-age=63072000; includeSubDomains; preload`

@@ -134,6 +134,7 @@ export async function GET(): Promise<Response> {
       providerConfigured: runtimeConfig.newApi.configured,
       providerTransportSecure: runtimeConfig.newApi.transportSecure,
       liveGeneration: runtimeConfig.liveGeneration,
+      paidReady: liveGenerationReady,
       databaseConfigured: runtimeConfig.databaseConfigured,
       build: runtimeConfig.build,
     },

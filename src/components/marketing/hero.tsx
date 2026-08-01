@@ -29,12 +29,16 @@ const formats = [
   },
 ] as const;
 
-export function Hero() {
+export function Hero({
+  paidGenerationConfigured,
+}: {
+  paidGenerationConfigured: boolean;
+}) {
   return (
     <section className="composer-hero">
       <div className="hero-grain" aria-hidden="true" />
       <div className="composer-hero-heading">
-        <p>VIXEL CAMPAIGNS / AI PRODUCT-TO-UGC CAMPAIGN STUDIO</p>
+        <p>VIXEL CAMPAIGNS / PRIVATE BETA / AI PRODUCT-TO-UGC CAMPAIGN STUDIO</p>
         <h1>
           Turn product truth
           <br />
@@ -42,8 +46,10 @@ export function Hero() {
         </h1>
         <span>
           Start with a product link and an angle. Creative Router grounds your
-          UGC Campaign in approved product truth, plans five distinct hooks, and
-          keeps every paid generation reviewable.
+          UGC Campaign in approved product truth and plans five distinct hooks.{" "}
+          {paidGenerationConfigured
+            ? "Paid generation remains limited to approved, entitled accounts and live runtime checks."
+            : "This deployment is planning-only today; paid generation is disabled."}
         </span>
       </div>
 

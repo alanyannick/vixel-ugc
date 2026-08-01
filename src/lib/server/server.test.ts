@@ -155,6 +155,7 @@ describe("server environment", () => {
     expect(JSON.parse(text)).toMatchObject({
       providerConfigured: true,
       liveGeneration: true,
+      paidReady: false,
       databaseConfigured: true,
       checks: {
         liveGeneration: "not_ready",

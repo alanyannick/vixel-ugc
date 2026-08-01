@@ -235,6 +235,10 @@ export default function VixelAppComparisonPage() {
             download page, customer support site, or subscription manager.
           </li>
           <li>
+            Accounts, purchases, refunds, credits, uploads, data, and support
+            are separate and do not transfer between the two products.
+          </li>
+          <li>
             No third-party logo, screenshot, rating, review, price, or App Store
             badge is used on this page.
           </li>
