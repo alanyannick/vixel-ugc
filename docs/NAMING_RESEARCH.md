@@ -70,12 +70,20 @@ Generator` and treats UGC as one supported format.
 - [Higgsfield](https://higgsfield.ai/marketing-automation) uses `Marketing
 Studio` as its own product packaging for a much broader end-to-end creative
   automation promise.
+- [HubSpot](https://www.hubspot.com/products/marketing/studio) also uses
+  `Marketing Studio` for an AI campaign-planning workspace. The phrase is now
+  shared category packaging rather than an ownable shortcut to Higgsfield's
+  demand.
 
 X launch and practitioner posts likewise favor `AI ads`, `video ads`, `UGC
 ads`, `ad creative`, `hooks`, `variations`, and `workflows`. Examples include
 the [Higgsfield launch post embedded in this X
 thread](https://x.com/knoxtwts/status/2043940502521643020) and an [Arcads
-workflow discussion](https://x.com/rom1trs/status/2036083539293171888).
+workflow discussion](https://x.com/rom1trs/status/2036083539293171888). A
+[paid-social practitioner discussion](https://x.com/williamkast_/status/2032897347433189659)
+also makes the strategic distinction directly: UGC is a format, while useful
+creative diversity comes from different messages, personas, awareness stages,
+and formats. That distinction matches this product's campaign-level routing.
 
 The implication is deliberate: use those phrases in acquisition copy, but do
 not turn a crowded category phrase into the only brand asset.
@@ -91,6 +99,7 @@ not search-volume measurements or legal clearance.
 | Vixel Ad Studio        |       5 |           2 |             4 |         3 |        4.5 | Useful category language, too generic as the brand        |
 | Vixel Campaign Studio  |       5 |         2.5 |             5 |         4 |          4 | Interface/category language only                          |
 | Vixel UGC Studio       |       5 |           2 |             4 |         2 |        4.5 | Too narrow; `UGC Studio` is already crowded               |
+| Vixel Creator Ads      |     4.5 |         2.5 |             4 |         3 |        4.5 | Acquisition phrase; can imply a creator marketplace       |
 | Vixel Creative Router  |       2 |           4 |             5 |         4 |          1 | Engine name                                               |
 | Vixel Proof            |       3 |           2 |             3 |         4 |          2 | Risks implying proof, attribution, or real testimonials   |
 | Vixel Marketing Studio |       4 |           1 |           3.5 |         5 |          2 | Rejected; crowded and too close to Higgsfield's packaging |
