@@ -1523,7 +1523,7 @@ export function StudioWorkspace({
         <div className={styles.brandRow}>
           <Link
             href="/"
-            aria-label="Vixel Campaigns home"
+            aria-label="Vixel UGC home"
             className={styles.brand}
           >
             <IconMark className={styles.brandMark} />

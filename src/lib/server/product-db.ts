@@ -75,7 +75,7 @@ function state(): ProductDatabaseGlobal {
   if (!url) {
     throw new ProductDatabaseError(
       "database_not_configured",
-      "The Vixel Campaigns product database is not configured.",
+      "The Vixel UGC product database is not configured.",
     );
   }
   if (
@@ -184,7 +184,7 @@ async function ensureReady(): Promise<Pool> {
       .then((result) => {
         if (!result.rows[0]?.runtime_ready) {
           throw new Error(
-            "The database login does not have the expected Vixel Campaigns runtime boundary.",
+            "The database login does not have the expected Vixel UGC runtime boundary.",
           );
         }
       });
@@ -210,7 +210,7 @@ async function ensureReady(): Promise<Pool> {
     }
     throw new ProductDatabaseError(
       "database_unavailable",
-      "The Vixel Campaigns product database is unavailable.",
+      "The Vixel UGC product database is unavailable.",
     );
   }
   return database.pool;
@@ -226,7 +226,7 @@ export async function productQuery<Row extends QueryResultRow>(
   } catch {
     throw new ProductDatabaseError(
       "database_unavailable",
-      "The Vixel Campaigns product database query failed.",
+      "The Vixel UGC product database query failed.",
     );
   }
 }

@@ -1,4 +1,4 @@
-# Vixel Campaigns Launch Blueprint
+# Vixel UGC Launch Blueprint
 
 ## Goal
 

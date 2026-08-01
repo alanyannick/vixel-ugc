@@ -9,7 +9,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Join the private beta",
   description:
-    "Join the Vixel Campaigns private beta for source-grounded UGC Campaign planning, cloud campaigns, and eligible reviewed video generation.",
+    "Join the Vixel UGC private beta for source-grounded UGC Campaign planning, cloud campaigns, and eligible reviewed video generation.",
   path: "/waitlist",
 });
 

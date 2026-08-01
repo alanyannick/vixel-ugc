@@ -7,7 +7,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Terms",
   description:
-    "Terms for using the Vixel Campaigns beta, including account access, source responsibility, subscriptions, generated candidates, and acceptable use.",
+    "Terms for using the Vixel UGC beta, including account access, source responsibility, subscriptions, generated candidates, and acceptable use.",
   path: "/terms",
 });
 
@@ -18,7 +18,7 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          Vixel Campaigns is currently a beta AI Product-to-UGC Campaign
+          Vixel UGC is currently a beta AI Product-to-UGC Campaign
           Studio. Features, providers, output formats, and availability may
           change as the product matures.
         </p>

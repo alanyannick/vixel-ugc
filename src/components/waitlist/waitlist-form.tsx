@@ -73,7 +73,7 @@ export function WaitlistForm({
       <div className="waitlist-success" role="status">
         <CheckCircle2 aria-hidden="true" size={28} />
         <span>Request received</span>
-        <h2>You’re on the Vixel Campaigns list.</h2>
+        <h2>You’re on the Vixel UGC list.</h2>
         <p>
           We sent a confirmation and will email you again when your Studio
           access is approved.

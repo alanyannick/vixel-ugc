@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "Vixel Campaigns — AI Product-to-UGC Campaign Studio grounded in product truth";
+  "Vixel UGC — AI UGC Ad Studio grounded in product truth";
 export const size = {
   width: 1200,
   height: 630,
@@ -64,7 +64,7 @@ export default function OpenGraphImage() {
           >
             VX
           </div>
-          VIXEL CAMPAIGNS
+          VIXEL UGC
         </div>
         <div style={{ display: "flex", flexDirection: "column", position: "relative" }}>
           <div
@@ -77,7 +77,7 @@ export default function OpenGraphImage() {
               textTransform: "uppercase",
             }}
           >
-            AI Product-to-UGC Campaign Studio
+            AI UGC Ad Studio
           </div>
           <div
             style={{

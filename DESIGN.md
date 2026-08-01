@@ -1,4 +1,4 @@
-# Vixel Campaigns Design System
+# Vixel UGC Design System
 
 ## Visual Thesis
 

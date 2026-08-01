@@ -1,6 +1,6 @@
-# Vixel Campaigns
+# Vixel UGC
 
-Vixel Campaigns is an AI Product-to-UGC Campaign Studio. It turns grounded
+Vixel UGC is an AI UGC Ad Studio. It turns grounded
 product references into reviewable UGC Campaigns: five hook routes, one
 explicit decision, a durable execution plan, and protected image/video
 candidates. The Creative Router keeps the workflow coherent while product

@@ -208,7 +208,7 @@ export function AdminWaitlist() {
             <ArrowLeft aria-hidden="true" size={16} />
             Product
           </Link>
-          <p>Vixel Campaigns / Operations</p>
+          <p>Vixel UGC / Operations</p>
           <h1>Beta admissions</h1>
         </div>
         <button type="button" onClick={() => void load()}>

@@ -30,7 +30,7 @@ export function SiteFooter() {
       <div className="footer-statement">
         <Link className="footer-brand" href="/">
           <span>Vixel</span>
-          <em>Campaigns</em>
+          <em>UGC</em>
         </Link>
         <p>
           UGC Campaign turns approved product facts into reviewable
@@ -62,7 +62,7 @@ export function SiteFooter() {
         <p>English interface · English and 中文 briefs</p>
       </div>
       <p className="footer-disclaimer">
-        Vixel Campaigns is an independently operated web product. It is not
+        Vixel UGC is an independently operated web product. It is not
         affiliated with, endorsed by, or operated by any third-party mobile app
         or App Store publisher using a similar name.
       </p>

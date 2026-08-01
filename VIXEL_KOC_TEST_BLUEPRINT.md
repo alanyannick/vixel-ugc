@@ -1,4 +1,4 @@
-# Vixel Campaigns Test Blueprint
+# Vixel UGC Test Blueprint
 
 ## Target
 

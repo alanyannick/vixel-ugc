@@ -1,4 +1,4 @@
-# Vixel Campaigns product launch runbook
+# Vixel UGC product launch runbook
 
 This runbook covers the public waitlist, account access, lifecycle email,
 cloud campaigns, recurring billing, and paid-generation release gates for

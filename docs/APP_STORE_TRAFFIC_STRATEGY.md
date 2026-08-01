@@ -38,7 +38,7 @@ Implemented public entry points:
 The comparison page must remain singular. Do not clone it into country,
 pricing, login, download, refund, review, or support doorway pages. Do not use
 the third-party app's icon, screenshots, reviews, prices, or App Store badge.
-Do not describe Vixel Campaigns as the app's official web version.
+Do not describe Vixel UGC as the app's official web version.
 
 The web product should describe its own capabilities precisely: approved
 accounts can use account-scoped cloud campaign persistence when deployment
@@ -63,7 +63,7 @@ writing.
 
 ## Phase 3 — a Vixel companion iOS app
 
-To acquire App Store search traffic directly, Vixel Campaigns needs its own
+To acquire App Store search traffic directly, Vixel UGC needs its own
 useful iOS app under its own Apple Developer account. A narrow companion is
 safer than reproducing the whole web product:
 

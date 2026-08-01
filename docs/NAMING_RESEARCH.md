@@ -1,4 +1,4 @@
-# Vixel Campaigns Naming Decision
+# Vixel UGC Naming Decision
 
 Status: adopted for the web product on 2026-08-01.
 
@@ -7,8 +7,8 @@ assessment, not a trademark clearance or legal opinion.
 
 ## Decision
 
-- Product: `Vixel Campaigns`
-- Descriptor: `AI Product-to-UGC Campaign Studio`
+- Product: `Vixel UGC`
+- Descriptor: `AI UGC Ad Studio`
 - Current workflow: `UGC Campaign`
 - Differentiating engine: `Creative Router`
 - Canonical origin: `https://ugc.vixelai.com`
@@ -17,41 +17,43 @@ assessment, not a trademark clearance or legal opinion.
 
 Recommended launch line:
 
-> Turn product truth into creator ads ready to produce.
+> Turn one product link into creator-style ads.
 
-`Campaigns` is the product name. `Studio` is a category descriptor, not the
-brand. `UGC` is a workflow and acquisition term, not the master brand. `KOC`
-is a creator/distribution strategy inside a campaign.
+`Vixel` is the master brand. `Vixel UGC` is the current product. `UGC Campaign`
+is the durable project object inside the product, and `Creative Router` is the
+engine. `KOL` and `KOC` describe creator or distribution roles; they are not
+the product name.
 
 ## Why this name won
 
 ### It matches the product
 
-The product turns one grounded brief into Creative Router directions, an
-approved plan, an account-scoped cloud campaign, and, when billing/provider
-readiness passes, traceable candidates and adoption receipts. The durable
-object is a campaign, not a single generated clip.
+The current product turns a product URL and approved facts into creator-style
+hooks, personas, a reviewed production plan, and, when every release gate is
+ready, traceable media candidates. `UGC` names that job immediately and matches
+the canonical `ugc.vixelai.com` origin.
 
-### It can expand without overclaiming
+### It puts Campaign at the correct level
 
-`Vixel Campaigns` can contain UGC, product video, playable, cinematic, and
-future campaign workflows. It does not claim media buying, publishing, budget
-management, or autonomous optimization that the current private beta does not
-provide.
+The product does not currently provide media buying, audience management,
+publishing, attribution, or performance optimization. Naming the whole product
+`Campaigns` would therefore imply a campaign-management platform. A `UGC
+Campaign` remains the correct name for the saved project and its durable
+workflow state.
 
 ### It behaves like a product name
 
-`Vixel Campaigns` is shorter and more natural in product and social language
-than `Vixel Campaign Studio`: “Built with Vixel Campaigns” and “Open in Vixel
-Campaigns.” The full `vixelcampaigns` string also fits within X's 15-character
-username limit, although public profile availability must be confirmed while
-signed in and is not guaranteed by a public 404 response.
+`Vixel UGC` is short enough for the header, product shell, social identity, and
+word-of-mouth. It also avoids asking a new visitor to decode `Campaigns`,
+`Product-to-UGC Campaign Studio`, `UGC Campaign`, and `Creative Router` in the
+same first viewport.
 
 ### Search intent stays in the descriptor
 
-The brand does not need to carry every keyword. Titles, headings, guides, and
-workflow pages can accurately use `AI UGC`, `AI video ads`, `product video`,
-and `ad creative` while the product retains a distinct, reusable name.
+The product name carries the category term users already use. Titles, headings,
+guides, and workflow pages can then add precise intents such as `AI UGC ads`,
+`product video`, `creator ads`, and `ad creative` without pretending the
+product offers influencer distribution.
 
 ## Market and X language
 
@@ -85,25 +87,23 @@ also makes the strategic distinction directly: UGC is a format, while useful
 creative diversity comes from different messages, personas, awareness stages,
 and formats. That distinction matches this product's campaign-level routing.
 
-The implication is deliberate: use those phrases in acquisition copy, but do
-not turn a crowded category phrase into the only brand asset.
+The implication is deliberate: use `Vixel UGC` for the current product, keep
+`Vixel` as the master brand, and reserve a broader name such as `Vixel Ads` for
+a future product that genuinely spans formats, publishing, and optimization.
 
 ## Candidate assessment
 
 The ratings below are internal judgment from 1 (weak) to 5 (strong). They are
 not search-volume measurements or legal clearance.
 
-| Candidate              | Clarity | Distinction | Product truth | Expansion | Search fit | Decision                                                  |
-| ---------------------- | ------: | ----------: | ------------: | --------: | ---------: | --------------------------------------------------------- |
-| Vixel Campaigns        |     4.5 |           4 |             5 |         5 |          4 | Product name                                              |
-| Vixel Ad Studio        |       5 |           2 |             4 |         3 |        4.5 | Useful category language, too generic as the brand        |
-| Vixel Campaign Studio  |       5 |         2.5 |             5 |         4 |          4 | Interface/category language only                          |
-| Vixel UGC Studio       |       5 |           2 |             4 |         2 |        4.5 | Too narrow; `UGC Studio` is already crowded               |
-| Vixel Creator Ads      |     4.5 |         2.5 |             4 |         3 |        4.5 | Acquisition phrase; can imply a creator marketplace       |
-| Vixel Creative Router  |       2 |           4 |             5 |         4 |          1 | Engine name                                               |
-| Vixel Proof            |       3 |           2 |             3 |         4 |          2 | Risks implying proof, attribution, or real testimonials   |
-| Vixel Marketing Studio |       4 |           1 |           3.5 |         5 |          2 | Rejected; crowded and too close to Higgsfield's packaging |
-| Vixel Creative Studio  |       3 |         0.5 |             4 |         5 |          1 | Rejected; an active exact-name business exists            |
+| Candidate       | Current fit | Expansion | Decision                                                       |
+| --------------- | ----------: | --------: | -------------------------------------------------------------- |
+| Vixel UGC       |         9/10 |      6/10 | Product name: clearest match for the current job and domain    |
+| Vixel Ads       |         7/10 |      8/10 | Revisit only after the product expands beyond UGC planning     |
+| Vixel Campaigns |         6/10 |      8/10 | Keep `Campaign` as the project object, not the public brand    |
+| Vixel Studio    |         5/10 |      7/10 | Too broad to explain the product                               |
+| Vixel           |         4/10 |      9/10 | Master brand only; too ambiguous as the product name           |
+| Vixel KOL       |         2/10 |      3/10 | Reject: implies talent discovery, relationships, and reach     |
 
 ## Name-collision boundary
 
@@ -128,7 +128,7 @@ US, or Turkey, obtain a formal trademark and likelihood-of-confusion review.
 ## App identity and acquisition rules
 
 The unrelated FENIX app can create web-search spillover, but there is no direct
-App Store traffic path without publisher cooperation. Vixel Campaigns must not
+App Store traffic path without publisher cooperation. Vixel UGC must not
 present itself as that app's website, account portal, support service, or
 subscription manager.
 
@@ -150,7 +150,7 @@ uploads, data, and support are separate.
 - Keep legacy technical identifiers stable, including export formats,
   database schema names, cookies, local-storage keys, redirects, and the
   existing Vercel project.
-- Use `Vixel Campaigns` consistently in visible brand and metadata fields.
+- Use `Vixel UGC` consistently in visible brand and metadata fields.
 - Use `UGC Campaign` for the current workflow.
 - Use `Creative Router` for the routing engine, not as a second visible agent.
 - Describe the product as an account-based private beta with account-scoped

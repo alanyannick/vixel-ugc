@@ -1,4 +1,4 @@
-# Vixel Campaigns Design Audit
+# Vixel UGC Design Audit
 
 ## Baseline
 

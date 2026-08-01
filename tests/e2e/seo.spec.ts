@@ -89,8 +89,8 @@ test("crawl surfaces list the UGC content cluster without blocking Studio noinde
   }
 
   const llms = await llmsResponse.text();
-  expect(llms).toContain("# Vixel Campaigns");
-  expect(llms).toContain("AI Product-to-UGC Campaign Studio");
+  expect(llms).toContain("# Vixel UGC");
+  expect(llms).toContain("AI UGC Ad Studio");
   expect(llms).toContain("UGC Campaign");
   expect(llms).toContain("account-scoped cloud campaign");
   expect(llms).toContain("billing");

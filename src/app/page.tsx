@@ -15,9 +15,9 @@ import { createPageMetadata } from "@/lib/seo/site";
 import { getServerRuntimeConfig } from "@/lib/server/env";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "AI Product-to-UGC Campaign Studio",
+  title: "AI UGC Ad Studio for Product Brands",
   description:
-    "Turn approved product facts into reviewable UGC Campaigns. Paid generation requires an approved account, billing entitlement, exact-input review, and runtime readiness.",
+    "Turn a product URL into source-grounded UGC ad concepts, scripts, and reviewable production plans for TikTok, Reels, and Shorts.",
   path: "/",
 });
 

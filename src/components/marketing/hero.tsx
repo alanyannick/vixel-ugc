@@ -38,7 +38,7 @@ export function Hero({
     <section className="composer-hero">
       <div className="hero-grain" aria-hidden="true" />
       <div className="composer-hero-heading">
-        <p>VIXEL CAMPAIGNS / PRIVATE BETA / AI PRODUCT-TO-UGC CAMPAIGN STUDIO</p>
+        <p>VIXEL UGC / PRIVATE BETA / AI PRODUCT-TO-UGC CAMPAIGN STUDIO</p>
         <h1>
           Turn product truth
           <br />

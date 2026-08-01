@@ -129,7 +129,7 @@ export function BillingPanel({
         <CreditCard aria-hidden="true" size={compact ? 16 : 20} />
         <span>
           <strong>
-            {compact ? "Subscription" : "Vixel Campaigns paid beta"}
+            {compact ? "Subscription" : "Vixel UGC paid beta"}
           </strong>
           <small>
             {state.kind === "ready"

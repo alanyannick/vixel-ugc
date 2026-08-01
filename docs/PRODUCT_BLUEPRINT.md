@@ -1,8 +1,8 @@
-# Vixel Campaigns Product Blueprint
+# Vixel UGC Product Blueprint
 
 ## 1. Product Definition
 
-Vixel Campaigns is an AI Product-to-UGC Campaign Studio for teams that need
+Vixel UGC is an AI UGC Ad Studio for teams that need
 creator-style product videos without losing product truth, human credibility,
 or platform-native expression.
 

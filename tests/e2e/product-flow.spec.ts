@@ -5,13 +5,13 @@ test("marketing page communicates the source-grounded workflow", async ({
 }) => {
   await page.goto("/");
 
-  await expect(page).toHaveTitle(/Vixel Campaigns/);
+  await expect(page).toHaveTitle(/Vixel UGC/);
   await expect(
-    page.getByRole("link", { name: "Vixel Campaigns home" }),
+    page.getByRole("link", { name: "Vixel UGC home" }),
   ).toBeVisible();
   await expect(
     page
-      .getByText(/VIXEL CAMPAIGNS \/ PRIVATE BETA \/ AI PRODUCT-TO-UGC/)
+      .getByText(/VIXEL UGC \/ PRIVATE BETA \/ AI PRODUCT-TO-UGC/)
       .first(),
   ).toBeVisible();
   await expect(

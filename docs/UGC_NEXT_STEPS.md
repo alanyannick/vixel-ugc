@@ -1,10 +1,10 @@
-# Vixel Campaigns — Next Steps
+# Vixel UGC — Next Steps
 
 Updated: 2026-08-01
 
 ## Current release boundary
 
-Vixel Campaigns is live as a **planning beta**. Public waitlist, email OTP
+Vixel UGC is live as a **planning beta**. Public waitlist, email OTP
 accounts, operator approval, cloud campaigns, lifecycle email, protected
 Studio, grounded planning, recovery identity, Stripe billing integration, and
 the paid-media control plane are shipped behind explicit feature gates. Live
@@ -26,7 +26,7 @@ and paid end-to-end proofs below are complete.
 
 ## P0 — Authorize and provision the production ledger
 
-The production Vixel Campaigns project and fee were explicitly approved and
+The production Vixel UGC project and fee were explicitly approved and
 provisioned.
 
 - [x] Confirm the Supabase organization/project and the exact expected fee.

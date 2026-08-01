@@ -1,8 +1,8 @@
-# Vixel Campaigns product launch
+# Vixel UGC product launch
 
 ## Goal
 
-Ship Vixel Campaigns as a production-ready, account-based beta on
+Ship Vixel UGC as a production-ready, account-based beta on
 `ugc.vixelai.com`: visitors can understand the product and join the waitlist,
 approved users can authenticate with email OTP and keep work in the cloud,
 operators can manage access and lifecycle state, and paid generation remains
