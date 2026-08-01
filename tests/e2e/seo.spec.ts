@@ -8,7 +8,7 @@ test("public acquisition pages expose self-referencing canonicals", async ({
   const pages = [
     {
       path: "/",
-      heading: "Turn product truth into creator ads ready to produce.",
+      heading: "Turn any product into a creator ad.",
     },
     {
       path: "/ai-video-generator-for-product-marketing",
@@ -40,7 +40,7 @@ test("public acquisition pages expose self-referencing canonicals", async ({
     },
     {
       path: "/waitlist",
-      heading: "Bring one product. Apply with a real brief.",
+      heading: "Bring one product. Leave with a campaign.",
     },
   ] as const;
 
@@ -89,7 +89,7 @@ test("crawl surfaces list the UGC content cluster without blocking Studio noinde
   }
 
   const llms = await llmsResponse.text();
-  expect(llms).toContain("# Vixel Campaigns");
+  expect(llms).toContain("# Vixel UGC");
   expect(llms).toContain("AI Product-to-UGC Campaign Studio");
   expect(llms).toContain("UGC Campaign");
   expect(llms).toContain("account-scoped cloud campaign");

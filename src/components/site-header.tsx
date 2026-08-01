@@ -11,14 +11,11 @@ const navigation = [
 export function SiteHeader() {
   return (
     <header className="site-header">
-      <Link className="site-brand" href="/" aria-label="Vixel Campaigns home">
+      <Link className="site-brand" href="/" aria-label="Vixel UGC Studio home">
         <span className="site-brand-mark" aria-hidden="true">
           VX
         </span>
-        <span className="site-brand-word">
-          <strong>Vixel</strong>
-          <em>Campaigns</em>
-        </span>
+        <span className="site-brand-word">Vixel <em>UGC</em></span>
       </Link>
 
       <nav className="desktop-navigation" aria-label="Primary navigation">

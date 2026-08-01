@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Vixel Campaigns",
-    short_name: "Vixel Campaigns",
+    name: "Vixel UGC",
+    short_name: "Vixel UGC",
     description:
       "A source-grounded AI Product-to-UGC Campaign Studio for creator-style ads.",
     start_url: "/studio",

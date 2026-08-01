@@ -12,29 +12,19 @@ import { TracePanel } from "@/components/marketing/trace-panel";
 import { WorkflowSequence } from "@/components/marketing/workflow-sequence";
 import { softwareSchema } from "@/lib/seo/schema";
 import { createPageMetadata } from "@/lib/seo/site";
-import { getServerRuntimeConfig } from "@/lib/server/env";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "AI Product-to-UGC Campaign Studio",
+  title: "AI UGC video campaign planning beta",
   description:
-    "Turn approved product facts into reviewable UGC Campaigns. Paid generation requires an approved account, billing entitlement, exact-input review, and runtime readiness.",
+    "Plan source-grounded AI UGC product-video campaigns with five creative routes and exact paid-input review. Hosted generation requires live provider and ledger readiness.",
   path: "/",
 });
 
 export default function HomePage() {
-  const runtime = getServerRuntimeConfig();
-  const paidGenerationConfigured = Boolean(
-    runtime.liveGeneration &&
-      runtime.newApi.configured &&
-      runtime.databaseConfigured &&
-      runtime.product.features.accountAuth.ready &&
-      runtime.product.features.billing.ready,
-  );
-
   return (
     <>
       <StructuredData data={softwareSchema} />
-      <Hero paidGenerationConfigured={paidGenerationConfigured} />
+      <Hero />
       <PositioningBand />
 
       <section className="paper-section route-section" id="routes">

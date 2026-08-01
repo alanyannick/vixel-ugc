@@ -21,10 +21,10 @@ export function PositioningBand() {
   return (
     <section
       className="positioning-band"
-      aria-label="UGC Campaign workflow at a glance"
+      aria-label="Vixel UGC workflow at a glance"
     >
       <p>
-        <strong>AI Product-to-UGC Campaign Studio</strong>
+        <strong>AI UGC video generator</strong>
         <span>for product marketers, creative teams, and ecommerce brands</span>
       </p>
       <dl>

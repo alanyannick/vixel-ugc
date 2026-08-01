@@ -10,7 +10,7 @@ type FinalCtaProps = {
 export function FinalCta({
   eyebrow = "A better UGC ad starts before generation.",
   title = "Ground the product. Choose the route. Keep the receipt.",
-  body = "Apply with one product and a real campaign goal. Approved accounts can plan, save, review, and generate only when every release gate is ready.",
+  body = "Bring one product and a real campaign goal. Vixel turns approved facts into a reviewable creator-ad plan.",
 }: FinalCtaProps) {
   return (
     <section className="final-cta">
@@ -19,7 +19,7 @@ export function FinalCta({
       <p>{body}</p>
       <div className="button-row">
         <Link className="button button--citron" href="/waitlist">
-          Apply for private beta
+          Build a UGC campaign
           <ArrowRight aria-hidden="true" size={18} />
         </Link>
         <Link className="text-link text-link--light" href="/workflows/ugc-video">

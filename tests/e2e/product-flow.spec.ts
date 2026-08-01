@@ -5,19 +5,17 @@ test("marketing page communicates the source-grounded workflow", async ({
 }) => {
   await page.goto("/");
 
-  await expect(page).toHaveTitle(/Vixel Campaigns/);
+  await expect(page).toHaveTitle(/AI UGC video campaign planning beta/);
   await expect(
-    page.getByRole("link", { name: "Vixel Campaigns home" }),
+    page.getByRole("link", { name: "Vixel UGC Studio home" }),
   ).toBeVisible();
   await expect(
-    page
-      .getByText(/VIXEL CAMPAIGNS \/ PRIVATE BETA \/ AI PRODUCT-TO-UGC/)
-      .first(),
+    page.getByText(/VIXEL UGC \/ PRIVATE BETA/).first(),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Turn product truth into creator ads ready to produce.",
+      name: "Turn any product into a creator ad.",
     }),
   ).toBeVisible();
   const productLink = page.getByRole("textbox", { name: "Product link" });
@@ -26,12 +24,12 @@ test("marketing page communicates the source-grounded workflow", async ({
   await expect(campaignIdea).toBeVisible();
   await productLink.fill("https://shop.example.test/pulse-blender");
   await campaignIdea.fill("Show the ten-second setup and first-use reaction.");
-  await page.getByRole("button", { name: "Apply with brief" }).click();
+  await page.getByRole("button", { name: "Build campaign" }).click();
   await expect(page).toHaveURL(/\/waitlist\?/);
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Bring one product. Apply with a real brief.",
+      name: "Bring one product. Leave with a campaign.",
     }),
   ).toBeVisible();
   await expect(

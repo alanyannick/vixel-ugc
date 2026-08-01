@@ -169,7 +169,7 @@ export function AdminAdmissions({ reloadNonce = 0 }: { reloadNonce?: number }) {
     <div className={styles.admissionsWorkspace}>
       <header className={styles.admissionsHeader}>
         <div>
-          <span>Vixel Campaigns / Private beta</span>
+          <span>Vixel UGC / Private beta</span>
           <h2>Beta admission queue</h2>
           <p>
             Approve intent first; account access begins after verified email

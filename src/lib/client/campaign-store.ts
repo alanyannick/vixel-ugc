@@ -503,7 +503,7 @@ export function parseCampaignExport(raw: string): CampaignState {
     })
     .safeParse(decoded);
   if (!envelope.success) {
-    throw new Error("This file is not a valid Vixel Campaigns export.");
+    throw new Error("This file is not a valid Vixel UGC export.");
   }
   return envelope.data.campaign;
 }
