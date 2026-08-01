@@ -12,6 +12,7 @@ import { TracePanel } from "@/components/marketing/trace-panel";
 import { WorkflowSequence } from "@/components/marketing/workflow-sequence";
 import { softwareSchema } from "@/lib/seo/schema";
 import { createPageMetadata } from "@/lib/seo/site";
+import { getServerRuntimeConfig } from "@/lib/server/env";
 
 export const metadata: Metadata = createPageMetadata({
   title: "AI UGC video campaign planning beta",
@@ -21,10 +22,19 @@ export const metadata: Metadata = createPageMetadata({
 });
 
 export default function HomePage() {
+  const runtime = getServerRuntimeConfig();
+  const paidGenerationConfigured = Boolean(
+    runtime.liveGeneration &&
+      runtime.newApi.configured &&
+      runtime.databaseConfigured &&
+      runtime.product.features.accountAuth.ready &&
+      runtime.product.features.billing.ready,
+  );
+
   return (
     <>
       <StructuredData data={softwareSchema} />
-      <Hero />
+      <Hero paidGenerationConfigured={paidGenerationConfigured} />
       <PositioningBand />
 
       <section className="paper-section route-section" id="routes">

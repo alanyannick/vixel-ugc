@@ -43,7 +43,7 @@ export default async function WaitlistPage({
           <h1>
             Bring one product.
             <br />
-            <em>Leave with a campaign.</em>
+            <em>Join the private beta.</em>
           </h1>
           <span>
             Tell us what you make and how much creator content you need. We

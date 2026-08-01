@@ -29,7 +29,11 @@ const formats = [
   },
 ] as const;
 
-export function Hero() {
+export function Hero({
+  paidGenerationConfigured,
+}: {
+  paidGenerationConfigured: boolean;
+}) {
   return (
     <section className="composer-hero">
       <div className="hero-grain" aria-hidden="true" />
@@ -42,8 +46,9 @@ export function Hero() {
         </h1>
         <span>
           Start with a product link and an angle. Vixel grounds the campaign in
-          source truth, routes five hooks, and keeps every paid generation
-          reviewable.
+          source truth and routes five hooks. {paidGenerationConfigured
+            ? "Approved accounts can generate after exact-input review."
+            : "This beta is planning-only today; paid generation is disabled."}
         </span>
       </div>
 

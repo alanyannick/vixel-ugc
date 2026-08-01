@@ -24,7 +24,7 @@ export function PositioningBand() {
       aria-label="Vixel UGC workflow at a glance"
     >
       <p>
-        <strong>AI UGC video generator</strong>
+        <strong>AI UGC campaign studio</strong>
         <span>for product marketers, creative teams, and ecommerce brands</span>
       </p>
       <dl>

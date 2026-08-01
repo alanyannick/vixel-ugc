@@ -40,7 +40,7 @@ test("public acquisition pages expose self-referencing canonicals", async ({
     },
     {
       path: "/waitlist",
-      heading: "Bring one product. Leave with a campaign.",
+      heading: "Bring one product. Join the private beta.",
     },
   ] as const;
 

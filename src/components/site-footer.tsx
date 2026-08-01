@@ -59,8 +59,9 @@ export function SiteFooter() {
         <p>English interface · English and 中文 briefs</p>
       </div>
       <p className="footer-disclaimer">
-        This web studio is independently operated and is not affiliated with
-        third-party applications using a similar name.
+        Vixel UGC is an independently operated web product. It is not affiliated
+        with, endorsed by, or operated by any third-party mobile app or App
+        Store publisher using a similar name.
       </p>
     </footer>
   );

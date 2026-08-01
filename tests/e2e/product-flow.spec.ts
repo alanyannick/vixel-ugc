@@ -5,7 +5,9 @@ test("marketing page communicates the source-grounded workflow", async ({
 }) => {
   await page.goto("/");
 
-  await expect(page).toHaveTitle(/AI UGC video campaign planning beta/);
+  await expect(page).toHaveTitle(
+    /AI UGC video campaign planning beta · Vixel UGC/,
+  );
   await expect(
     page.getByRole("link", { name: "Vixel UGC Studio home" }),
   ).toBeVisible();
@@ -29,7 +31,7 @@ test("marketing page communicates the source-grounded workflow", async ({
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Bring one product. Leave with a campaign.",
+      name: "Bring one product. Join the private beta.",
     }),
   ).toBeVisible();
   await expect(
