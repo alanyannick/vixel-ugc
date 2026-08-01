@@ -24,9 +24,9 @@ const marketingVideoFaq = [
       "A product-marketing workflow needs more than motion. It should preserve approved product facts, connect each creative angle to an audience and action, expose the exact production input, and keep generated results reviewable before publishing.",
   },
   {
-    question: "Does Vixel Campaigns generate finished product videos?",
+    question: "Does Vixel UGC generate finished product videos?",
     answer:
-      "Vixel Campaigns is an account-based private beta for planning and managing a UGC Campaign. Approved accounts can save and reload campaign work in the cloud when that deployment capability is ready, with browser recovery and JSON export as fallbacks. A paid image or video job can run only when account, subscription, provider, deployment, and isolated-ledger checks all pass.",
+      "Vixel UGC is an account-based private beta for planning and managing a UGC Campaign. Approved accounts can save and reload campaign work in the cloud when that deployment capability is ready, with browser recovery and JSON export as fallbacks. A paid image or video job can run only when account, subscription, provider, deployment, and isolated-ledger checks all pass.",
   },
   {
     question: "Can the workflow use my product images?",
@@ -34,7 +34,7 @@ const marketingVideoFaq = [
       "Yes. Product and creator references have explicit roles in the campaign. The exact ordered reference set is included in review before a ready deployment can submit a paid media job.",
   },
   {
-    question: "Is Vixel Campaigns a general-purpose effects app?",
+    question: "Is Vixel UGC a general-purpose effects app?",
     answer:
       "No. It is a web campaign workspace for source-grounded creator-style product marketing. It focuses on the brief, Creative Router, account-scoped campaign state, review boundary, and delivery lineage rather than a library of consumer photo effects.",
   },
@@ -140,7 +140,7 @@ export default function ProductMarketingVideoPage() {
           </h2>
         </div>
         <ul>
-          <li>Vixel Campaigns is an independently operated web product.</li>
+          <li>Vixel UGC is an independently operated web product.</li>
           <li>
             It does not manage another app&apos;s account, credits,
             subscription, or support.

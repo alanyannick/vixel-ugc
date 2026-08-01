@@ -14,8 +14,8 @@ import { siteConfig } from "@/lib/seo/site";
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Vixel Campaigns — AI Product-to-UGC Campaign Studio",
-    template: "%s · Vixel Campaigns",
+    default: "Vixel UGC — AI Product-to-UGC Campaign Studio",
+    template: "%s · Vixel UGC",
   },
   description: siteConfig.description,
   keywords: [...siteConfig.keywords],
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: siteConfig.locale,
     url: siteConfig.url,
-    title: "Vixel Campaigns — AI Product-to-UGC Campaign Studio",
+    title: "Vixel UGC — AI Product-to-UGC Campaign Studio",
     description: siteConfig.description,
     siteName: siteConfig.name,
     images: [
@@ -36,13 +36,13 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Vixel Campaigns product-to-UGC Campaign workflow",
+        alt: "Vixel UGC product-to-UGC Campaign workflow",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Vixel Campaigns — AI Product-to-UGC Campaign Studio",
+    title: "Vixel UGC — AI Product-to-UGC Campaign Studio",
     description: siteConfig.description,
     images: ["/opengraph-image"],
   },

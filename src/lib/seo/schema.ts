@@ -23,7 +23,7 @@ export const softwareSchema = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "@id": `${siteConfig.url}/#software`,
-  name: "Vixel Campaigns",
+  name: "Vixel UGC",
   url: siteConfig.url,
   applicationCategory: "BusinessApplication",
   applicationSubCategory: "AI UGC and product video campaign studio",

@@ -38,18 +38,17 @@ export function Hero({
     <section className="composer-hero">
       <div className="hero-grain" aria-hidden="true" />
       <div className="composer-hero-heading">
-        <p>VIXEL CAMPAIGNS / PRIVATE BETA / AI PRODUCT-TO-UGC CAMPAIGN STUDIO</p>
+        <p>VIXEL UGC / PRIVATE BETA</p>
         <h1>
-          Turn product truth
+          Turn any product
           <br />
-          <em>into creator ads ready to produce.</em>
+          <em>into a creator ad.</em>
         </h1>
         <span>
-          Start with a product link and an angle. Creative Router grounds your
-          UGC Campaign in approved product truth and plans five distinct hooks.{" "}
-          {paidGenerationConfigured
-            ? "Paid generation remains limited to approved, entitled accounts and live runtime checks."
-            : "This deployment is planning-only today; paid generation is disabled."}
+          Start with a product link and an angle. Vixel grounds the campaign in
+          source truth and routes five hooks. {paidGenerationConfigured
+            ? "Approved accounts can generate after exact-input review."
+            : "This beta is planning-only today; paid generation is disabled."}
         </span>
       </div>
 
@@ -83,7 +82,7 @@ export function Hero({
           </span>
           <span>9:16 UGC</span>
           <button type="submit">
-            Apply with brief
+            Build campaign
             <ArrowRight aria-hidden="true" size={18} />
           </button>
         </div>
@@ -115,7 +114,7 @@ export function Hero({
                 <strong>{format.label}</strong>
                 <small>{format.meta}</small>
               </span>
-              <em>Apply</em>
+              <em>Try</em>
             </Link>
           ))}
         </div>

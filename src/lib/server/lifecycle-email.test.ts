@@ -33,6 +33,9 @@ describe("lifecycle email", () => {
     );
 
     expect(email.text).toContain("with this same email");
+    expect(email.subject).toBe("You’re on the Vixel UGC beta list");
+    expect(email.text).toContain("your Vixel UGC beta request");
+    expect(email.html).not.toContain("Vixel Campaigns");
     expect(email.text).toContain("https://ugc.vixelai.com/studio");
     expect(email.html).toContain("Set up account or sign in");
     expect(email.html).toContain('href="https://ugc.vixelai.com/studio"');

@@ -11,7 +11,7 @@ const path = "/compare/vixel-ai-video-generator-app";
 const appStoreUrl =
   "https://apps.apple.com/us/app/vixel-ai-video-generator/id6756965785";
 const description =
-  "Compare the Vixel iPhone app from FENIX MOBILE YAZILIM A.S. with Vixel Campaigns, an independent account-based web studio for grounded UGC campaigns.";
+  "Compare the Vixel iPhone app from FENIX MOBILE YAZILIM A.S. with Vixel UGC, an independent account-based web studio for grounded UGC campaigns.";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Vixel AI Video Generator app comparison",
@@ -22,9 +22,9 @@ export const metadata: Metadata = createPageMetadata({
 const comparisonFaq = [
   {
     question:
-      "Is Vixel Campaigns affiliated with the Vixel AI Video Generator iPhone app?",
+      "Is Vixel UGC affiliated with the Vixel AI Video Generator iPhone app?",
     answer:
-      "No. Vixel Campaigns at ugc.vixelai.com is an independently operated web product. It is not affiliated with, endorsed by, or operated by FENIX MOBILE YAZILIM A.S., the developer of the iPhone app “Vixel – AI Video Generator.”",
+      "No. Vixel UGC at ugc.vixelai.com is an independently operated web product. It is not affiliated with, endorsed by, or operated by FENIX MOBILE YAZILIM A.S., the developer of the iPhone app “Vixel – AI Video Generator.”",
   },
   {
     question: "Is this website the official web version of the iPhone app?",
@@ -34,15 +34,15 @@ const comparisonFaq = [
   {
     question: "What does the iPhone app say it is designed to do?",
     answer:
-      "Its public App Store listing describes a general-purpose iPhone experience for text-to-video, image-to-video, photo animation, character animation, effects, and short-form video creation. Vixel Campaigns has not independently tested or verified those claims.",
+      "Its public App Store listing describes a general-purpose iPhone experience for text-to-video, image-to-video, photo animation, character animation, effects, and short-form video creation. Vixel UGC has not independently tested or verified those claims.",
   },
   {
-    question: "What does Vixel Campaigns do today?",
+    question: "What does Vixel UGC do today?",
     answer:
-      "Vixel Campaigns is an account-based private beta for source-grounded product-to-UGC campaigns. It structures product facts, Creative Router directions, exact media inputs, and campaign exports. Approved accounts can use account-scoped cloud campaign persistence when that deployment capability is ready, with browser recovery as a fallback. Paid media submission stays disabled unless account, subscription, provider, deployment, and ledger readiness all pass.",
+      "Vixel UGC is an account-based private beta for source-grounded product-to-UGC campaigns. It structures product facts, Creative Router directions, exact media inputs, and campaign exports. Approved accounts can use account-scoped cloud campaign persistence when that deployment capability is ready, with browser recovery as a fallback. Paid media submission stays disabled unless account, subscription, provider, deployment, and ledger readiness all pass.",
   },
   {
-    question: "Does opening Vixel Campaigns start paid generation?",
+    question: "Does opening Vixel UGC start paid generation?",
     answer:
       "No. Joining the waitlist, planning a campaign, saving it to the cloud, or selecting a creative route does not submit a paid media job. A ready deployment requires a separate review and explicit approval of the exact prompt, references, model, format, duration, and audio settings before submission.",
   },
@@ -54,7 +54,7 @@ export default function VixelAppComparisonPage() {
       <StructuredData
         data={[
           articleSchema({
-            headline: "Vixel Campaigns vs Vixel AI Video Generator app",
+            headline: "Vixel UGC vs Vixel AI Video Generator app",
             description,
             path,
             datePublished: "2026-08-01",
@@ -77,7 +77,7 @@ export default function VixelAppComparisonPage() {
             <em>Different creative jobs.</em>
           </>
         }
-        body="The iPhone app “Vixel – AI Video Generator” is published by FENIX MOBILE YAZILIM A.S. Vixel Campaigns is an independently operated web product. It is not affiliated with, endorsed by, or operated by any third-party mobile app or App Store publisher using a similar name."
+        body="The iPhone app “Vixel – AI Video Generator” is published by FENIX MOBILE YAZILIM A.S. Vixel UGC is an independently operated web product. It is not affiliated with, endorsed by, or operated by any third-party mobile app or App Store publisher using a similar name."
         aside={
           <div className="access-note">
             <span>Source boundary</span>
@@ -143,7 +143,7 @@ export default function VixelAppComparisonPage() {
               <h3>Grounded UGC campaign planning</h3>
             </div>
             <p>
-              Vixel Campaigns organizes supplied product facts into Creative
+              Vixel UGC organizes supplied product facts into Creative
               Router directions, reviewable media inputs, and account-scoped
               cloud campaigns, with browser and JSON recovery paths.
             </p>
@@ -223,7 +223,7 @@ export default function VixelAppComparisonPage() {
         </div>
         <ul>
           <li>
-            Vixel Campaigns is not affiliated with, endorsed by, or operated by
+            Vixel UGC is not affiliated with, endorsed by, or operated by
             FENIX MOBILE YAZILIM A.S.
           </li>
           <li>

@@ -9,16 +9,16 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Frequently asked questions",
   description:
-    "Answers about Vixel Campaigns, AI UGC and KOC, product claims, accounts, billing, live generation, campaign storage, and provider data.",
+    "Answers about Vixel UGC, AI UGC and KOC, product claims, accounts, billing, live generation, campaign storage, and provider data.",
   path: "/faq",
 });
 
 const faqItems = [
   {
     id: "what-is-vixel",
-    question: "What is Vixel Campaigns?",
+    question: "What is Vixel UGC?",
     answer:
-      "Vixel Campaigns is an AI Product-to-UGC Campaign Studio. It turns source-backed product facts into five creative routes, one reviewed UGC Campaign plan, eligible paid media jobs, and traceable candidates. The Creative Router coordinates the path behind one workflow.",
+      "Vixel UGC is an AI Product-to-UGC Campaign Studio. It turns source-backed product facts into five creative routes, one reviewed UGC Campaign plan, eligible paid media jobs, and traceable candidates. The Creative Router coordinates the path behind one workflow.",
   },
   {
     id: "what-is-ai-ugc",
@@ -96,7 +96,7 @@ const faqItems = [
     id: "brand",
     question: "Is this studio part of a similarly named mobile app?",
     answer:
-      "No. Vixel Campaigns is an independently operated web product and is not affiliated with third-party mobile applications using a similar name.",
+      "No. Vixel UGC is an independently operated web product and is not affiliated with third-party mobile applications using a similar name.",
   },
 ] as const;
 

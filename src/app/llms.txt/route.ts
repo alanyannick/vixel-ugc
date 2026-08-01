@@ -2,15 +2,15 @@ import { siteConfig } from "@/lib/seo/site";
 
 export const dynamic = "force-static";
 
-const content = `# Vixel Campaigns
+const content = `# Vixel UGC
 
-> Vixel Campaigns is an independently operated AI Product-to-UGC Campaign Studio. Its current workflow, UGC Campaign, turns source-backed product facts into reviewable creator ad plans and, when every deployment gate is ready, traceable media candidates.
+> Vixel UGC is an independently operated AI Product-to-UGC Campaign Studio. Its current workflow, UGC Campaign, turns source-backed product facts into reviewable creator ad plans and, when every deployment gate is ready, traceable media candidates.
 
 Canonical site: ${siteConfig.url}
 
 ## Product hierarchy
 
-- Product: Vixel Campaigns.
+- Product: Vixel UGC.
 - Category: AI Product-to-UGC Campaign Studio.
 - Current workflow: UGC Campaign.
 - Engine: Creative Router.
@@ -73,7 +73,7 @@ Vixel does not auto-publish social posts, serve as a general-purpose chat tool, 
 
 ## Brand clarification
 
-Vixel Campaigns is an independently operated web product. It is not affiliated with, endorsed by, or operated by any third-party mobile app, App Store publisher, or similarly named service. The third-party Vixel AI Video Generator app is published by FENIX MOBILE YAZILIM A.S.; accounts, subscriptions, purchases, uploads, and support are not shared with that app.
+Vixel UGC is an independently operated web product. It is not affiliated with, endorsed by, or operated by any third-party mobile app, App Store publisher, or similarly named service. The third-party Vixel AI Video Generator app is published by FENIX MOBILE YAZILIM A.S.; accounts, subscriptions, purchases, uploads, and support are not shared with that app.
 `;
 
 export function GET() {

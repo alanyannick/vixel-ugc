@@ -9,7 +9,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Private beta access",
   description:
-    "Apply for Vixel Campaigns, then use UGC Campaign planning, cloud recovery, billing, and readiness-gated generation after account approval.",
+    "Apply for Vixel UGC, then use UGC Campaign planning, cloud recovery, billing, and readiness-gated generation after account approval.",
   path: "/access",
 });
 

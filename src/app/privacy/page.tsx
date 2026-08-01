@@ -7,7 +7,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Privacy",
   description:
-    "Vixel Campaigns privacy information for waitlist applications, accounts, cloud campaigns, billing, provider submissions, logs, and user controls.",
+    "Vixel UGC privacy information for waitlist applications, accounts, cloud campaigns, billing, provider submissions, logs, and user controls.",
   path: "/privacy",
 });
 
@@ -18,7 +18,7 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          This notice describes the current Vixel Campaigns beta. It covers
+          This notice describes the current Vixel UGC beta. It covers
           the public website, Turnstile-protected waitlist, email OTP account
           access, browser and cloud campaign workspaces, lifecycle email,
           Stripe billing, and configured media-generation routes.
@@ -93,7 +93,7 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          Vixel Campaigns uses configured service providers for specific
+          Vixel UGC uses configured service providers for specific
           functions: Supabase for account authentication and hosted database
           infrastructure, an email provider for OTP and lifecycle messages,
           Cloudflare Turnstile for abuse prevention, and Stripe for hosted

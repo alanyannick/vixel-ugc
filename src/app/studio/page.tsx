@@ -7,7 +7,7 @@ import { getServerRuntimeConfig } from "@/lib/server/env";
 export const metadata: Metadata = {
   title: "UGC Campaign",
   description:
-    "Vixel Campaigns' source-grounded UGC Campaign planning workspace. Live media submission is available only on enabled deployments.",
+    "Vixel UGC's source-grounded UGC Campaign planning workspace. Live media submission is available only on enabled deployments.",
   robots: { index: false, follow: false },
 };
 

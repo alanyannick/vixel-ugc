@@ -99,7 +99,7 @@ export async function DELETE(request: Request): Promise<Response> {
     return apiError(
       403,
       "cross_site_request_blocked",
-      "This request must originate from Vixel Campaigns.",
+      "This request must originate from Vixel UGC.",
       false,
       requestId,
     );

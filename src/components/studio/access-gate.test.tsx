@@ -57,6 +57,8 @@ describe("AccessGate session controls", () => {
     );
 
     expect(await screen.findByLabelText("Email")).toBeVisible();
+    expect(screen.getByText("Vixel UGC")).toBeVisible();
+    expect(screen.queryByText("Vixel Campaigns")).toBeNull();
     expect(screen.getByText("Create an account or sign in.")).toBeVisible();
     expect(screen.queryByText("Emergency operator access")).toBeNull();
     expect(screen.queryByText("Operator recovery access")).toBeNull();
