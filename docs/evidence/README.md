@@ -1,4 +1,8 @@
-# Vixel UGC Release Evidence
+# Historical Vixel UGC Release Evidence
+
+This snapshot records the production baseline before the Vixel Campaigns
+identity release; its deployment ID, commit, route count, and health labels are
+preserved as observed rather than rewritten retroactively.
 
 ## Release identity
 
@@ -103,7 +107,7 @@ Verified response policy:
 
 ## Visual artifacts
 
-The checked-in `local/` screenshots capture the current Vixel UGC acquisition
+The checked-in `local/` screenshots capture the historical Vixel UGC acquisition
 and Studio surfaces used for visual review. Files under `production/` other
 than `qa-results.json` are retained as the pre-cutover KOC baseline for visual
 regression history; they are not claimed as screenshots of the deployment

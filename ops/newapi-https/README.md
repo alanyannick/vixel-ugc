@@ -1,6 +1,6 @@
 # NewAPI HTTPS compatibility gateway
 
-Vixel UGC uses `https://newapi-koc.vixelai.com:3000/v1` as its server-only
+Vixel Campaigns uses `https://newapi-koc.vixelai.com:3000/v1` as its server-only
 provider base. Production code rejects a plaintext provider URL.
 
 The shared NewAPI service historically listened on plaintext port 3000. The

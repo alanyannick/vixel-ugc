@@ -9,7 +9,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Join the private beta",
   description:
-    "Join the Vixel UGC private beta for source-grounded creator ad planning, cloud campaigns, and reviewed video generation.",
+    "Join the Vixel Campaigns private beta for source-grounded UGC Campaign planning, cloud campaigns, and eligible reviewed video generation.",
   path: "/waitlist",
 });
 
@@ -43,7 +43,7 @@ export default async function WaitlistPage({
           <h1>
             Bring one product.
             <br />
-            <em>Leave with a campaign.</em>
+            <em>Apply with a real brief.</em>
           </h1>
           <span>
             Tell us what you make and how much creator content you need. We

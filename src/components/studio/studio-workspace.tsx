@@ -86,6 +86,8 @@ export type StudioCapabilities = {
   paidGenerationReady: boolean;
   liveGenerationEnabled: boolean;
   accountAuthEnabled: boolean;
+  cloudCampaignsReady: boolean;
+  billingReady: boolean;
 };
 
 type PaidApproval =
@@ -465,6 +467,41 @@ export function StudioWorkspace({
   useEffect(() => {
     let active = true;
     async function hydrateCampaign() {
+      if (
+        !capabilities.cloudCampaignsReady ||
+        sessionKind !== "account"
+      ) {
+        cloudSyncAvailableRef.current = false;
+        setStorageMode("local");
+        try {
+          const stored = await loadCampaign(storageScope, {
+            allowLegacyMigration: sessionKind === "recovery",
+          });
+          if (active) {
+            setCampaign(
+              ensureExecutionPlan(
+                stored ??
+                  (sessionKind === "recovery" ? demoCampaign : newCampaign()),
+              ),
+            );
+          }
+        } catch {
+          if (active) {
+            setError(
+              "Browser recovery is unavailable. Export your campaign before leaving this page.",
+            );
+            setCampaign(
+              ensureExecutionPlan(
+                sessionKind === "recovery" ? demoCampaign : newCampaign(),
+              ),
+            );
+          }
+        } finally {
+          if (active) setHydrated(true);
+        }
+        return;
+      }
+
       try {
         const cloudCampaigns = await listCloudCampaigns();
         if (!active) return;
@@ -491,15 +528,15 @@ export function StudioWorkspace({
           setCampaign(ensureExecutionPlan(stored ?? newCampaign()));
         }
       } catch {
-        // Recovery/operator sessions and not-yet-configured deployments keep
-        // an account-scoped browser recovery path. Only the operator scope may
-        // migrate the old shared key; account sessions never inherit it.
+        // If cloud sync becomes unavailable, an account session falls back to
+        // its own browser scope. It must never inherit the operator's legacy
+        // shared campaign key.
         cloudSyncAvailableRef.current = false;
         if (active) setStorageMode("local");
         let stored: CampaignState | null = null;
         try {
           stored = await loadCampaign(storageScope, {
-            allowLegacyMigration: sessionKind === "recovery",
+            allowLegacyMigration: false,
           });
         } catch {
           if (active) {
@@ -511,7 +548,7 @@ export function StudioWorkspace({
         if (active) {
           setCampaign(
             ensureExecutionPlan(
-              stored ?? (sessionKind === "recovery" ? demoCampaign : newCampaign()),
+              stored ?? newCampaign(),
             ),
           );
         }
@@ -523,7 +560,7 @@ export function StudioWorkspace({
     return () => {
       active = false;
     };
-  }, [sessionKind, storageScope]);
+  }, [capabilities.cloudCampaignsReady, sessionKind, storageScope]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1484,7 +1521,11 @@ export function StudioWorkspace({
         aria-label="Studio navigation"
       >
         <div className={styles.brandRow}>
-          <Link href="/" aria-label="Vixel UGC home" className={styles.brand}>
+          <Link
+            href="/"
+            aria-label="Vixel Campaigns home"
+            className={styles.brand}
+          >
             <IconMark className={styles.brandMark} />
             <span>VIXEL</span>
           </Link>
@@ -1586,7 +1627,7 @@ export function StudioWorkspace({
         </div>
 
         <div className={styles.sidebarFooter}>
-          <BillingPanel compact />
+          <BillingPanel compact enabled={capabilities.billingReady} />
           <div className={styles.localStatus}>
             <ShieldCheck size={16} />
             <span>
@@ -1667,7 +1708,7 @@ export function StudioWorkspace({
             </button>
             <div>
               <div className={styles.breadcrumb}>
-                Campaigns <ChevronRight size={13} />{" "}
+                UGC Campaign <ChevronRight size={13} />{" "}
                 <span>{campaign.input.productName || "New campaign"}</span>
               </div>
               <h1>{campaign.name}</h1>
@@ -3053,7 +3094,7 @@ function DirectorPanel({
       </header>
       <div className={styles.directorScroll}>
         <div className={styles.routerBadge}>
-          <span>Router</span>
+          <span>Creative Router</span>
           <strong>{routerDecision.route}</strong>
           <small>{routerDecision.reasons.join(" · ").replaceAll("_", " ")}</small>
         </div>

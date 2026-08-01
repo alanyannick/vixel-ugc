@@ -1,13 +1,13 @@
-# Vixel KOC Studio Launch Blueprint
+# Vixel Campaigns Launch Blueprint
 
 ## Goal
 
 - Current stack: Next.js 16, React 19, TypeScript, browser IndexedDB,
   PostgreSQL-ready media ledger, NewAPI adapters, and Vercel.
-- Target stack: a production-ready, local-first KOC/UGC creative studio on Vercel.
+- Target stack: a production-ready, account-based UGC campaign studio on Vercel.
 - Primary test environment: local development and Vercel preview/production.
 - Planned production environment: Vercel with server-only NewAPI media access.
-- Product promise: turn a product reference into a grounded, reviewable KOC brief, creator anchor, shot plan, and generated campaign assets.
+- Product promise: turn a product reference into a grounded, reviewable UGC Campaign brief, creator anchor, shot plan, and generated campaign assets.
 
 ## Product Truth
 

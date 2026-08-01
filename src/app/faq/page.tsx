@@ -9,16 +9,16 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Frequently asked questions",
   description:
-    "Answers about Vixel UGC Studio, AI UGC and KOC, product claims, live generation, campaign storage, and provider data.",
+    "Answers about Vixel Campaigns, AI UGC and KOC, product claims, accounts, billing, live generation, campaign storage, and provider data.",
   path: "/faq",
 });
 
 const faqItems = [
   {
     id: "what-is-vixel",
-    question: "What is Vixel UGC Studio?",
+    question: "What is Vixel Campaigns?",
     answer:
-      "Vixel is an AI UGC campaign workspace for planning and producing creator-style product videos. It turns source-backed product facts into five creative routes, one reviewed plan, paid media jobs, and traceable candidates.",
+      "Vixel Campaigns is an AI Product-to-UGC Campaign Studio. It turns source-backed product facts into five creative routes, one reviewed UGC Campaign plan, eligible paid media jobs, and traceable candidates. The Creative Router coordinates the path behind one workflow.",
   },
   {
     id: "what-is-ai-ugc",
@@ -42,7 +42,7 @@ const faqItems = [
     id: "live-generation",
     question: "When does live generation happen?",
     answer:
-      "Selecting a route does not start generation. In an enabled studio, you first review and lock the exact input without provider spend, then separately confirm one potentially billable submission.",
+      "Selecting a route does not start generation. A live submission requires an approved account, active server-verified billing entitlement, enabled secure provider, healthy isolated ledger and runtime, available quota, and a current exact-input approval. You first lock the input without provider spend, then separately confirm one potentially billable submission.",
   },
   {
     id: "paid-input",
@@ -54,13 +54,31 @@ const faqItems = [
     id: "storage",
     question: "Where is campaign data stored?",
     answer:
-      "Campaign planning state stays in the browser and can be exported as JSON. An enabled deployment keeps paid-job status and result claims in a private PostgreSQL ledger under a signed pseudonymous recovery identity. Approved inputs pass through the server to the provider; provider credentials never reach the browser.",
+      "The planning demo keeps campaign state in the browser and supports JSON export. When cloud campaigns are enabled, an authenticated campaign snapshot is stored in the Supabase-backed product database and scoped to the current account. Paid-job status and result claims use a separate private PostgreSQL ledger with a signed recovery identity. Provider credentials never reach the browser.",
+  },
+  {
+    id: "accounts",
+    question: "How do accounts and beta approval work?",
+    answer:
+      "When account access is enabled, sign-in uses a one-time code sent by email through the configured Supabase and email setup. Authentication and approval are separate: a valid OTP creates or restores the account session, while an operator-controlled account status determines whether the private Studio opens.",
+  },
+  {
+    id: "waitlist",
+    question: "What happens when I join the waitlist?",
+    answer:
+      "The hosted form uses Turnstile to reduce automated abuse and records your application for operator review. Submitting it does not start a subscription, trigger paid generation, or guarantee approval. Optional product updates require a separate unchecked consent choice; access and account emails are operational messages.",
+  },
+  {
+    id: "billing",
+    question: "How does subscription billing work?",
+    answer:
+      "When billing is enabled, checkout and billing management are hosted by Stripe. The server grants entitlement only from a verified active or trialing subscription projection. A subscription does not bypass account approval, exact-input review, provider availability, ledger readiness, quota, or runtime-health checks.",
   },
   {
     id: "outputs",
     question: "What does the current workflow generate?",
     answer:
-      "The Director creates five hook routes and three creator personas. In an enabled studio, the media workflow can produce one reviewed visual anchor and a 9:16 video candidate with a 4, 6, or 8-second duration.",
+      "The Creative Router coordinates five hook routes and three creator personas. In a fully enabled Studio, the media workflow can produce one reviewed visual anchor and a 9:16 video candidate with a 4, 6, or 8-second duration.",
   },
   {
     id: "publishing",
@@ -78,7 +96,7 @@ const faqItems = [
     id: "brand",
     question: "Is this studio part of a similarly named mobile app?",
     answer:
-      "No. Vixel UGC Studio is an independently operated web product and is not affiliated with third-party mobile applications using a similar name.",
+      "No. Vixel Campaigns is an independently operated web product and is not affiliated with third-party mobile applications using a similar name.",
   },
 ] as const;
 
@@ -141,9 +159,9 @@ export default function FaqPage() {
 
       <section className="faq-contact dark-section">
         <span className="section-label">Still deciding?</span>
-        <h2>Try the campaign workflow with demo inputs first.</h2>
-        <Link className="button button--citron" href="/studio">
-          Open the studio
+        <h2>See the full campaign workflow before you apply.</h2>
+        <Link className="button button--citron" href="/workflows/ugc-video">
+          Read the workflow
           <ArrowRight aria-hidden="true" size={17} />
         </Link>
       </section>

@@ -16,6 +16,17 @@ const EXPECTED_TABLES = [
   "audit_events",
 ] as const;
 
+const MUTABLE_TABLES = [
+  "user_profiles",
+  "waitlist_entries",
+  "email_preferences",
+  "campaign_snapshots",
+  "email_delivery_ledger",
+  "subscriptions",
+] as const;
+
+const PRODUCT_RUNTIME_CONTRACT_TTL_MS = 15_000;
+
 export class ProductDatabaseError extends Error {
   constructor(
     readonly code: "database_not_configured" | "database_unavailable",
@@ -35,6 +46,7 @@ type ProductDatabaseGlobal = {
   databaseUrl: string;
   pool: Pool;
   ready: Promise<void> | null;
+  readyExpiresAt: number;
 };
 
 const productDatabaseGlobal = globalThis as typeof globalThis & {
@@ -63,7 +75,7 @@ function state(): ProductDatabaseGlobal {
   if (!url) {
     throw new ProductDatabaseError(
       "database_not_configured",
-      "The Vixel UGC product database is not configured.",
+      "The Vixel Campaigns product database is not configured.",
     );
   }
   if (
@@ -83,6 +95,7 @@ function state(): ProductDatabaseGlobal {
         allowExitOnIdle: true,
       }),
       ready: null,
+      readyExpiresAt: 0,
     };
   }
   return productDatabaseGlobal.__vixelProductDatabase;
@@ -90,8 +103,11 @@ function state(): ProductDatabaseGlobal {
 
 async function ensureReady(): Promise<Pool> {
   const database = state();
-  if (!database.ready) {
+  if (!database.ready || database.readyExpiresAt <= Date.now()) {
     const tableNames = EXPECTED_TABLES.map(
+      (name) => `vixel_ugc.${name}`,
+    );
+    const mutableTableNames = MUTABLE_TABLES.map(
       (name) => `vixel_ugc.${name}`,
     );
     database.ready = database.pool
@@ -117,6 +133,7 @@ async function ensureReady(): Promise<Pool> {
                 ON namespace.oid = relation.relnamespace
               WHERE namespace.nspname = 'vixel_ugc'
                 AND relation.relname = ANY($2::text[])
+                AND relation.relkind IN ('r', 'p')
                 AND relation.relrowsecurity
                 AND relation.relforcerowsecurity
             )
@@ -133,32 +150,69 @@ async function ensureReady(): Promise<Pool> {
                 AND with_check = 'true'
             )
             AND (
+              SELECT count(*) = $1
+              FROM pg_catalog.pg_policies
+              WHERE schemaname = 'vixel_ugc'
+                AND tablename = ANY($2::text[])
+            )
+            AND (
               SELECT bool_and(
                 has_table_privilege(current_user, relation_name, 'SELECT')
                 AND has_table_privilege(current_user, relation_name, 'INSERT')
+                AND has_table_privilege(
+                  current_user,
+                  relation_name,
+                  'UPDATE'
+                ) = (relation_name = ANY($4::text[]))
+                AND NOT has_table_privilege(
+                  current_user,
+                  relation_name,
+                  'DELETE'
+                )
               )
               FROM unnest($3::text[]) relation_name
             )
             AS runtime_ready
         `,
-        [EXPECTED_TABLES.length, [...EXPECTED_TABLES], tableNames],
+        [
+          EXPECTED_TABLES.length,
+          [...EXPECTED_TABLES],
+          tableNames,
+          mutableTableNames,
+        ],
       )
       .then((result) => {
         if (!result.rows[0]?.runtime_ready) {
           throw new Error(
-            "The database login does not have the expected Vixel UGC runtime boundary.",
+            "The database login does not have the expected Vixel Campaigns runtime boundary.",
           );
         }
-      })
-      .catch(() => {
-        database.ready = null;
-        throw new ProductDatabaseError(
-          "database_unavailable",
-          "The Vixel UGC product database is unavailable.",
-        );
       });
+    // Infinity marks an in-flight verification so concurrent callers reuse it
+    // instead of starting duplicate catalog probes.
+    database.readyExpiresAt = Number.POSITIVE_INFINITY;
   }
-  await database.ready;
+
+  const readiness = database.ready;
+  try {
+    await readiness;
+    if (
+      database.ready === readiness &&
+      database.readyExpiresAt === Number.POSITIVE_INFINITY
+    ) {
+      database.readyExpiresAt =
+        Date.now() + PRODUCT_RUNTIME_CONTRACT_TTL_MS;
+    }
+  } catch {
+    if (database.ready === readiness) {
+      database.ready = null;
+      database.readyExpiresAt = 0;
+    }
+    throw new ProductDatabaseError(
+      "database_unavailable",
+      "The Vixel Campaigns product database is unavailable.",
+    );
+  }
   return database.pool;
 }
 
@@ -172,14 +226,16 @@ export async function productQuery<Row extends QueryResultRow>(
   } catch {
     throw new ProductDatabaseError(
       "database_unavailable",
-      "The Vixel UGC product database query failed.",
+      "The Vixel Campaigns product database query failed.",
     );
   }
 }
 
 /**
- * Reuses the product runtime-boundary verification performed by ensureReady
- * and exposes only a secret-free readiness state to the health endpoint.
+ * Reuses the short-lived product runtime-boundary verification performed by
+ * ensureReady and exposes only a secret-free readiness state to health. The
+ * liveness query runs on every uncached health request, while grants, RLS, and
+ * policy contracts are revalidated at least once per process-local TTL.
  */
 export async function probeProductDatabaseReadiness(): Promise<ProductDatabaseReadiness> {
   if (!databaseUrl()) return { status: "not_configured" };
@@ -216,12 +272,16 @@ export async function withProductTransaction<T>(
 export function installProductPoolForTests(
   pool: Pool | null,
   databaseUrlForTest = "postgres://product.test/vixel",
+  contractVerifiedForTest = true,
 ): void {
   productDatabaseGlobal.__vixelProductDatabase = pool
     ? {
         databaseUrl: databaseUrlForTest,
         pool,
-        ready: Promise.resolve(),
+        ready: contractVerifiedForTest ? Promise.resolve() : null,
+        readyExpiresAt: contractVerifiedForTest
+          ? Date.now() + PRODUCT_RUNTIME_CONTRACT_TTL_MS
+          : 0,
       }
     : undefined;
 }

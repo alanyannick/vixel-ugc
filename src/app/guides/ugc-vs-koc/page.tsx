@@ -16,7 +16,7 @@ const description =
   "UGC describes user- or creator-made content, while KOC describes a consumer-scale creator role. Learn how both differ from AI-generated UGC ads.";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "UGC vs KOC: the difference for product marketing",
+  title: "UGC vs KOC for product marketing",
   description,
   path,
 });
@@ -59,7 +59,7 @@ export default function UgcVsKocGuidePage() {
             description,
             path,
             datePublished: "2026-07-30",
-            dateModified: "2026-07-30",
+            dateModified: "2026-08-01",
           }),
           faqSchema(comparisonFaq),
         ]}

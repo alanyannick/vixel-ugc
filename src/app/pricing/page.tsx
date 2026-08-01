@@ -7,11 +7,12 @@ import { StructuredData } from "@/components/marketing/structured-data";
 import { formatFoundingBetaPrice } from "@/lib/product-offer";
 import { breadcrumbSchema } from "@/lib/seo/schema";
 import { createPageMetadata } from "@/lib/seo/site";
+import { getServerRuntimeConfig } from "@/lib/server/env";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Private beta pricing",
   description:
-    "Vixel UGC private beta includes source-grounded campaign planning, cloud recovery, reviewed creator-image generation, and vertical video generation.",
+    "Private beta pricing for source-grounded UGC Campaign planning, cloud recovery, Stripe billing, and readiness-gated image and video generation.",
   path: "/pricing",
 });
 
@@ -19,12 +20,14 @@ const features = [
   "Source-grounded campaign briefs",
   "Five distinct creator routes",
   "Cloud campaign save and recovery",
-  "Reviewed image and vertical video generation",
+  "Eligibility for reviewed image and video generation when enabled",
   "Exact paid-input receipts and replay protection",
   "Stripe-hosted checkout and billing management",
 ] as const;
 
 export default function PricingPage() {
+  const runtime = getServerRuntimeConfig();
+
   return (
     <>
       <StructuredData
@@ -43,8 +46,9 @@ export default function PricingPage() {
           </h1>
           <span>
             Waitlist and planning never trigger provider spend. An approved
-            account and an active recurring subscription are both required
-            before paid generation can run.
+            account and active recurring subscription are required before paid
+            generation can run, along with provider, approval, ledger, quota,
+            feature-flag, and runtime-health readiness.
           </span>
         </div>
         <article className="pricing-card">
@@ -64,7 +68,7 @@ export default function PricingPage() {
               </li>
             ))}
           </ul>
-          <BillingPanel />
+          <BillingPanel enabled={runtime.product.features.billing.ready} />
           <Link className="button button--outline-ink" href="/waitlist">
             Apply for beta access
             <ArrowRight aria-hidden="true" size={17} />

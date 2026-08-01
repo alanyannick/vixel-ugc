@@ -82,6 +82,7 @@ const LEDGER_SHAPE_QUERY = `
   SELECT
     id,
     session_identity,
+    account_user_id,
     kind,
     idempotency_key,
     input_signature,

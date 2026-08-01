@@ -7,7 +7,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Privacy",
   description:
-    "Vixel UGC Studio privacy information for campaign data, studio sessions, provider submissions, logs, and user controls.",
+    "Vixel Campaigns privacy information for waitlist applications, accounts, cloud campaigns, billing, provider submissions, logs, and user controls.",
   path: "/privacy",
 });
 
@@ -18,9 +18,10 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          This notice describes the current Vixel UGC Studio beta. It covers
-          the public website, browser-based campaign workspace, studio access
-          session, and configured media-generation routes.
+          This notice describes the current Vixel Campaigns beta. It covers
+          the public website, Turnstile-protected waitlist, email OTP account
+          access, browser and cloud campaign workspaces, lifecycle email,
+          Stripe billing, and configured media-generation routes.
         </p>
         <p>
           A privately configured deployment may have an additional operator
@@ -36,10 +37,17 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
+          A waitlist application may include your email address, name, company,
+          expected volume, product link, campaign idea, referral source, and
+          optional product-update preference. Account records include the
+          Supabase user identifier, normalized email, approval status, and
+          application role needed to control access.
+        </p>
+        <p>
           Campaign inputs may include product names, product facts, audience,
-          platform, creative selections, prompts, and reference images you
-          choose to add. Do not upload confidential material or personal data
-          you are not authorized to use.
+          platform, creative selections, prompts, reference images, plans, and
+          candidates you choose to add. Do not upload confidential material or
+          personal data you are not authorized to use.
         </p>
         <p>
           The service may also handle technical information needed to operate
@@ -55,9 +63,11 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          The beta keeps campaign planning state in your browser. You can
-          export that state as a JSON file and clear it through your browser
-          storage controls.
+          The planning demo keeps campaign state in your browser. You can
+          export that state as a JSON file and clear it through browser storage
+          controls. When cloud campaigns are enabled, authenticated campaign
+          snapshots are also stored in the Supabase-backed product database
+          and scoped to the current account.
         </p>
         <p>
           When studio access protection is configured, the server uses an
@@ -69,30 +79,36 @@ const sections: LegalSection[] = [
         </p>
         <p>
           A live-generation deployment also keeps a durable media ledger with a
-          pseudonymous recovery identifier, exact-input signature, provider model and
-          task ID, job status, result claim, and sanitized error state. The raw
-          cookies, access code, and provider secret are not written to that
-          ledger.
+          pseudonymous recovery identifier, exact-input signature, provider
+          model and task ID, job status, result claim, and sanitized error
+          state. The raw cookies, access code, and provider secret are not
+          written to that ledger.
         </p>
       </>
     ),
   },
   {
     id: "providers",
-    title: "Media providers",
+    title: "Service providers",
     content: (
       <>
         <p>
-          Live generation is off unless a deployment explicitly enables it.
-          When you approve and submit a media job, the exact prompt, selected
-          model settings, and approved references are sent through the server
-          to the configured provider.
+          Vixel Campaigns uses configured service providers for specific
+          functions: Supabase for account authentication and hosted database
+          infrastructure, an email provider for OTP and lifecycle messages,
+          Cloudflare Turnstile for abuse prevention, and Stripe for hosted
+          checkout and subscription management. These providers process the
+          information needed to perform their role under their own applicable
+          terms and retention practices.
         </p>
         <p>
-          Provider credentials stay on the server. Provider handling and
-          retention are also governed by the provider terms selected by the
-          deployment operator. This hosted beta keeps provider submission
-          disabled until a secure provider and isolated ledger are configured.
+          Live generation remains off unless the deployment explicitly enables
+          it and every account, billing, provider, ledger, and runtime-health
+          gate passes. When you approve and separately submit a media job, the
+          exact prompt, selected model settings, and approved references are
+          sent through the server to the configured NewAPI media provider.
+          Provider credentials stay on the server; provider handling and
+          retention are also governed by that provider&apos;s terms.
         </p>
       </>
     ),
@@ -106,8 +122,16 @@ const sections: LegalSection[] = [
         <li>Export campaign state for your own records.</li>
         <li>Clear local campaign data through browser controls.</li>
         <li>
+          Use the unsubscribe control in optional product-update messages;
+          operational account and access messages are handled separately.
+        </li>
+        <li>
           Clear site cookies in your browser to remove the local recovery
           credential.
+        </li>
+        <li>
+          Ask the service operator to access, correct, or delete server-held
+          account and campaign data where applicable.
         </li>
         <li>Do not adopt a generated candidate you do not want to use.</li>
       </ul>
@@ -138,9 +162,9 @@ export default function PrivacyPage() {
       <LegalPage
         label="Trust / Privacy"
         title="Privacy notice"
-        introduction="A plain-language account of what the current beta keeps in your browser, what reaches a configured provider, and what remains under your control."
-        updated="July 31, 2026"
-        updatedIso="2026-07-31"
+        introduction="A plain-language account of what the current beta stores for waitlist, account, cloud campaign, billing, and media workflows—and what remains under your control."
+        updated="August 1, 2026"
+        updatedIso="2026-08-01"
         sections={sections}
       />
     </>

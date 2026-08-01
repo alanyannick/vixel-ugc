@@ -14,9 +14,9 @@ import { softwareSchema } from "@/lib/seo/schema";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "AI UGC video campaign planning beta",
+  title: "AI Product-to-UGC Campaign Studio",
   description:
-    "Plan source-grounded AI UGC product-video campaigns with five creative routes and exact paid-input review. Hosted generation requires live provider and ledger readiness.",
+    "Turn approved product facts into reviewable UGC Campaigns. Paid generation requires an approved account, billing entitlement, exact-input review, and runtime readiness.",
   path: "/",
 });
 
@@ -38,7 +38,7 @@ export default function HomePage() {
               <em>One decision.</em>
             </>
           }
-          description="The Director expands a source-grounded product brief into meaningfully different UGC hooks, then waits for your choice before paid work begins."
+          description="Creative Router expands a source-grounded product brief into meaningfully different UGC hooks, then waits for your choice before paid work begins."
           inverted
         />
         <RouteProof />
@@ -55,7 +55,7 @@ export default function HomePage() {
               <em>inspect, pause, and recover.</em>
             </>
           }
-          description="One visible Director routes the work. Each stage has a clear owner, checkpoint, output, and recovery path."
+          description="One visible Creative Router directs the work. Each stage has a clear owner, checkpoint, output, and recovery path."
         />
         <WorkflowSequence />
         <Link className="text-link text-link--light workflow-link" href="/workflows/ugc-video">

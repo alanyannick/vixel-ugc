@@ -9,20 +9,21 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata: Metadata = createPageMetadata({
   title: "Private beta access",
   description:
-    "Explore Vixel UGC Studio access: use the complete local-first AI UGC workflow, with live generation available only on configured deployments.",
+    "Apply for Vixel Campaigns, then use UGC Campaign planning, cloud recovery, billing, and readiness-gated generation after account approval.",
   path: "/access",
 });
 
 const accessRows = [
-  ["Campaign briefs and source ledger", true, true],
-  ["Five hook routes and three personas", true, true],
-  ["Canonical plan and local recovery", true, true],
-  ["Campaign JSON export and restore", true, true],
-  ["Live image and video provider jobs", false, true],
-  ["Deployment-level access control", false, true],
+  ["Public workflow and product-truth guides", true, true],
+  ["No-cost private beta application", true, true],
+  ["Campaign briefs, routes, plan, and export", false, true],
+  ["Supabase account and cloud campaigns", false, true],
+  ["Email OTP and lifecycle notices", false, true],
+  ["Stripe-hosted billing management", false, true],
+  ["Live jobs when every runtime gate is ready", false, true],
 ] as const;
 
-export default function PricingPage() {
+export default function AccessPage() {
   return (
     <>
       <StructuredData
@@ -32,7 +33,7 @@ export default function PricingPage() {
         ])}
       />
       <PageHero
-        eyebrow="Access / Global private beta"
+        eyebrow="Access / Private beta"
         title={
           <>
             Plan the campaign.
@@ -40,12 +41,12 @@ export default function PricingPage() {
             <em>Generate when enabled.</em>
           </>
         }
-        body="Build and export a source-grounded UGC campaign in the beta studio. Live AI video generation is available only in enabled studios."
+        body="Apply with one product and a real campaign goal. Approved accounts can plan, save, export, manage billing, and submit media only when every live-generation gate is ready."
         aside={
           <div className="access-note">
             <span>Current release</span>
-            <strong>Private beta</strong>
-            <p>Limited beta access · provider usage may incur cost.</p>
+            <strong>Application + approved account beta</strong>
+            <p>Manual approval · provider work stays separately gated.</p>
           </div>
         }
       />
@@ -53,41 +54,44 @@ export default function PricingPage() {
       <section className="access-section paper-section">
         <header className="access-intro">
           <span className="section-label section-label--ink">Choose the surface</span>
-          <h2>Two ways to use the same workflow.</h2>
+          <h2>One application. One approved workspace.</h2>
           <p>
-            Start in local planning mode. Move to a configured studio only when
-            you are ready to submit approved inputs to a media provider.
+            Start with a no-cost beta application. Once approved, sign in by
+            email OTP to plan, recover cloud campaigns, manage billing, and use
+            eligible generation paths.
           </p>
         </header>
 
         <div className="access-options">
           <article>
             <div className="access-option-title">
-              <span>01 / Local planning</span>
-              <h3>Campaign workspace</h3>
+              <span>01 / Apply</span>
+              <h3>Private beta application</h3>
             </div>
             <p>
-              Build the brief, compare routes, inspect the plan, and export the
-              campaign without a paid media request.
+              Share one product, your campaign goal, and expected volume. We
+              review access manually; applying never starts billing or paid
+              media generation.
             </p>
-            <strong>Included in beta</strong>
-            <Link className="button button--ink" href="/studio">
-              Open the demo
+            <strong>No charge · no provider job</strong>
+            <Link className="button button--ink" href="/waitlist">
+              Apply with a product brief
               <ArrowRight aria-hidden="true" size={17} />
             </Link>
           </article>
           <article>
             <div className="access-option-title">
-              <span>02 / Configured generation</span>
-              <h3>Private deployment</h3>
+              <span>02 / Approved account</span>
+              <h3>Cloud campaign workspace</h3>
             </div>
             <p>
-              Create a reviewed image anchor and vertical video, inspect the
-              exact paid input, and keep candidate lineage through delivery.
+              Sign in by email OTP, recover account-scoped campaigns, and
+              manage a Stripe subscription. Live media work opens only when
+              the provider, approval, ledger, quota, and runtime checks pass.
             </p>
-            <strong>Available only in enabled studios</strong>
-            <Link className="button button--outline-ink" href="/faq#live-generation">
-              Review live-generation rules
+            <strong>Manual approval · features enabled separately</strong>
+            <Link className="button button--outline-ink" href="/studio">
+              Sign in to the Studio
               <ArrowRight aria-hidden="true" size={17} />
             </Link>
           </article>
@@ -96,8 +100,8 @@ export default function PricingPage() {
         <div className="access-matrix" role="table" aria-label="Studio access comparison">
           <div className="access-row access-row--head" role="row">
             <span role="columnheader">Capability</span>
-            <span role="columnheader">Local planning</span>
-            <span role="columnheader">Configured studio</span>
+            <span role="columnheader">Before approval</span>
+            <span role="columnheader">Approved account</span>
           </div>
           {accessRows.map(([name, local, configured]) => (
             <div className="access-row" role="row" key={name}>
@@ -109,7 +113,7 @@ export default function PricingPage() {
                   </>
                 ) : (
                   <>
-                    <Minus aria-hidden="true" size={17} /> Not submitted
+                    <Minus aria-hidden="true" size={17} /> Not included
                   </>
                 )}
               </span>
@@ -148,8 +152,9 @@ export default function PricingPage() {
           </p>
           <p>
             <span>04</span>
-            Database-enforced daily submission caps limit provider-cost
-            exposure across browsers and deployments.
+            Paid submission requires an approved account, active billing
+            entitlement, healthy provider and ledger, runtime readiness, and
+            database-enforced daily caps.
           </p>
         </div>
       </section>

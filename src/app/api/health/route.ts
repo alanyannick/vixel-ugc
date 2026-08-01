@@ -115,10 +115,12 @@ export async function GET(): Promise<Response> {
           : runtimeConfig.access.required
             ? "not_ready"
             : "not_required",
+        // Configuration is a non-billable static check. It does not claim
+        // provider reachability or a successful generation canary.
         provider: runtimeConfig.newApi.configured
-          ? "ready"
+          ? "configured"
           : runtimeConfig.liveGeneration
-            ? "not_ready"
+            ? "not_configured"
             : "disabled",
         ledger: runtimeConfig.databaseConfigured
           ? ledgerReadiness?.status === "ready"

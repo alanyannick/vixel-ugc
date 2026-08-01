@@ -1,4 +1,4 @@
-# Vixel UGC product launch runbook
+# Vixel Campaigns product launch runbook
 
 This runbook covers the public waitlist, account access, lifecycle email,
 cloud campaigns, recurring billing, and paid-generation release gates for
@@ -12,12 +12,13 @@ corresponding provider proof below passes:
 
 | Capability | Switch | Production prerequisites |
 | --- | --- | --- |
+| Base session and operator recovery | Always required in production | strong access code and session secret |
 | Public waitlist | `ENABLE_PUBLIC_WAITLIST` | app database, scoped Turnstile widget |
 | Account OTP | `ENABLE_ACCOUNT_AUTH` | waitlist prerequisites, Supabase URL and keys, verified custom SMTP |
 | Cloud campaigns | `ENABLE_CLOUD_CAMPAIGNS` | account auth, product database grants |
 | Lifecycle email | `ENABLE_LIFECYCLE_EMAIL` | Resend API key, verified sender, webhook secret, cron secret |
 | Billing | `ENABLE_BILLING` | Stripe live secret, recurring price, verified webhook |
-| Paid generation | `ENABLE_LIVE_GENERATION` | account, cloud recovery, billing entitlement, provider, approval, and ledger proofs |
+| Paid generation | `ENABLE_LIVE_GENERATION` | approved account, cloud recovery, active billing entitlement, provider, exact-input approval, ledger, quota, and runtime-health proofs |
 
 The public waitlist may launch independently. Product updates are optional and
 default off. Joining the waitlist must not create a subscription or trigger

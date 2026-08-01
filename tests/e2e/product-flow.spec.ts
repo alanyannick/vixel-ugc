@@ -5,10 +5,17 @@ test("marketing page communicates the source-grounded workflow", async ({
 }) => {
   await page.goto("/");
 
+  await expect(page).toHaveTitle(/Vixel Campaigns/);
+  await expect(
+    page.getByRole("link", { name: "Vixel Campaigns home" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/VIXEL CAMPAIGNS \/ AI PRODUCT-TO-UGC/).first(),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Turn any product into a creator ad.",
+      name: "Turn product truth into creator ads ready to produce.",
     }),
   ).toBeVisible();
   const productLink = page.getByRole("textbox", { name: "Product link" });
@@ -17,12 +24,12 @@ test("marketing page communicates the source-grounded workflow", async ({
   await expect(campaignIdea).toBeVisible();
   await productLink.fill("https://shop.example.test/pulse-blender");
   await campaignIdea.fill("Show the ten-second setup and first-use reaction.");
-  await page.getByRole("button", { name: "Build campaign" }).click();
+  await page.getByRole("button", { name: "Apply with brief" }).click();
   await expect(page).toHaveURL(/\/waitlist\?/);
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Bring one product. Leave with a campaign.",
+      name: "Bring one product. Apply with a real brief.",
     }),
   ).toBeVisible();
   await expect(
@@ -63,9 +70,9 @@ test("campaign intake reaches a five-route planning decision while generation is
     await route.abort();
   });
   await page.goto("/studio?operator=recovery");
-  await expect(page.getByText("Checking studio access…")).toBeHidden({
-    timeout: 10_000,
-  });
+  await expect(
+    page.getByText("Checking UGC Campaign access…"),
+  ).toBeHidden({ timeout: 10_000 });
   if (testInfo.project.name.includes("mobile")) {
     const director = page.getByRole("complementary", { name: "Director" });
     await expect(director).toBeHidden();

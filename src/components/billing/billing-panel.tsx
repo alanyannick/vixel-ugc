@@ -14,6 +14,7 @@ type BillingState = {
 
 type PanelState =
   | { kind: "loading" }
+  | { kind: "disabled" }
   | { kind: "sign-in" }
   | { kind: "unavailable"; message: string }
   | { kind: "ready"; billing: BillingState };
@@ -62,24 +63,35 @@ async function loadBillingState(): Promise<PanelState> {
   }
 }
 
-export function BillingPanel({ compact = false }: { compact?: boolean }) {
-  const [state, setState] = useState<PanelState>({ kind: "loading" });
+export function BillingPanel({
+  compact = false,
+  enabled = true,
+}: {
+  compact?: boolean;
+  enabled?: boolean;
+}) {
+  const [loadedState, setLoadedState] = useState<PanelState>({ kind: "loading" });
+  const state: PanelState = enabled
+    ? loadedState
+    : { kind: "disabled" };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
-    setState(await loadBillingState());
-  }, []);
+    if (!enabled) return;
+    setLoadedState(await loadBillingState());
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     void loadBillingState().then((nextState) => {
-      if (active) setState(nextState);
+      if (active) setLoadedState(nextState);
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [enabled]);
 
   async function openBilling(endpoint: "checkout" | "portal") {
     setBusy(true);
@@ -116,7 +128,9 @@ export function BillingPanel({ compact = false }: { compact?: boolean }) {
       <div className="billing-panel-heading">
         <CreditCard aria-hidden="true" size={compact ? 16 : 20} />
         <span>
-          <strong>{compact ? "Subscription" : "Vixel UGC paid beta"}</strong>
+          <strong>
+            {compact ? "Subscription" : "Vixel Campaigns paid beta"}
+          </strong>
           <small>
             {state.kind === "ready"
               ? state.billing.entitled
@@ -126,6 +140,8 @@ export function BillingPanel({ compact = false }: { compact?: boolean }) {
                 : `Status: ${state.billing.status.replaceAll("_", " ")}`
               : state.kind === "loading"
                 ? "Checking secure billing state…"
+                : state.kind === "disabled"
+                  ? "Subscription billing is not open on this deployment"
                 : state.kind === "sign-in"
                   ? "Sign in with an approved account"
                   : state.message}

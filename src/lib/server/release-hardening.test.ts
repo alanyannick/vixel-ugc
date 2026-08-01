@@ -89,7 +89,7 @@ describe("release runtime readiness", () => {
       checks: {
         liveness: true,
         readiness: false,
-        provider: "not_ready",
+        provider: "not_configured",
         ledger: "not_ready",
       },
       providerConfigured: false,
