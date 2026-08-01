@@ -9,6 +9,7 @@ import {
   createSessionToken,
   STUDIO_SESSION_COOKIE,
 } from "./auth";
+import * as billingServer from "./billing";
 import {
   canonicalImageApprovalInput,
   canonicalVideoApprovalInput,
@@ -463,6 +464,10 @@ describe("paid submission quota", () => {
   ] as const)(
     "maps a %s quota denial to 429 without provider I/O",
     async (kind, route) => {
+      vi.spyOn(
+        billingServer,
+        "requirePaidGenerationAccess",
+      ).mockResolvedValueOnce(null);
       vi.stubEnv("PAID_SUBMISSION_DAILY_IDENTITY_LIMIT", "1");
       vi.stubEnv("PAID_SUBMISSION_DAILY_GLOBAL_LIMIT", "1");
       const { pool } = quotaPool({

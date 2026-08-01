@@ -145,7 +145,7 @@ export async function ensureAccountProfile(input: {
     }
 
     if (
-      account.accountStatus !== "approved" &&
+      account.accountStatus === "pending" &&
       ["approved", "invited", "converted"].includes(waitlist.status)
     ) {
       const approvedAccount = await client.query<AccountRow>(
@@ -209,12 +209,7 @@ export async function ensureAccountProfile(input: {
         )
         ON CONFLICT (idempotency_key) DO NOTHING
       `,
-      [
-        email,
-        userId,
-        `welcome:${userId}:v1`,
-        account.displayName,
-      ],
+      [email, userId, `welcome:${userId}:v1`, account.displayName],
     );
     return account;
   });
@@ -247,10 +242,11 @@ export type AccountAuthorization =
       response: Response;
     };
 
-export async function authorizeAccount(
+async function authorizeAccountWithPolicy(
   request: Request,
   requestId: string,
-  options: { approved?: boolean; admin?: boolean } = {},
+  options: { approved?: boolean; admin?: boolean },
+  allowSuspended: boolean,
 ): Promise<AccountAuthorization> {
   const session = getAccountSession(request);
   if (!session) {
@@ -278,7 +274,7 @@ export async function authorizeAccount(
       ),
     };
   }
-  if (account.accountStatus === "suspended") {
+  if (account.accountStatus === "suspended" && !allowSuspended) {
     return {
       allowed: false,
       response: apiError(
@@ -315,6 +311,26 @@ export async function authorizeAccount(
     };
   }
   return { allowed: true, session, account };
+}
+
+export async function authorizeAccount(
+  request: Request,
+  requestId: string,
+  options: { approved?: boolean; admin?: boolean } = {},
+): Promise<AccountAuthorization> {
+  return authorizeAccountWithPolicy(request, requestId, options, false);
+}
+
+/**
+ * Billing cancellation is a safety boundary, not a product-entitlement grant.
+ * A verified v3 session with a current database profile may inspect billing and
+ * open Stripe's portal even after the account is pending or suspended.
+ */
+export async function authorizeBillingManagement(
+  request: Request,
+  requestId: string,
+): Promise<AccountAuthorization> {
+  return authorizeAccountWithPolicy(request, requestId, {}, true);
 }
 
 /**

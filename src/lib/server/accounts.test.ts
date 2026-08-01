@@ -11,10 +11,12 @@ vi.mock("./product-db", () => ({
 
 const USER_ID = "0f54f1be-129d-4adb-a731-6fd54cfc1bc1";
 
-function accountRequest(input: {
-  status?: "pending" | "approved" | "suspended";
-  role?: "user" | "admin";
-} = {}): Request {
+function accountRequest(
+  input: {
+    status?: "pending" | "approved" | "suspended";
+    role?: "user" | "admin";
+  } = {},
+): Request {
   const token = createAccountSessionToken({
     userId: USER_ID,
     email: "creator@example.com",
@@ -26,10 +28,12 @@ function accountRequest(input: {
   });
 }
 
-function row(input: {
-  status?: "pending" | "approved" | "suspended";
-  role?: "user" | "admin";
-} = {}) {
+function row(
+  input: {
+    status?: "pending" | "approved" | "suspended";
+    role?: "user" | "admin";
+  } = {},
+) {
   return {
     user_id: USER_ID,
     email: "creator@example.com",
@@ -100,6 +104,43 @@ describe("account authorization", () => {
     expect(authorization.allowed).toBe(false);
     if (!authorization.allowed) {
       expect(authorization.response.status).toBe(403);
+    }
+  });
+
+  it("allows a verified suspended profile through billing management only", async () => {
+    vi.mocked(productQuery).mockResolvedValueOnce({
+      rows: [row({ status: "suspended" })],
+    } as never);
+    const { authorizeBillingManagement } = await import("./accounts");
+
+    const authorization = await authorizeBillingManagement(
+      accountRequest({ status: "approved" }),
+      "request-suspended-billing",
+    );
+
+    expect(authorization.allowed).toBe(true);
+    if (authorization.allowed) {
+      expect(authorization.account.accountStatus).toBe("suspended");
+    }
+  });
+
+  it("keeps billing management closed to anonymous and missing profiles", async () => {
+    const { authorizeBillingManagement } = await import("./accounts");
+    const anonymous = await authorizeBillingManagement(
+      new Request("https://ugc.vixelai.com/api/billing/portal"),
+      "request-anonymous-billing",
+    );
+    expect(anonymous.allowed).toBe(false);
+    if (!anonymous.allowed) expect(anonymous.response.status).toBe(401);
+
+    vi.mocked(productQuery).mockResolvedValueOnce({ rows: [] } as never);
+    const missingProfile = await authorizeBillingManagement(
+      accountRequest({ status: "suspended" }),
+      "request-missing-profile-billing",
+    );
+    expect(missingProfile.allowed).toBe(false);
+    if (!missingProfile.allowed) {
+      expect(missingProfile.response.status).toBe(401);
     }
   });
 

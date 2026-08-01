@@ -1108,7 +1108,7 @@ h2 em {
 }
 
 .waitlist-form .button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.65;
 }
 
@@ -1152,6 +1152,76 @@ h2 em {
   color: var(--paper-200);
   line-height: 1.65;
   margin: 0;
+}
+
+.waitlist-success-next {
+  border-top: 1px solid rgb(243 240 232 / 14%);
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 24px;
+}
+
+.waitlist-success-next > span {
+  color: var(--citron-400);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.waitlist-success-next strong {
+  color: var(--paper-50);
+  overflow-wrap: anywhere;
+}
+
+.waitlist-success-next .button {
+  border: 0;
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.turnstile-check {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  min-height: 22px;
+}
+
+.turnstile-feedback {
+  align-items: center;
+  color: var(--studio-muted, var(--muted-500, #92978d));
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 10px;
+  gap: 7px 10px;
+  line-height: 1.5;
+}
+
+.turnstile-feedback[data-tone="success"] {
+  color: var(--studio-citron, var(--citron-400, #c7f43d));
+}
+
+.turnstile-feedback[data-tone="error"] {
+  color: #ff9d8c;
+}
+
+.turnstile-feedback code {
+  border: 1px solid currentcolor;
+  border-radius: 4px;
+  font: inherit;
+  padding: 1px 5px;
+}
+
+.turnstile-feedback button {
+  border: 0;
+  border-bottom: 1px solid currentcolor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 2px 0;
 }
 
 /* Pricing and account billing */

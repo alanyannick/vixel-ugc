@@ -1,14 +1,11 @@
-import { authorizeAccount } from "@/lib/server/accounts";
+import { authorizeBillingManagement } from "@/lib/server/accounts";
 import {
   apiError,
   getRequestId,
   jsonResponse,
   mutationComesFromSameOrigin,
 } from "@/lib/server/api";
-import {
-  BillingError,
-  createBillingPortalSession,
-} from "@/lib/server/billing";
+import { BillingError, createBillingPortalSession } from "@/lib/server/billing";
 
 export const runtime = "nodejs";
 
@@ -23,9 +20,7 @@ export async function POST(request: Request): Promise<Response> {
       requestId,
     );
   }
-  const authorization = await authorizeAccount(request, requestId, {
-    approved: true,
-  });
+  const authorization = await authorizeBillingManagement(request, requestId);
   if (!authorization.allowed) return authorization.response;
   try {
     const portal = await createBillingPortalSession({

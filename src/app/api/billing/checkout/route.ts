@@ -49,6 +49,15 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     const code =
       error instanceof BillingError ? error.code : "billing_unavailable";
+    if (code === "billing_subscription_exists") {
+      return apiError(
+        409,
+        code,
+        "This account already has a subscription. Open billing to manage it.",
+        false,
+        requestId,
+      );
+    }
     return apiError(
       code === "billing_price_not_configured" ? 503 : 502,
       code,

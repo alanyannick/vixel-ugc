@@ -25,6 +25,31 @@ describe("lifecycle email", () => {
     expect(email.text).toContain("<script>alert(1)</script>");
   });
 
+  it("sends waitlist members to same-email passwordless account setup", () => {
+    const email = lifecycleEmail(
+      "waitlist_confirmation",
+      { displayName: "Creator" },
+      "https://ugc.vixelai.com",
+    );
+
+    expect(email.text).toContain("with this same email");
+    expect(email.text).toContain("https://ugc.vixelai.com/studio");
+    expect(email.html).toContain("Set up account or sign in");
+    expect(email.html).toContain('href="https://ugc.vixelai.com/studio"');
+  });
+
+  it("opens Studio directly from the approval email", () => {
+    const email = lifecycleEmail(
+      "waitlist_approved",
+      { displayName: "Creator" },
+      "https://ugc.vixelai.com",
+    );
+
+    expect(email.text).toContain("https://ugc.vixelai.com/studio");
+    expect(email.html).toContain("Enter Studio");
+    expect(email.html).not.toContain("issue your Studio invitation");
+  });
+
   it("claims email jobs atomically with retry and abandoned-claim bounds", async () => {
     const query = vi.fn().mockResolvedValue({ rows: [] });
     vi.mocked(withProductTransaction).mockImplementationOnce(async (operation) =>

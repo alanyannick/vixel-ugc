@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 
-import type { AccountStatus } from "./auth";
+import { lockAndGetApprovedAdminActor } from "./admin-authority";
+import type { AccountStatus, AppRole } from "./auth";
 import { productQuery, withProductTransaction } from "./product-db";
 
 export type WaitlistStatus =
@@ -46,6 +47,12 @@ type WaitlistRow = {
   last_reminder_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
+};
+
+type LinkedAccountGuardRow = {
+  user_id: string;
+  account_status: AccountStatus;
+  app_role: AppRole;
 };
 
 const WAITLIST_COLUMNS = `
@@ -253,7 +260,12 @@ export function waitlistTransitionTarget(
 
 export class WaitlistTransitionError extends Error {
   constructor(
-    readonly code: "not_found" | "invalid_transition",
+    readonly code:
+      | "not_found"
+      | "actor_not_authorized"
+      | "invalid_reason"
+      | "invalid_transition"
+      | "protected_admin",
     message: string,
   ) {
     super(message);
@@ -283,13 +295,67 @@ async function lockedWaitlistEntry(
   return result.rows[0];
 }
 
+function isBootstrapAdmin(userId: string): boolean {
+  const normalizedUserId = userId.toLowerCase();
+  return (process.env.ADMIN_USER_IDS ?? "")
+    .split(",")
+    .some((value) => value.trim().toLowerCase() === normalizedUserId);
+}
+
+async function assertLinkedAccountTransitionSafe(input: {
+  client: PoolClient;
+  userId: string;
+}): Promise<LinkedAccountGuardRow> {
+  const profileResult = await input.client.query<LinkedAccountGuardRow>(
+    `
+      SELECT user_id, account_status, app_role
+      FROM vixel_ugc.user_profiles
+      WHERE user_id = $1
+      FOR UPDATE
+    `,
+    [input.userId],
+  );
+  const profile = profileResult.rows[0];
+  if (!profile) {
+    throw new WaitlistTransitionError(
+      "invalid_transition",
+      "The linked account is unavailable and cannot be changed from Admissions.",
+    );
+  }
+  if (profile.app_role === "admin" || isBootstrapAdmin(input.userId)) {
+    throw new WaitlistTransitionError(
+      "protected_admin",
+      "Administrator account status must be changed from Users & Access, not Admissions.",
+    );
+  }
+  return profile;
+}
+
+function normalizedTransitionReason(value: string | null | undefined): string | null {
+  const normalized = value
+    ?.replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+  return normalized || null;
+}
+
 export async function transitionWaitlist(input: {
   entryId: string;
   action: "approve" | "reject" | "invite" | "revoke";
+  reason?: string | null;
   actorUserId: string;
   requestId: string;
 }): Promise<WaitlistEntry> {
   return withProductTransaction(async (client) => {
+    const actorUserId = input.actorUserId.toLowerCase();
+    const actor = await lockAndGetApprovedAdminActor(client, actorUserId);
+    if (!actor) {
+      throw new WaitlistTransitionError(
+        "actor_not_authorized",
+        "The operator no longer has approved administrator access.",
+      );
+    }
     const current = await lockedWaitlistEntry(client, input.entryId);
     const next = waitlistTransitionTarget(current.status, input.action);
     if (!next) {
@@ -297,6 +363,25 @@ export async function transitionWaitlist(input: {
         "invalid_transition",
         `A ${current.status} entry cannot be changed with ${input.action}.`,
       );
+    }
+
+    const accountStatus: AccountStatus =
+      ["approved", "invited", "converted"].includes(next)
+        ? "approved"
+        : "pending";
+    const reason = normalizedTransitionReason(input.reason);
+    let linkedProfile: LinkedAccountGuardRow | null = null;
+    if (current.converted_user_id) {
+      linkedProfile = await assertLinkedAccountTransitionSafe({
+        client,
+        userId: current.converted_user_id,
+      });
+      if (!reason || reason.length < 4) {
+        throw new WaitlistTransitionError(
+          "invalid_reason",
+          "A meaningful audit reason is required for an account-linked admission change.",
+        );
+      }
     }
 
     const result = await client.query<WaitlistRow>(
@@ -316,15 +401,11 @@ export async function transitionWaitlist(input: {
         WHERE id = $1
         RETURNING ${WAITLIST_COLUMNS}
       `,
-      [input.entryId, next, input.actorUserId],
+      [input.entryId, next, actorUserId],
     );
     const updated = result.rows[0];
 
     if (updated.converted_user_id) {
-      const accountStatus: AccountStatus =
-        ["approved", "invited", "converted"].includes(next)
-          ? "approved"
-          : "pending";
       await client.query(
         `
           UPDATE vixel_ugc.user_profiles
@@ -334,7 +415,7 @@ export async function transitionWaitlist(input: {
             approved_by = CASE WHEN $2 = 'approved' THEN $3 ELSE NULL END
           WHERE user_id = $1
         `,
-        [updated.converted_user_id, accountStatus, input.actorUserId],
+        [updated.converted_user_id, accountStatus, actorUserId],
       );
     }
 
@@ -352,12 +433,29 @@ export async function transitionWaitlist(input: {
         VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
       `,
       [
-        input.actorUserId,
+        actorUserId,
         updated.converted_user_id,
         updated.id,
         `waitlist.${input.action}`,
-        JSON.stringify(fromRow(current)),
-        JSON.stringify(fromRow(updated)),
+        JSON.stringify({
+          ...fromRow(current),
+          ...(linkedProfile
+            ? {
+                accountStatus: linkedProfile.account_status,
+                appRole: linkedProfile.app_role,
+              }
+            : {}),
+        }),
+        JSON.stringify({
+          ...fromRow(updated),
+          ...(linkedProfile
+            ? {
+                accountStatus,
+                appRole: linkedProfile.app_role,
+              }
+            : {}),
+          ...(reason ? { reason } : {}),
+        }),
         input.requestId,
       ],
     );
@@ -418,6 +516,14 @@ export async function updateWaitlistNote(input: {
   requestId: string;
 }): Promise<WaitlistEntry> {
   return withProductTransaction(async (client) => {
+    const actorUserId = input.actorUserId.toLowerCase();
+    const actor = await lockAndGetApprovedAdminActor(client, actorUserId);
+    if (!actor) {
+      throw new WaitlistTransitionError(
+        "actor_not_authorized",
+        "The operator no longer has approved administrator access.",
+      );
+    }
     const current = await lockedWaitlistEntry(client, input.entryId);
     const note = normalizedOptional(input.note, 4_000);
     const result = await client.query<WaitlistRow>(
@@ -444,7 +550,7 @@ export async function updateWaitlistNote(input: {
         VALUES ($1, $2, $3, 'waitlist.note', $4::jsonb, $5::jsonb, $6)
       `,
       [
-        input.actorUserId,
+        actorUserId,
         updated.converted_user_id,
         updated.id,
         JSON.stringify({ internalNote: current.internal_note }),

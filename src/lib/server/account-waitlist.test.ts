@@ -15,12 +15,14 @@ vi.mock("./product-db", () => ({
 
 import { ensureAccountProfile } from "./accounts";
 
-const USER_ID = "11111111-1111-4111-8111-111111111111";
-const OTHER_USER_ID = "22222222-2222-4222-8222-222222222222";
-const WAITLIST_ID = "33333333-3333-4333-8333-333333333333";
+const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const OTHER_USER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const WAITLIST_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const EMAIL = "creator@example.com";
 
-function accountRow(status: "pending" | "approved" = "pending") {
+function accountRow(
+  status: "pending" | "approved" | "suspended" = "pending",
+) {
   return {
     user_id: USER_ID,
     email: EMAIL,
@@ -30,7 +32,8 @@ function accountRow(status: "pending" | "approved" = "pending") {
     expected_volume: null,
     account_status: status,
     app_role: "user",
-    approved_at: status === "approved" ? new Date("2026-08-01T00:00:00Z") : null,
+    approved_at:
+      status === "pending" ? null : new Date("2026-08-01T00:00:00Z"),
     created_at: new Date("2026-08-01T00:00:00Z"),
     updated_at: new Date("2026-08-01T00:00:00Z"),
   };
@@ -72,12 +75,22 @@ describe("account-first waitlist linking", () => {
     });
 
     await expect(
-      ensureAccountProfile({ userId: USER_ID, email: EMAIL }),
+      ensureAccountProfile({
+        userId: USER_ID.toUpperCase(),
+        email: "  Creator@Example.COM ",
+      }),
     ).resolves.toMatchObject({
       userId: USER_ID,
       email: EMAIL,
       accountStatus: "pending",
     });
+
+    const profileCall = queryMock.mock.calls.find(([sql]) =>
+      String(sql).includes("INSERT INTO vixel_ugc.user_profiles"),
+    );
+    expect(profileCall?.[1]).toEqual([USER_ID, EMAIL, "user"]);
+    expect(profileCall?.[0]).toContain("ON CONFLICT (user_id) DO UPDATE");
+    expect(profileCall?.[0]).not.toContain("ON CONFLICT (email)");
 
     const waitlistCall = queryMock.mock.calls.find(([sql]) =>
       String(sql).includes("INSERT INTO vixel_ugc.waitlist_entries"),
@@ -154,6 +167,34 @@ describe("account-first waitlist linking", () => {
     ).resolves.toMatchObject({ accountStatus: "approved" });
   });
 
+  it("never self-restores a suspended profile from an approved waitlist row", async () => {
+    queryMock.mockImplementation(async (sql: string) => {
+      if (sql.includes("INSERT INTO vixel_ugc.user_profiles")) {
+        return { rows: [accountRow("suspended")] };
+      }
+      if (sql.includes("INSERT INTO vixel_ugc.waitlist_entries")) {
+        return { rows: [waitlistRow("approved")] };
+      }
+      if (sql.includes("UPDATE vixel_ugc.user_profiles")) {
+        return { rows: [accountRow("approved")] };
+      }
+      return { rows: [] };
+    });
+
+    await expect(
+      ensureAccountProfile({ userId: USER_ID, email: EMAIL }),
+    ).resolves.toMatchObject({
+      userId: USER_ID,
+      email: EMAIL,
+      accountStatus: "suspended",
+    });
+    expect(
+      queryMock.mock.calls.some(([sql]) =>
+        String(sql).includes("UPDATE vixel_ugc.user_profiles"),
+      ),
+    ).toBe(false);
+  });
+
   it("fails closed instead of stealing a waitlist row linked to another user", async () => {
     queryMock.mockImplementation(async (sql: string) => {
       if (sql.includes("INSERT INTO vixel_ugc.user_profiles")) {
@@ -171,6 +212,13 @@ describe("account-first waitlist linking", () => {
     await expect(
       ensureAccountProfile({ userId: USER_ID, email: EMAIL }),
     ).rejects.toThrow("account_waitlist_identity_conflict");
+    const waitlistCall = queryMock.mock.calls.find(([sql]) =>
+      String(sql).includes("INSERT INTO vixel_ugc.waitlist_entries"),
+    );
+    expect(waitlistCall?.[1]).toEqual([EMAIL, USER_ID]);
+    expect(waitlistCall?.[0]).toContain(
+      "WHERE vixel_ugc.waitlist_entries.converted_user_id IS NULL",
+    );
     expect(
       queryMock.mock.calls.some(([sql]) =>
         String(sql).includes("vixel_ugc.email_delivery_ledger"),

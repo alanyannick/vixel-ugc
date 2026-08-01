@@ -36,7 +36,7 @@ afterEach(() => {
 
 describe("verifyTurnstile", () => {
   it("accepts Cloudflare's documented test hostname only on Preview", async () => {
-    mockVerification("example.com");
+    mockVerification("example.com", "waitlist");
 
     await expect(
       verifyTurnstile(
@@ -47,7 +47,7 @@ describe("verifyTurnstile", () => {
   });
 
   it("rejects the test hostname on Production", async () => {
-    mockVerification("example.com");
+    mockVerification("example.com", "waitlist");
 
     await expect(
       verifyTurnstile(
@@ -58,7 +58,7 @@ describe("verifyTurnstile", () => {
   });
 
   it("rejects the test hostname when the real key pair is configured", async () => {
-    mockVerification("example.com");
+    mockVerification("example.com", "waitlist");
 
     await expect(
       verifyTurnstile(
@@ -83,5 +83,33 @@ describe("verifyTurnstile", () => {
         }),
       ),
     ).resolves.toBe(true);
+  });
+
+  it("rejects a successful token when Cloudflare omits its action", async () => {
+    mockVerification("preview-ugc.vixelai.com");
+
+    await expect(
+      verifyTurnstile(
+        { token: "real-token", expectedAction: "otp" },
+        environment({
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "real-site-key",
+          TURNSTILE_SECRET_KEY: "real-secret",
+        }),
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it("rejects a token issued for another application action", async () => {
+    mockVerification("preview-ugc.vixelai.com", "waitlist");
+
+    await expect(
+      verifyTurnstile(
+        { token: "real-token", expectedAction: "otp" },
+        environment({
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "real-site-key",
+          TURNSTILE_SECRET_KEY: "real-secret",
+        }),
+      ),
+    ).resolves.toBe(false);
   });
 });

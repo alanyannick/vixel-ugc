@@ -1,15 +1,12 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
-  ArrowLeft,
   Check,
   Clock3,
   MailPlus,
   RefreshCw,
   Search,
-  ShieldAlert,
   Undo2,
   X,
 } from "lucide-react";
@@ -32,17 +29,9 @@ type WaitlistEntry = {
   expectedVolume: string | null;
   status: WaitlistStatus;
   internalNote: string | null;
+  convertedUserId: string | null;
   invitedAt: string | null;
   createdAt: string;
-};
-
-type AccountResponse = {
-  authenticated?: boolean;
-  account?: {
-    email?: string;
-    accountStatus?: string;
-    appRole?: string;
-  };
 };
 
 const FILTERS: Array<{ value: "" | WaitlistStatus; label: string }> = [
@@ -64,15 +53,17 @@ async function errorMessage(
   return body?.error?.message ?? fallback;
 }
 
-export function AdminWaitlist() {
-  const [state, setState] = useState<
-    "checking" | "forbidden" | "ready" | "error"
-  >("checking");
+export function AdminAdmissions({ reloadNonce = 0 }: { reloadNonce?: number }) {
+  const [state, setState] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   const [entries, setEntries] = useState<WaitlistEntry[]>([]);
   const [filter, setFilter] = useState<"" | WaitlistStatus>("");
   const [search, setSearch] = useState("");
+  const [submittedSearch, setSubmittedSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [transitionReason, setTransitionReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -85,7 +76,7 @@ export function AdminWaitlist() {
     setError("");
     const params = new URLSearchParams();
     if (filter) params.set("status", filter);
-    if (search.trim()) params.set("search", search.trim());
+    if (submittedSearch) params.set("search", submittedSearch);
     const response = await fetch(`/api/admin/waitlist?${params}`, {
       cache: "no-store",
     });
@@ -94,28 +85,12 @@ export function AdminWaitlist() {
     }
     const body = (await response.json()) as { entries?: WaitlistEntry[] };
     setEntries(body.entries ?? []);
-  }, [filter, search]);
+  }, [filter, submittedSearch]);
 
   useEffect(() => {
     let active = true;
     async function initialize() {
       try {
-        const response = await fetch("/api/auth/session", {
-          cache: "no-store",
-        });
-        const body = (await response.json().catch(() => null)) as
-          | AccountResponse
-          | null;
-        if (!active) return;
-        if (
-          !response.ok ||
-          !body?.authenticated ||
-          body.account?.accountStatus !== "approved" ||
-          body.account?.appRole !== "admin"
-        ) {
-          setState("forbidden");
-          return;
-        }
         await load();
         if (active) setState("ready");
       } catch (caught) {
@@ -131,7 +106,7 @@ export function AdminWaitlist() {
     return () => {
       active = false;
     };
-  }, [load]);
+  }, [load, reloadNonce]);
 
   async function mutate(
     entry: WaitlistEntry,
@@ -139,6 +114,7 @@ export function AdminWaitlist() {
       | {
           operation: "transition";
           action: "approve" | "reject" | "invite" | "revoke";
+          reason?: string;
         }
       | { operation: "note"; note: string | null },
   ) {
@@ -162,6 +138,7 @@ export function AdminWaitlist() {
         ),
       );
       setNote(payload.entry.internalNote ?? "");
+      if (body.operation === "transition") setTransitionReason("");
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "The update failed.",
@@ -173,43 +150,28 @@ export function AdminWaitlist() {
 
   function submitSearch(event: FormEvent) {
     event.preventDefault();
-    void load().catch((caught) =>
-      setError(caught instanceof Error ? caught.message : "Search failed."),
-    );
+    setSubmittedSearch(search.replace(/\s+/g, " ").trim());
   }
 
-  if (state === "checking") {
-    return <main className={styles.statePage}>Checking operator access…</main>;
-  }
-  if (state === "forbidden") {
-    return (
-      <main className={styles.statePage}>
-        <ShieldAlert aria-hidden="true" />
-        <h1>Admin access required</h1>
-        <p>Sign in with an approved operator account to manage the beta.</p>
-        <Link href="/studio">Go to sign in</Link>
-      </main>
-    );
+  if (state === "loading") {
+    return <section className={styles.panelState}>Loading admissions…</section>;
   }
   if (state === "error") {
     return (
-      <main className={styles.statePage}>
-        <h1>Operations are unavailable</h1>
+      <section className={styles.panelState}>
+        <h2>Admissions are unavailable</h2>
         <p>{error}</p>
-      </main>
+      </section>
     );
   }
 
   return (
-    <main className={styles.shell}>
-      <header className={styles.header}>
+    <div className={styles.admissionsWorkspace}>
+      <header className={styles.admissionsHeader}>
         <div>
-          <Link href="/">
-            <ArrowLeft aria-hidden="true" size={16} />
-            Product
-          </Link>
-          <p>Vixel UGC / Operations</p>
-          <h1>Beta admissions</h1>
+          <span>Private beta</span>
+          <h2>Admission queue</h2>
+          <p>Approve intent first; account access begins after verified email sign-in.</p>
         </div>
         <button type="button" onClick={() => void load()}>
           <RefreshCw aria-hidden="true" size={16} />
@@ -260,6 +222,7 @@ export function AdminWaitlist() {
               onClick={() => {
                 setSelectedId(entry.id);
                 setNote(entry.internalNote ?? "");
+                setTransitionReason("");
               }}
               type="button"
             >
@@ -303,14 +266,36 @@ export function AdminWaitlist() {
                 </div>
               </dl>
 
+              {selected.convertedUserId ? (
+                <label className={styles.reasonField}>
+                  Audit reason
+                  <textarea
+                    maxLength={240}
+                    onChange={(event) => setTransitionReason(event.target.value)}
+                    placeholder="Required: why is this admission change needed?"
+                    value={transitionReason}
+                  />
+                  <span>
+                    Account-linked changes require at least 4 characters · {transitionReason.trim().length}/240
+                  </span>
+                </label>
+              ) : null}
+
               <div className={styles.actions}>
                 {["pending", "rejected"].includes(selected.status) ? (
                   <button
-                    disabled={busy === selected.id}
+                    disabled={
+                      busy === selected.id ||
+                      Boolean(
+                        selected.convertedUserId &&
+                          transitionReason.trim().length < 4,
+                      )
+                    }
                     onClick={() =>
                       void mutate(selected, {
                         operation: "transition",
                         action: "approve",
+                        reason: transitionReason,
                       })
                     }
                     type="button"
@@ -321,42 +306,63 @@ export function AdminWaitlist() {
                 ) : null}
                 {selected.status === "approved" ? (
                   <button
-                    disabled={busy === selected.id}
+                    disabled={
+                      busy === selected.id ||
+                      Boolean(
+                        selected.convertedUserId &&
+                          transitionReason.trim().length < 4,
+                      )
+                    }
                     onClick={() =>
                       void mutate(selected, {
                         operation: "transition",
                         action: "invite",
+                        reason: transitionReason,
                       })
                     }
                     type="button"
                   >
                     <MailPlus size={15} />
-                    Send invite
+                    Send Studio reminder
                   </button>
                 ) : null}
                 {selected.status === "invited" ? (
                   <button
-                    disabled={busy === selected.id}
+                    disabled={
+                      busy === selected.id ||
+                      Boolean(
+                        selected.convertedUserId &&
+                          transitionReason.trim().length < 4,
+                      )
+                    }
                     onClick={() =>
                       void mutate(selected, {
                         operation: "transition",
                         action: "revoke",
+                        reason: transitionReason,
                       })
                     }
                     type="button"
                   >
                     <Undo2 size={15} />
-                    Revoke invite
+                    Stop reminders
                   </button>
                 ) : null}
                 {["pending", "approved", "invited"].includes(selected.status) ? (
                   <button
                     className={styles.danger}
-                    disabled={busy === selected.id}
+                    disabled={
+                      busy === selected.id ||
+                      Boolean(
+                        selected.convertedUserId &&
+                          transitionReason.trim().length < 4,
+                      )
+                    }
                     onClick={() =>
                       void mutate(selected, {
                         operation: "transition",
                         action: "reject",
+                        reason: transitionReason,
                       })
                     }
                     type="button"
@@ -397,6 +403,6 @@ export function AdminWaitlist() {
           )}
         </aside>
       </section>
-    </main>
+    </div>
   );
 }

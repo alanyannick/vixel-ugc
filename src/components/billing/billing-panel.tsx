@@ -9,6 +9,7 @@ type BillingState = {
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   customerConfigured: boolean;
+  subscriptionConfigured: boolean;
   entitled: boolean;
 };
 
@@ -60,6 +61,15 @@ async function loadBillingState(): Promise<PanelState> {
       message: "Subscription status could not be loaded.",
     };
   }
+}
+
+function hasManageableSubscription(state: BillingState): boolean {
+  if (state.status === "active" || state.status === "trialing") return true;
+  return Boolean(
+    state.subscriptionConfigured &&
+      state.status !== "canceled" &&
+      state.status !== "incomplete_expired",
+  );
 }
 
 export function BillingPanel({ compact = false }: { compact?: boolean }) {
@@ -138,14 +148,16 @@ export function BillingPanel({ compact = false }: { compact?: boolean }) {
           disabled={busy}
           onClick={() =>
             void openBilling(
-              state.billing.customerConfigured ? "portal" : "checkout",
+              hasManageableSubscription(state.billing)
+                ? "portal"
+                : "checkout",
             )
           }
           type="button"
         >
           {busy
             ? "Opening…"
-            : state.billing.customerConfigured
+            : hasManageableSubscription(state.billing)
               ? "Manage billing"
               : "Start subscription"}
           <ArrowRight aria-hidden="true" size={15} />
