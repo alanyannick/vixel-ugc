@@ -10,23 +10,35 @@ test("marketing page communicates the source-grounded workflow", async ({
     page.getByRole("link", { name: "Vixel UGC home" }),
   ).toBeVisible();
   await expect(
-    page
-      .getByText(/VIXEL UGC \/ PRIVATE BETA \/ AI PRODUCT-TO-UGC/)
-      .first(),
+    page.getByText("VIXEL UGC / PRIVATE BETA").first(),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Turn product truth into creator ads ready to produce.",
+      name: "One product link. Five creator ad directions.",
     }),
   ).toBeVisible();
   const productLink = page.getByRole("textbox", { name: "Product link" });
   const campaignIdea = page.getByRole("textbox", { name: "Campaign idea" });
+  const submitBrief = page.getByRole("button", { name: "Join beta with brief" });
   await expect(productLink).toBeVisible();
   await expect(campaignIdea).toBeVisible();
+  await expect(submitBrief).toBeVisible();
+  await productLink.focus();
+  await expect(page.locator(".composer-url")).toHaveCSS(
+    "box-shadow",
+    /rgb\(199, 244, 61\)/,
+  );
+  const viewport = page.viewportSize();
+  const submitBox = await submitBrief.boundingBox();
+  expect(viewport).not.toBeNull();
+  expect(submitBox).not.toBeNull();
+  expect((submitBox?.y ?? 0) + (submitBox?.height ?? 0)).toBeLessThanOrEqual(
+    viewport?.height ?? 0,
+  );
   await productLink.fill("https://shop.example.test/pulse-blender");
   await campaignIdea.fill("Show the ten-second setup and first-use reaction.");
-  await page.getByRole("button", { name: "Apply with brief" }).click();
+  await submitBrief.click();
   await expect(page).toHaveURL(/\/waitlist\?/);
   await expect(
     page.getByRole("heading", {
@@ -54,6 +66,7 @@ test("public entry preserves keyboard focus and reduced-motion content", async (
   ).toBeFocused();
 
   const sectionCopy = page.locator(".section-heading-copy").first();
+  await expect(page.locator(".route-proof")).toHaveCSS("opacity", "1");
   await sectionCopy.scrollIntoViewIfNeeded();
   await expect(sectionCopy).toBeVisible();
   await expect(sectionCopy).toHaveCSS("animation-name", "none");

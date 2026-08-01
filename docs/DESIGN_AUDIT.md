@@ -46,3 +46,49 @@ target was primarily interface ergonomics, not a visual-direction reset.
 
 The post-fix surface meets the review's A- closure target without changing the
 accepted brand direction.
+
+## 2026-08-01 homepage hierarchy review
+
+The live Vixel UGC acquisition page was reviewed again at 1440 × 900 and
+390 × 844, with independent source, naming, and rendered-page audits plus a
+comparison against current product-to-ad landing patterns.
+
+### Baseline problem
+
+- The headline occupied about 649px on desktop and 432px on mobile.
+- The product-link composer began below the first viewport on both sizes.
+- The long category line, product promise, runtime disclaimer, composer, fake
+  control pills, fake tabs, format cards, and workflow footer all competed in
+  one hero.
+- Scroll-linked reveals started entire content regions at `opacity: 0`, which
+  could make screenshots, fast scrolls, and some restored positions look blank.
+- Desktop navigation, the brand link, and the header CTA did not consistently
+  meet the documented 44px target.
+
+### Resolution
+
+- Renamed the public product to `Vixel UGC`; `UGC Campaign` remains the saved
+  project and `Creative Router` remains the engine.
+- Replaced the manifesto headline with one exact input/output promise:
+  `One product link. Five creator ad directions.`
+- Kept the complete product-link composer and CTA inside the first viewport,
+  with persistent visible field labels and a `focus-within` state.
+- Moved creator starting points into their own section and removed control-like
+  decoration that had no interaction semantics.
+- Reduced the deployment boundary to one compact, honest status line.
+- Kept scroll motion but removed the invisible starting state.
+- Raised header brand, navigation, login, and CTA targets to at least 44px.
+
+### Measured closure
+
+At 1440 × 900 the final H1 is 143px high, the 900px-wide composer ends at
+`y=727`, and its CTA ends at `y=713`. At 390 × 844 the H1 is 166px high, the
+composer ends at `y=705`, the CTA ends at `y=692`, and the status ends at
+`y=781`. Both viewports have zero horizontal overflow. Offscreen route content
+computes to `opacity: 1`, and browser inspection reported no console or page
+errors.
+
+The deeper product-truth, workflow, and trace sections remain intentionally
+editorial. A later acquisition experiment may test larger 9:16 creator proof
+beside the composer, but it is not required to close the clipping, hierarchy,
+semantic-control, or blank-section defects found in this review.

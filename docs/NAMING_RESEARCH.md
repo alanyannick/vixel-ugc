@@ -17,7 +17,7 @@ assessment, not a trademark clearance or legal opinion.
 
 Recommended launch line:
 
-> Turn one product link into creator-style ads.
+> One product link. Five creator ad directions.
 
 `Vixel` is the master brand. `Vixel UGC` is the current product. `UGC Campaign`
 is the durable project object inside the product, and `Creative Router` is the

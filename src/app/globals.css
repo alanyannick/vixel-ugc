@@ -116,6 +116,7 @@ img {
   display: inline-flex;
   gap: 11px;
   justify-self: start;
+  min-height: 44px;
 }
 
 .site-brand-mark {
@@ -148,14 +149,14 @@ img {
 }
 
 .site-brand-word strong {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 780;
   letter-spacing: -0.035em;
 }
 
 .site-brand-word em {
   color: var(--citron-400);
-  font-size: 7px;
+  font-size: 9px;
   font-style: normal;
   font-weight: 750;
   letter-spacing: 0.12em;
@@ -169,10 +170,13 @@ img {
 }
 
 .desktop-navigation a {
+  align-items: center;
   color: var(--paper-200);
+  display: inline-flex;
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.02em;
+  min-height: 44px;
   position: relative;
 }
 
@@ -203,7 +207,7 @@ img {
   font-weight: 750;
   gap: 9px;
   justify-self: end;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 16px;
   transition:
     background 150ms ease,
@@ -223,9 +227,12 @@ img {
 }
 
 .header-login {
+  align-items: center;
   color: var(--paper-200);
+  display: inline-flex;
   font-size: 12px;
   font-weight: 700;
+  min-height: 44px;
   padding: 12px 8px;
 }
 
@@ -712,16 +719,18 @@ h2 em {
 /* Campaign composer entry */
 
 .composer-hero {
+  align-content: center;
   background:
     radial-gradient(circle at 50% -10%, rgb(199 244 61 / 44%), transparent 40%),
     linear-gradient(rgb(243 240 232 / 6%) 1px, transparent 1px),
     linear-gradient(90deg, rgb(243 240 232 / 6%) 1px, transparent 1px),
     var(--ink-950);
   background-size: auto, 72px 72px, 72px 72px, auto;
+  display: grid;
   isolation: isolate;
   min-height: calc(100svh - var(--header-height));
   overflow: hidden;
-  padding: clamp(50px, 7vh, 82px) var(--page-gutter) 44px;
+  padding: clamp(38px, 5vh, 58px) var(--page-gutter);
   position: relative;
 }
 
@@ -736,26 +745,27 @@ h2 em {
 
 .composer-hero-heading {
   margin: 0 auto;
-  max-width: 840px;
+  max-width: 1080px;
   text-align: center;
 }
 
-.composer-hero-heading > p {
+.composer-hero-kicker {
   color: var(--citron-400);
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.18em;
-  margin: 0 0 17px;
+  margin: 0 0 15px;
+  text-transform: uppercase;
 }
 
 .composer-hero-heading h1 {
   font-family: "Syne Variable", sans-serif;
-  font-size: clamp(46px, 6.4vw, 94px);
-  font-weight: 760;
-  letter-spacing: -0.075em;
-  line-height: 0.88;
+  font-size: clamp(48px, 5.4vw, 78px);
+  font-weight: 730;
+  letter-spacing: -0.07em;
+  line-height: 0.92;
   margin: 0;
-  text-transform: uppercase;
+  text-wrap: balance;
 }
 
 .composer-hero-heading h1 em {
@@ -763,13 +773,12 @@ h2 em {
   font-style: normal;
 }
 
-.composer-hero-heading > span {
+.composer-hero-summary {
   color: var(--paper-200);
-  display: block;
   font-size: clamp(13px, 1.05vw, 16px);
-  line-height: 1.55;
-  margin: 24px auto 0;
-  max-width: 660px;
+  line-height: 1.6;
+  margin: 20px auto 0;
+  max-width: 690px;
 }
 
 .campaign-composer {
@@ -779,10 +788,11 @@ h2 em {
   box-shadow:
     0 26px 80px rgb(0 0 0 / 54%),
     0 0 0 6px rgb(9 10 8 / 36%);
-  margin: clamp(32px, 5vh, 50px) auto 0;
-  max-width: 960px;
+  margin: clamp(24px, 3.5vh, 34px) auto 0;
+  max-width: 900px;
   overflow: hidden;
   position: relative;
+  width: min(900px, 100%);
   z-index: 5;
 }
 
@@ -791,6 +801,14 @@ h2 em {
   display: flex;
   gap: 13px;
   padding: 0 22px;
+  transition:
+    background 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.campaign-composer label:focus-within {
+  background: rgb(199 244 61 / 5%);
+  box-shadow: inset 3px 0 var(--citron-400);
 }
 
 .campaign-composer label > svg {
@@ -798,9 +816,24 @@ h2 em {
   flex: 0 0 auto;
 }
 
+.composer-field {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  padding-top: 12px;
+}
+
+.composer-field-label {
+  color: var(--muted-500);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .composer-url {
   border-bottom: 1px solid rgb(243 240 232 / 12%);
-  min-height: 60px;
+  min-height: 70px;
 }
 
 .campaign-composer input,
@@ -809,7 +842,7 @@ h2 em {
   border: 0;
   color: var(--paper-50);
   outline: none;
-  padding: 17px 0;
+  padding: 5px 0 12px;
   resize: none;
   width: 100%;
 }
@@ -821,11 +854,11 @@ h2 em {
 
 .composer-intent {
   align-items: flex-start !important;
-  min-height: 84px;
+  min-height: 96px;
 }
 
 .composer-intent > svg {
-  margin-top: 20px;
+  margin-top: 27px;
 }
 
 .composer-controls {
@@ -836,17 +869,27 @@ h2 em {
   padding: 13px 14px 13px 20px;
 }
 
-.composer-controls > span {
+.composer-meta {
   align-items: center;
-  border: 1px solid rgb(243 240 232 / 14%);
-  border-radius: 999px;
   color: var(--paper-200);
-  display: inline-flex;
+  display: flex;
   font-size: 10px;
   font-weight: 700;
+  gap: 13px;
+}
+
+.composer-meta span {
+  align-items: center;
+  display: inline-flex;
   gap: 7px;
-  min-height: 34px;
-  padding: 0 12px;
+}
+
+.composer-meta span + span::before {
+  background: rgb(243 240 232 / 28%);
+  content: "";
+  height: 3px;
+  margin-right: 6px;
+  width: 3px;
 }
 
 .composer-controls button {
@@ -870,34 +913,48 @@ h2 em {
   background: #d8ff68;
 }
 
+.format-browser-section {
+  background: var(--ink-900);
+  border-top: 1px solid rgb(243 240 232 / 12%);
+  padding: 78px var(--page-gutter) 88px;
+}
+
 .format-browser {
-  margin: 34px auto 0;
+  margin: 0 auto;
   max-width: 1040px;
-  position: relative;
-  z-index: 3;
 }
 
-.format-tabs {
-  align-items: center;
-  display: flex;
-  gap: 9px;
-  justify-content: center;
-  margin-bottom: 15px;
+.format-browser-heading {
+  align-items: end;
+  display: grid;
+  gap: 18px 44px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.65fr);
+  margin-bottom: 34px;
 }
 
-.format-tabs span {
-  background: rgb(243 240 232 / 9%);
-  border: 1px solid rgb(243 240 232 / 8%);
-  border-radius: 999px;
-  color: var(--paper-200);
+.format-browser-heading > span {
+  color: var(--citron-400);
   font-size: 10px;
-  font-weight: 700;
-  padding: 8px 13px;
+  font-weight: 750;
+  grid-column: 1 / -1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-.format-tabs .format-tab-active {
-  background: var(--paper-50);
-  color: var(--ink-950);
+.format-browser-heading h2 {
+  font-family: "Syne Variable", sans-serif;
+  font-size: clamp(34px, 4.4vw, 58px);
+  font-weight: 650;
+  letter-spacing: -0.06em;
+  line-height: 0.96;
+  margin: 0;
+}
+
+.format-browser-heading p {
+  color: var(--paper-200);
+  font-size: 13px;
+  line-height: 1.65;
+  margin: 0;
 }
 
 .format-grid {
@@ -956,34 +1013,39 @@ h2 em {
   margin-top: 4px;
 }
 
-.format-grid em {
-  background: var(--citron-400);
-  border-radius: 8px;
-  color: var(--ink-950);
-  font-size: 10px;
-  font-style: normal;
-  font-weight: 800;
-  padding: 7px 9px;
-}
-
-.composer-hero-footer {
+.format-card-cta {
   align-items: center;
-  color: var(--muted-500);
-  display: flex;
-  font-size: 9px;
-  justify-content: space-between;
-  letter-spacing: 0.1em;
-  margin: 28px auto 0;
-  max-width: 1040px;
-  position: relative;
-  text-transform: uppercase;
-  z-index: 4;
-}
-
-.composer-hero-footer a {
-  align-items: center;
+  color: var(--citron-400);
   display: inline-flex;
-  gap: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.composer-status {
+  align-items: center;
+  color: var(--paper-200);
+  display: grid;
+  font-size: 11px;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  line-height: 1.5;
+  margin: 16px auto 0;
+  max-width: 900px;
+  width: min(900px, 100%);
+}
+
+.composer-status p {
+  margin: 0;
+}
+
+.composer-status a {
+  align-items: center;
+  color: var(--paper-50);
+  display: inline-flex;
+  font-weight: 750;
+  gap: 6px;
 }
 
 /* Waitlist */
@@ -2936,11 +2998,9 @@ h2 em {
 
 @keyframes sectionReveal {
   from {
-    opacity: 0;
     transform: translateY(24px);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
@@ -3029,7 +3089,7 @@ h2 em {
   }
 
   .format-grid > a:last-child {
-    display: none;
+    grid-column: 1 / -1;
   }
 
   .waitlist-page {
@@ -3054,7 +3114,7 @@ h2 em {
   }
 
   .site-brand-word strong {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .desktop-navigation,
@@ -3244,9 +3304,9 @@ h2 em {
   }
 
   .composer-hero {
-    min-height: auto;
-    padding-bottom: 58px;
-    padding-top: 46px;
+    min-height: calc(100svh - var(--header-height));
+    padding-bottom: 32px;
+    padding-top: 32px;
   }
 
   .composer-hero-heading {
@@ -3254,17 +3314,19 @@ h2 em {
   }
 
   .composer-hero-heading h1 {
-    font-size: clamp(44px, 14vw, 72px);
+    font-size: clamp(40px, 11.2vw, 50px);
+    line-height: 0.95;
   }
 
-  .composer-hero-heading > span {
+  .composer-hero-summary {
     font-size: 13px;
     margin-left: 0;
+    max-width: 560px;
   }
 
   .campaign-composer {
     border-radius: 18px;
-    margin-top: 30px;
+    margin-top: 24px;
   }
 
   .campaign-composer label {
@@ -3277,22 +3339,38 @@ h2 em {
     padding: 12px;
   }
 
-  .composer-controls > span:nth-child(2) {
-    display: none;
+  .composer-meta {
+    flex: 1 1 100%;
+    min-height: 28px;
   }
 
   .composer-controls button {
-    margin-left: auto;
+    margin-left: 0;
+    width: 100%;
   }
 
-  .format-tabs {
-    justify-content: flex-start;
-    overflow-x: auto;
-    padding-bottom: 2px;
+  .format-browser-section {
+    padding-bottom: 72px;
+    padding-top: 64px;
   }
 
-  .format-tabs span {
-    flex: 0 0 auto;
+  .format-browser-heading {
+    align-items: start;
+    gap: 16px;
+    grid-template-columns: 1fr;
+    margin-bottom: 28px;
+  }
+
+  .format-browser-heading > span {
+    grid-column: 1;
+  }
+
+  .format-browser-heading h2 {
+    font-size: clamp(36px, 10.5vw, 48px);
+  }
+
+  .format-browser-heading p {
+    max-width: 520px;
   }
 
   .format-grid {
@@ -3310,8 +3388,14 @@ h2 em {
     scroll-snap-align: start;
   }
 
-  .composer-hero-footer > span {
-    display: none;
+  .composer-status {
+    align-items: start;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .composer-status a {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .waitlist-page {
@@ -3773,7 +3857,7 @@ h2 em {
     grid-template-columns: 1fr;
   }
 
-  .composer-controls > span {
+  .composer-meta span + span {
     display: none;
   }
 

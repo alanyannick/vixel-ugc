@@ -9,9 +9,10 @@ generic SaaS dashboard.
 
 ## Content Plan
 
-1. **Hero:** Vixel brand, source-grounded promise, one primary CTA, and an
-   animated strip of original creator frames.
-2. **Proof:** one brief produces five routes, one decision, and a durable plan.
+1. **Hero:** Vixel brand, a source-grounded promise, one compact campaign
+   composer, one honest runtime status, and one primary CTA.
+2. **Proof:** creator starting points lead into five routes, one decision, and
+   a durable plan.
 3. **Product:** a real campaign board that shows sources, plan state, generated
    candidates, and receipts.
 4. **Depth:** product truth, native creator expression, and paid-result
@@ -20,8 +21,8 @@ generic SaaS dashboard.
 
 ## Interaction Thesis
 
-- Hero frames enter with a staggered vertical drift, then respond subtly to
-  pointer position and scroll depth.
+- Composer fields reveal a clear focus state and preserve the visitor's brief
+  into the beta application flow.
 - The campaign workflow reveals stage-by-stage as the user scrolls, with the
   active connector moving from Source to Candidate.
 - Buttons and selectable routes use a fast 120–180ms physical press/reveal.

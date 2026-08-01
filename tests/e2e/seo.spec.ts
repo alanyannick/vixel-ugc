@@ -8,7 +8,7 @@ test("public acquisition pages expose self-referencing canonicals", async ({
   const pages = [
     {
       path: "/",
-      heading: "Turn product truth into creator ads ready to produce.",
+      heading: "One product link. Five creator ad directions.",
     },
     {
       path: "/ai-video-generator-for-product-marketing",
