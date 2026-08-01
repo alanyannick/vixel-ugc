@@ -1,4 +1,4 @@
-# Vixel UGC Studio Operations
+# Vixel Campaigns Operations
 
 ## Reproduce locally
 
@@ -48,13 +48,34 @@ npm run test:postgres-ledger
 
 ## Production capability gates
 
-Planning mode is safe without a media provider. Paid generation remains
-fail-closed until all of these are present:
+Planning mode is safe without a media provider. Provider-backed product
+capabilities are independent and must be enabled only after their own runtime
+proof succeeds:
 
-1. `ENABLE_LIVE_GENERATION=true`
-2. a strong `STUDIO_ACCESS_CODE` and `STUDIO_SESSION_SECRET`
-3. an HTTPS `NEWAPI_BASE_URL` plus server-only `NEWAPI_API_KEY`
-4. an explicitly isolated PostgreSQL `DATABASE_APP_URL` or `DATABASE_URL`
+1. Base production session boundary: a strong `STUDIO_ACCESS_CODE` and
+   `STUDIO_SESSION_SECRET`. The access-code path remains an operator recovery
+   boundary; customer account access uses email OTP when enabled.
+2. Public waitlist: `ENABLE_PUBLIC_WAITLIST=true`, product database, and a
+   production-scoped Turnstile configuration.
+3. Account access: `ENABLE_ACCOUNT_AUTH=true`, the waitlist/database boundary,
+   Supabase URL and keys, Turnstile, and verified email OTP delivery.
+4. Cloud campaigns: `ENABLE_CLOUD_CAMPAIGNS=true`, account auth, and the
+   restricted product-database runtime role.
+5. Lifecycle email: `ENABLE_LIFECYCLE_EMAIL=true`, product database, Resend
+   sender and webhook, plus the protected lifecycle cron.
+6. Billing: `ENABLE_BILLING=true`, approved account access, Stripe secret,
+   recurring price, and a verified webhook. Only server-projected `active` and
+   `trialing` subscriptions grant entitlement.
+7. Paid generation: `ENABLE_LIVE_GENERATION=true`, an approved account, active
+   billing entitlement, exact-input approval, an HTTPS `NEWAPI_BASE_URL` with
+   server-only `NEWAPI_API_KEY`, an explicitly isolated PostgreSQL ledger, and
+   healthy runtime dependencies.
+
+A waitlist submission does not create an account, start a subscription, or
+trigger media generation. OTP sign-in does not itself approve an account, and
+a subscription does not bypass provider, ledger, approval, quota, or runtime
+health checks. See `docs/runbooks/ugc-product-launch.md` for provider setup and
+release proofs.
 
 Every new paid submission claim is also protected by PostgreSQL transaction
 advisory locks and UTC-day quotas. The default ceilings are 4 claims per
@@ -86,9 +107,9 @@ The internal schema name remains stable for migration compatibility. Do not
 reuse another product's database merely because credentials are locally
 available.
 
-Check `/api/health` after every environment change. Readiness is `503` when
-access is incomplete or live generation is enabled without its provider or
-ledger.
+Check `/api/health` after every environment change. Readiness is `503` when an
+enabled capability is missing a required dependency, or when live generation
+is enabled without its access, billing, provider, or ledger boundary.
 
 ## Deploy
 
@@ -110,10 +131,12 @@ curl -fsS https://<production-origin>/sitemap.xml
 curl -fsS https://<production-origin>/llms.txt
 ```
 
-Then verify the access gate, campaign intake, five routes, two-stage paid-input
-approval, stored plan, JSON export, mobile plan rail, and `/api/health` in a
-real browser. Bind or promote `ugc.vixelai.com` only after the staged deployment
-passes.
+Then verify the Turnstile-protected waitlist, email OTP, operator approval,
+account-scoped cloud campaign recovery, Stripe entitlement projection,
+campaign intake, five routes, two-stage paid-input approval, stored plan, JSON
+export, mobile plan rail, and `/api/health` in a real browser. Test only the
+capabilities intended for that release. Bind or promote `ugc.vixelai.com` only
+after the staged deployment passes.
 
 ## Rollback
 

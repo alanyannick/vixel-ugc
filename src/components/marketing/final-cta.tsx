@@ -10,7 +10,7 @@ type FinalCtaProps = {
 export function FinalCta({
   eyebrow = "A better UGC ad starts before generation.",
   title = "Ground the product. Choose the route. Keep the receipt.",
-  body = "Open the studio with a demo campaign ready, or build from your own approved product facts.",
+  body = "Apply with one product and a real campaign goal. Approved accounts can plan, save, review, and generate only when every release gate is ready.",
 }: FinalCtaProps) {
   return (
     <section className="final-cta">
@@ -18,8 +18,8 @@ export function FinalCta({
       <h2>{title}</h2>
       <p>{body}</p>
       <div className="button-row">
-        <Link className="button button--citron" href="/studio">
-          Create a UGC video
+        <Link className="button button--citron" href="/waitlist">
+          Apply for private beta
           <ArrowRight aria-hidden="true" size={18} />
         </Link>
         <Link className="text-link text-link--light" href="/workflows/ugc-video">

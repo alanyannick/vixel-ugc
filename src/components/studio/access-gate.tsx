@@ -379,7 +379,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
         );
         setState("recovery");
       } else {
-        setNotice("Signed out of Vixel UGC.");
+        setNotice("Signed out of Vixel Campaigns.");
         resetCaptcha();
         setState("email");
       }
@@ -419,8 +419,8 @@ export function AccessGate({ children }: { children: ReactNode }) {
     return (
       <div className={styles.gatePage} data-studio-shell>
         <IconMark className={styles.gateMark} />
-        <p className={styles.gateEyebrow}>Vixel UGC Studio</p>
-        <p className={styles.gateChecking}>Checking studio access…</p>
+        <p className={styles.gateEyebrow}>Vixel Campaigns</p>
+        <p className={styles.gateChecking}>Checking UGC Campaign access…</p>
       </div>
     );
   }
@@ -436,7 +436,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
               Waitlist received
             </span>
           </div>
-          <p className={styles.gateEyebrow}>Vixel UGC private beta</p>
+          <p className={styles.gateEyebrow}>Vixel Campaigns private beta</p>
           <h1 id="gate-title">You’re on the list.</h1>
           <p>
             Your account is ready. Studio opens after an operator approves your
@@ -465,7 +465,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
               Studio access suspended
             </span>
           </div>
-          <p className={styles.gateEyebrow}>Vixel UGC account</p>
+          <p className={styles.gateEyebrow}>Vixel Campaigns account</p>
           <h1 id="gate-title">Studio access is suspended.</h1>
           <p>
             Product access is paused. If you have a paid subscription, you can
@@ -493,7 +493,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
             {accountMode ? "Email sign up or login" : "Emergency access"}
           </span>
         </div>
-        <p className={styles.gateEyebrow}>Vixel UGC Studio</p>
+        <p className={styles.gateEyebrow}>Vixel Campaigns</p>
         <h1 id="gate-title">
           {state === "otp"
             ? "Check your inbox."

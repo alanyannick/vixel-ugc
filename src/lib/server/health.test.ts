@@ -62,6 +62,7 @@ describe("health ledger readiness", () => {
       },
       databaseConfigured: true,
       liveGeneration: false,
+      paidReady: false,
     });
     expect(probeMediaLedgerReadinessMock).toHaveBeenCalledTimes(1);
     expect(response.headers.get("cache-control")).toBe(
@@ -95,6 +96,7 @@ describe("health ledger readiness", () => {
       issues: [],
       databaseConfigured: true,
       liveGeneration: false,
+      paidReady: false,
     });
     expect(probeMediaLedgerReadinessMock).toHaveBeenCalledTimes(1);
   });
@@ -149,6 +151,7 @@ describe("health ledger readiness", () => {
       },
       issues: ["live_generation_ledger_not_ready"],
       databaseConfigured: true,
+      paidReady: false,
     });
     expect(probeMediaLedgerReadinessMock).toHaveBeenCalledTimes(1);
     expect(probeProductDatabaseReadinessMock).toHaveBeenCalledTimes(1);
@@ -174,6 +177,7 @@ describe("health ledger readiness", () => {
       },
       issues: [],
       databaseConfigured: true,
+      paidReady: true,
     });
     expect(probeMediaLedgerReadinessMock).toHaveBeenCalledTimes(1);
     expect(probeProductDatabaseReadinessMock).toHaveBeenCalledTimes(1);

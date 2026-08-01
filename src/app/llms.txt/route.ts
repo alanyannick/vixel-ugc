@@ -2,11 +2,21 @@ import { siteConfig } from "@/lib/seo/site";
 
 export const dynamic = "force-static";
 
-const content = `# Vixel UGC Studio
+const content = `# Vixel Campaigns
 
-> Vixel UGC Studio is a source-grounded AI UGC video generator for planning and producing creator-style product ads.
+> Vixel Campaigns is an independently operated AI Product-to-UGC Campaign Studio. Its current workflow, UGC Campaign, turns source-backed product facts into reviewable creator ad plans and, when every deployment gate is ready, traceable media candidates.
 
 Canonical site: ${siteConfig.url}
+
+## Product hierarchy
+
+- Product: Vixel Campaigns.
+- Category: AI Product-to-UGC Campaign Studio.
+- Current workflow: UGC Campaign.
+- Engine: Creative Router.
+- Release state: account-based private beta.
+- Canonical web origin: ${siteConfig.url}.
+- Readiness: account auth, cloud campaigns, billing, and live generation are reported independently by the deployment.
 
 ## What the product does
 
@@ -18,7 +28,9 @@ Canonical site: ${siteConfig.url}
 - Supports 9:16 video plans with canonical 4, 6, or 8-second durations.
 - Preserves provider results as immutable candidates with lineage.
 - Records adoption and campaign mutations as receipts.
-- Supports browser-local campaign state plus JSON export and restore in the current beta.
+- Gives approved accounts account-scoped cloud campaign save, reload, and revision protection when cloud readiness passes.
+- Keeps browser recovery and versioned JSON export/restore as recovery paths.
+- Exposes pricing and Stripe-backed billing controls only when the deployment's account and billing configuration are ready.
 
 ## Product-truth policy
 
@@ -26,17 +38,21 @@ Product claims require a supplied source. Vixel separates visible facts, support
 
 ## Paid-generation policy
 
-Live generation requires a secure HTTPS provider, an isolated PostgreSQL ledger, an authenticated studio session, a deployment flag, and a short-lived server signature tied to the canonical input, provider model, adapter build, signed recovery identity, and idempotency key. Changing prompt, model, references, aspect ratio, duration, or audio requires a new review. Ledger transitions use revision compare-and-set rules; ambiguous or stale submissions require reconciliation and are never automatically retried. Database-backed submission limits cap exposure. Deployment capability is disclosed by /api/health, whose ledger check verifies a real connection, schema, RLS policy, and restricted runtime grants; unavailable or incomplete deployments remain fail-closed.
+Live generation requires an approved authenticated account, active subscription entitlement, a secure HTTPS provider, an isolated PostgreSQL ledger, a deployment flag, and a short-lived server signature tied to the canonical input, provider model, adapter build, signed recovery identity, and idempotency key. Changing prompt, model, references, aspect ratio, duration, or audio requires a new review. Ledger transitions use revision compare-and-set rules; ambiguous or stale submissions require reconciliation and are never automatically retried. Database-backed submission limits cap exposure. Deployment capability is disclosed by /api/health, whose product checks report account auth, cloud campaigns, billing, email, and live-generation readiness separately; unavailable or incomplete capabilities remain fail-closed.
 
 ## Primary pages
 
 - Home: ${siteConfig.url}/
 - UGC ad generator: ${siteConfig.url}/ugc-ad-generator
+- AI video for product marketing: ${siteConfig.url}/ai-video-generator-for-product-marketing
 - AI UGC guide: ${siteConfig.url}/what-is-ai-ugc
 - UGC vs KOC guide: ${siteConfig.url}/guides/ugc-vs-koc
+- Vixel app vs web studio comparison: ${siteConfig.url}/compare/vixel-ai-video-generator-app
 - UGC workflow: ${siteConfig.url}/workflows/ugc-video
 - Product truth standard: ${siteConfig.url}/product-truth
-- Studio access: ${siteConfig.url}/access
+- UGC Campaign access: ${siteConfig.url}/access
+- Private beta pricing: ${siteConfig.url}/pricing
+- Beta waitlist: ${siteConfig.url}/waitlist
 - FAQ: ${siteConfig.url}/faq
 - Privacy: ${siteConfig.url}/privacy
 - Terms: ${siteConfig.url}/terms
@@ -57,7 +73,7 @@ Vixel does not auto-publish social posts, serve as a general-purpose chat tool, 
 
 ## Brand clarification
 
-Vixel UGC Studio is an independently operated web product. It is not affiliated with third-party applications using a similar name.
+Vixel Campaigns is an independently operated web product. It is not affiliated with, endorsed by, or operated by any third-party mobile app, App Store publisher, or similarly named service. The third-party Vixel AI Video Generator app is published by FENIX MOBILE YAZILIM A.S.; accounts, subscriptions, purchases, uploads, and support are not shared with that app.
 `;
 
 export function GET() {

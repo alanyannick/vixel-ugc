@@ -169,9 +169,12 @@ export function AdminAdmissions({ reloadNonce = 0 }: { reloadNonce?: number }) {
     <div className={styles.admissionsWorkspace}>
       <header className={styles.admissionsHeader}>
         <div>
-          <span>Private beta</span>
-          <h2>Admission queue</h2>
-          <p>Approve intent first; account access begins after verified email sign-in.</p>
+          <span>Vixel Campaigns / Private beta</span>
+          <h2>Beta admission queue</h2>
+          <p>
+            Approve intent first; account access begins after verified email
+            sign-in.
+          </p>
         </div>
         <button type="button" onClick={() => void load()}>
           <RefreshCw aria-hidden="true" size={16} />

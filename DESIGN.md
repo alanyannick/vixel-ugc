@@ -1,4 +1,4 @@
-# Vixel KOC Studio Design System
+# Vixel Campaigns Design System
 
 ## Visual Thesis
 
@@ -10,13 +10,13 @@ generic SaaS dashboard.
 ## Content Plan
 
 1. **Hero:** Vixel brand, source-grounded promise, one primary CTA, and an
-   animated strip of original KOC frames.
+   animated strip of original creator frames.
 2. **Proof:** one brief produces five routes, one decision, and a durable plan.
 3. **Product:** a real campaign board that shows sources, plan state, generated
    candidates, and receipts.
 4. **Depth:** product truth, native creator expression, and paid-result
    protection explained through one concrete workflow.
-5. **Final CTA:** open the studio with the demo campaign ready.
+5. **Final CTA:** apply to the private beta with a real product brief.
 
 ## Interaction Thesis
 

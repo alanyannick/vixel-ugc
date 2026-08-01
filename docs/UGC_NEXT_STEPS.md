@@ -1,14 +1,16 @@
-# Vixel UGC — Next Steps
+# Vixel Campaigns — Next Steps
 
 Updated: 2026-08-01
 
 ## Current release boundary
 
-Vixel UGC is live as a **planning beta**. Public waitlist, email OTP accounts,
-operator approval, cloud campaigns, lifecycle email, protected Studio,
-grounded planning, recovery identity, and the paid-media control plane are
-shipped and healthy. Billing and live paid generation remain deliberately
-disabled until the Stripe and paid end-to-end gates below are complete.
+Vixel Campaigns is live as a **planning beta**. Public waitlist, email OTP
+accounts, operator approval, cloud campaigns, lifecycle email, protected
+Studio, grounded planning, recovery identity, Stripe billing integration, and
+the paid-media control plane are shipped behind explicit feature gates. Live
+paid generation remains deliberately disabled until an approved account has a
+current billing entitlement and the provider, ledger, runtime-health, budget,
+and paid end-to-end proofs below are complete.
 
 ## P0 — Make `main` the single production source
 
@@ -24,7 +26,8 @@ disabled until the Stripe and paid end-to-end gates below are complete.
 
 ## P0 — Authorize and provision the production ledger
 
-The production UGC project and fee were explicitly approved and provisioned.
+The production Vixel Campaigns project and fee were explicitly approved and
+provisioned.
 
 - [x] Confirm the Supabase organization/project and the exact expected fee.
 - [x] Create or approve a dedicated UGC database; do not reuse another product's
@@ -73,7 +76,7 @@ The production UGC project and fee were explicitly approved and provisioned.
 - [ ] Establish weekly customer interviews and tag failure reasons by product
   truth, creative quality, workflow friction, provider failure, and price.
 
-## P1 — Improve the core UGC workflow
+## P1 — Improve the core UGC Campaign workflow
 
 - [ ] Add reusable brand/product truth profiles with claims, prohibited claims,
   audience, tone, offer, and required visual references.
@@ -116,8 +119,8 @@ The production UGC project and fee were explicitly approved and provisioned.
 
 - [ ] Add team workspaces, roles, and approvals after collaboration is observed
   in real customer behavior.
-- [ ] Add billing/credits only after cost attribution and recovery semantics are
-  reliable in production.
+- [ ] Expand plans, quotas, or credit models only after cost attribution and
+  recovery semantics are reliable in production.
 - [ ] Add templates/marketplace features only after repeated winning workflows
   emerge from customer data.
 - [ ] Consider batch variants and automated optimization only after single-

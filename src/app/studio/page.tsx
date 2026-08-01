@@ -5,9 +5,9 @@ import { StudioWorkspace } from "@/components/studio/studio-workspace";
 import { getServerRuntimeConfig } from "@/lib/server/env";
 
 export const metadata: Metadata = {
-  title: "AI UGC Campaign Studio",
+  title: "UGC Campaign",
   description:
-    "Build a source-grounded AI UGC campaign from product truth to reviewed media candidates.",
+    "Vixel Campaigns' source-grounded UGC Campaign planning workspace. Live media submission is available only on enabled deployments.",
   robots: { index: false, follow: false },
 };
 
@@ -29,6 +29,9 @@ export default function StudioPage() {
           liveGenerationEnabled: runtime.liveGeneration,
           accountAuthEnabled:
             runtime.product.features.accountAuth.enabled,
+          cloudCampaignsReady:
+            runtime.product.features.cloudCampaigns.ready,
+          billingReady: runtime.product.features.billing.ready,
         }}
       />
     </AccessGate>

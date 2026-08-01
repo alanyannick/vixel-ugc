@@ -74,7 +74,7 @@ async function authorizeMutation(
       response: apiError(
         403,
         "cross_site_request_blocked",
-        "This request must originate from Vixel UGC.",
+        "This request must originate from Vixel Campaigns.",
         false,
         requestId,
       ),

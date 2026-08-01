@@ -148,6 +148,7 @@ describe("media ledger database readiness", () => {
     expect(client.query.mock.calls[1]?.[0]).toContain(
       "FROM vixel_koc.media_generation_ledger",
     );
+    expect(client.query.mock.calls[1]?.[0]).toContain("account_user_id");
     expect(client.query.mock.calls[1]?.[0]).toContain("revision");
     expect(client.query.mock.calls[1]?.[0]).toContain("LIMIT 0");
     expect(client.query.mock.calls[2]?.[0]).toBe("BEGIN");

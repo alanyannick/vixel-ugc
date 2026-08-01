@@ -1,6 +1,10 @@
 import type { Pool } from "pg";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/server/billing", () => ({
+  requirePaidGenerationAccess: vi.fn(async () => null),
+}));
+
 import { POST as imageGenerationRoute } from "@/app/api/media/image/route";
 import { GET as pollVideoRoute } from "@/app/api/media/video/[taskId]/route";
 import { POST as videoGenerationRoute } from "@/app/api/media/video/route";

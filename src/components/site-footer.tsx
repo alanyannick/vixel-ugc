@@ -2,6 +2,10 @@ import Link from "next/link";
 
 const productLinks = [
   { href: "/ugc-ad-generator", label: "UGC ad generator" },
+  {
+    href: "/ai-video-generator-for-product-marketing",
+    label: "AI video for marketing",
+  },
   { href: "/workflows/ugc-video", label: "UGC workflow" },
   { href: "/what-is-ai-ugc", label: "What is AI UGC?" },
   { href: "/product-truth", label: "Product truth" },
@@ -9,6 +13,10 @@ const productLinks = [
 
 const companyLinks = [
   { href: "/guides/ugc-vs-koc", label: "UGC vs KOC" },
+  {
+    href: "/compare/vixel-ai-video-generator-app",
+    label: "Vixel app vs web studio",
+  },
   { href: "/access", label: "Beta access" },
   { href: "/faq", label: "FAQ" },
   { href: "/privacy", label: "Privacy" },
@@ -21,11 +29,12 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="footer-statement">
         <Link className="footer-brand" href="/">
-          Vixel UGC
+          <span>Vixel</span>
+          <em>Campaigns</em>
         </Link>
         <p>
-          Creator-style AI video ads, grounded in what your product can
-          actually prove.
+          UGC Campaign turns approved product facts into reviewable
+          creator-style ad plans. Current release: planning beta.
         </p>
       </div>
 
@@ -53,8 +62,9 @@ export function SiteFooter() {
         <p>English interface · English and 中文 briefs</p>
       </div>
       <p className="footer-disclaimer">
-        This web studio is independently operated and is not affiliated with
-        third-party applications using a similar name.
+        Vixel Campaigns is an independently operated web product. It is not
+        affiliated with, endorsed by, or operated by any third-party mobile app
+        or App Store publisher using a similar name.
       </p>
     </footer>
   );

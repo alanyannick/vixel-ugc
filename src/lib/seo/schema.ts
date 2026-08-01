@@ -23,22 +23,26 @@ export const softwareSchema = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "@id": `${siteConfig.url}/#software`,
-  name: siteConfig.name,
-  alternateName: ["Vixel UGC", "Vixel AI UGC Studio"],
+  name: "Vixel Campaigns",
   url: siteConfig.url,
   applicationCategory: "BusinessApplication",
-  applicationSubCategory: "AI UGC campaign planning beta",
+  applicationSubCategory: "AI UGC and product video campaign studio",
   operatingSystem: "Web",
   description: siteConfig.description,
+  isPartOf: { "@id": `${siteConfig.url}/#website` },
   featureList: [
-    "Browser-local AI UGC campaign planning beta",
+    "UGC Campaign planning with browser recovery and account-scoped cloud sync",
+    "Creative Router for direct, guided, or planned work",
+    "Passwordless account access and private-beta approval",
+    "Cloud campaign save, reload, and revision protection",
     "Source-backed product claim ledger",
     "Five creative hook routes and three creator personas",
     "4, 6, or 8-second vertical product video planning workflow",
     "Explicit approval before paid generation",
-    "Live media submission only when access, provider, and ledger readiness pass",
+    "Subscription entitlement and deployment readiness checks before paid generation",
+    "Live media submission only when account, billing, provider, and ledger readiness pass",
     "Candidate lineage and adoption receipts",
-    "Campaign export and reload recovery",
+    "Campaign JSON export and browser recovery fallback",
   ],
   brand: { "@id": `${siteConfig.url}/#organization` },
   publisher: { "@id": `${siteConfig.url}/#organization` },
@@ -91,9 +95,7 @@ export function howToSchema(input: {
   };
 }
 
-export function breadcrumbSchema(
-  items: Array<{ name: string; path: string }>,
-) {
+export function breadcrumbSchema(items: Array<{ name: string; path: string }>) {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",

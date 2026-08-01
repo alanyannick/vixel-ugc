@@ -15,16 +15,21 @@ vi.mock("./product-db", () => ({
 
 const USER_ID = "0f54f1be-129d-4adb-a731-6fd54cfc1bc1";
 
-function activeRow(status: "active" | "past_due" = "active") {
+function activeRow(
+  status: "active" | "trialing" | "past_due" = "active",
+  overrides: Record<string, unknown> = {},
+) {
+  const now = Date.now();
   return {
     user_id: USER_ID,
     stripe_customer_id: "cus_safe",
     stripe_subscription_id: "sub_safe",
     stripe_price_id: "price_safe",
     status,
-    current_period_end: "2026-09-01T00:00:00.000Z",
+    current_period_end: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
     cancel_at_period_end: false,
-    last_provider_event_at: "2026-07-31T00:00:00.000Z",
+    last_provider_event_at: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+    ...overrides,
   };
 }
 
@@ -535,6 +540,11 @@ describe("subscription billing", () => {
           expires_at: expect.any(Number),
         }),
       );
+      const pendingProjectionSql = String(query.mock.calls[2][0]);
+      expect(pendingProjectionSql).toContain("stripe_subscription_id = NULL");
+      expect(pendingProjectionSql).toContain("stripe_price_id = NULL");
+      expect(pendingProjectionSql).not.toContain("stripe_price_id = $2");
+      expect(query.mock.calls[2][1]).toEqual([USER_ID]);
     },
   );
 
@@ -1554,6 +1564,51 @@ describe("subscription billing", () => {
     expect(query).toHaveBeenCalledTimes(3);
   });
 
+  it("does not treat Checkout completion as a fresh entitlement projection", async () => {
+    enableBillingEnvironment();
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: "recorded" }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    vi.mocked(withProductTransaction).mockImplementationOnce(
+      async (operation) => operation({ query } as never),
+    );
+    const { projectStripeEvent } = await import("./billing");
+    const result = await projectStripeEvent({
+      event: {
+        id: "evt_checkout",
+        livemode: false,
+        type: "checkout.session.completed",
+        created: 1785456000,
+        data: {
+          object: {
+            mode: "subscription",
+            customer: "cus_safe",
+            subscription: "sub_safe",
+            client_reference_id: USER_ID,
+            metadata: {
+              product: "vixel-ugc",
+              vixel_user_id: USER_ID,
+            },
+          },
+        },
+      } as never,
+      rawBody: '{"id":"evt_checkout"}',
+    });
+
+    expect(result).toEqual({ replayed: false, projected: true });
+    const projectionSql = String(query.mock.calls[1][0]);
+    expect(projectionSql).not.toContain("last_provider_event_at =");
+    expect(projectionSql).toContain("last_provider_event_at < $4");
+    expect(projectionSql).not.toContain("status =");
+    expect(query.mock.calls[1][1]).toEqual([
+      USER_ID,
+      "cus_safe",
+      "sub_safe",
+      new Date("2026-07-31T00:00:00.000Z"),
+    ]);
+  });
+
   it("rejects a forged Stripe signature before database projection", async () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_safe");
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_safe");
@@ -1618,6 +1673,7 @@ describe("subscription billing", () => {
 
   it.each([
     ["active", null],
+    ["trialing", null],
     ["past_due", 402],
   ] as const)(
     "allows paid generation only for an entitled %s subscription",
@@ -1642,4 +1698,183 @@ describe("subscription billing", () => {
       expect(response?.status ?? null).toBe(expectedStatus);
     },
   );
+
+  it.each([
+    ["a different Stripe price", { stripe_price_id: "price_legacy" }],
+    [
+      "an expired billing period",
+      { current_period_end: new Date(Date.now() - 1_000).toISOString() },
+    ],
+    ["a missing billing period", { current_period_end: null }],
+    [
+      "a stale provider projection",
+      {
+        last_provider_event_at: new Date(
+          Date.now() - 46 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+      },
+    ],
+    ["a missing provider projection", { last_provider_event_at: null }],
+    [
+      "a provider projection too far in the future",
+      {
+        last_provider_event_at: new Date(
+          Date.now() + 6 * 60 * 1000,
+        ).toISOString(),
+      },
+    ],
+    ["a missing Stripe subscription", { stripe_subscription_id: null }],
+  ])("rejects paid generation for %s", async (_reason, overrides) => {
+    enableBillingEnvironment();
+    vi.mocked(authorizeAccount).mockResolvedValueOnce({
+      allowed: true,
+      session: {} as never,
+      account: {
+        userId: USER_ID,
+        email: "creator@example.com",
+      } as never,
+    });
+    vi.mocked(productQuery).mockResolvedValueOnce({
+      rows: [activeRow("active", overrides)],
+    } as never);
+
+    const { requirePaidGenerationAccess } = await import("./billing");
+    const response = await requirePaidGenerationAccess(
+      new Request("https://ugc.vixelai.com/api/media/image"),
+      "request-invalid-entitlement",
+    );
+
+    expect(response?.status).toBe(402);
+    await expect(response?.json()).resolves.toMatchObject({
+      error: {
+        code: "subscription_required",
+        retryable: false,
+      },
+    });
+  });
+
+  it("returns a retryable 503 when account authorization cannot be queried", async () => {
+    enableBillingEnvironment();
+    vi.mocked(authorizeAccount).mockRejectedValueOnce(
+      new Error("account database unavailable"),
+    );
+
+    const { requirePaidGenerationAccess } = await import("./billing");
+    const response = await requirePaidGenerationAccess(
+      new Request("https://ugc.vixelai.com/api/media/image"),
+      "request-account-query-failed",
+    );
+
+    expect(response?.status).toBe(503);
+    await expect(response?.json()).resolves.toMatchObject({
+      error: {
+        code: "entitlement_check_unavailable",
+        retryable: true,
+      },
+    });
+    expect(productQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns a retryable 503 when the subscription projection cannot be queried", async () => {
+    enableBillingEnvironment();
+    vi.mocked(authorizeAccount).mockResolvedValueOnce({
+      allowed: true,
+      session: {} as never,
+      account: {
+        userId: USER_ID,
+        email: "creator@example.com",
+      } as never,
+    });
+    vi.mocked(productQuery).mockRejectedValueOnce(
+      new Error("subscription database unavailable"),
+    );
+
+    const { requirePaidGenerationAccess } = await import("./billing");
+    const response = await requirePaidGenerationAccess(
+      new Request("https://ugc.vixelai.com/api/media/video"),
+      "request-subscription-query-failed",
+    );
+
+    expect(response?.status).toBe(503);
+    await expect(response?.json()).resolves.toMatchObject({
+      error: {
+        code: "entitlement_check_unavailable",
+        retryable: true,
+      },
+    });
+  });
+
+  it("fails closed when account authorization is disabled", async () => {
+    vi.stubEnv("ENABLE_LIVE_GENERATION", "true");
+    vi.stubEnv("ENABLE_ACCOUNT_AUTH", "false");
+
+    const { requirePaidGenerationAccess } = await import("./billing");
+    const response = await requirePaidGenerationAccess(
+      new Request("https://ugc.vixelai.com/api/media/image"),
+      "request-account-auth-disabled",
+    );
+
+    expect(response?.status).toBe(503);
+    await expect(response?.json()).resolves.toMatchObject({
+      error: {
+        code: "account_auth_not_ready",
+      },
+    });
+    expect(authorizeAccount).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when billing is disabled", async () => {
+    enableBillingEnvironment();
+    vi.stubEnv("ENABLE_LIVE_GENERATION", "true");
+    vi.stubEnv("ENABLE_BILLING", "false");
+    vi.mocked(authorizeAccount).mockResolvedValueOnce({
+      allowed: true,
+      session: {} as never,
+      account: {
+        userId: USER_ID,
+        email: "creator@example.com",
+      } as never,
+    });
+
+    const { requirePaidGenerationAccess } = await import("./billing");
+    const response = await requirePaidGenerationAccess(
+      new Request("https://ugc.vixelai.com/api/media/video"),
+      "request-billing-disabled",
+    );
+
+    expect(response?.status).toBe(503);
+    await expect(response?.json()).resolves.toMatchObject({
+      error: {
+        code: "billing_not_ready",
+      },
+    });
+    expect(productQuery).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the current product price is not configured", async () => {
+    enableBillingEnvironment();
+    vi.stubEnv("STRIPE_PRICE_UGC_BETA", "");
+    vi.mocked(authorizeAccount).mockResolvedValueOnce({
+      allowed: true,
+      session: {} as never,
+      account: {
+        userId: USER_ID,
+        email: "creator@example.com",
+      } as never,
+    });
+
+    const { requirePaidGenerationAccess } = await import("./billing");
+    const response = await requirePaidGenerationAccess(
+      new Request("https://ugc.vixelai.com/api/media/video"),
+      "request-price-missing",
+    );
+
+    expect(response?.status).toBe(503);
+    await expect(response?.json()).resolves.toMatchObject({
+      error: {
+        code: "billing_not_ready",
+      },
+    });
+    expect(productQuery).not.toHaveBeenCalled();
+  });
 });

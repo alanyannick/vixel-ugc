@@ -6,6 +6,7 @@ import type { PoolClient } from "pg";
 import { FOUNDING_BETA_OFFER } from "@/lib/product-offer";
 
 import { authorizeAccount } from "./accounts";
+import { apiError } from "./api";
 import {
   expectedStripeRuntimeMode,
   getServerRuntimeConfig,
@@ -64,6 +65,13 @@ const CHECKOUT_SESSION_TTL_SECONDS = 31 * 60;
 const USER_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+// The only billable offer is monthly. A 45-day ceiling tolerates delayed
+// delivery around a renewal while preventing an old webhook projection from
+// granting access indefinitely. The current period must independently still
+// be in the future.
+const ENTITLEMENT_PROJECTION_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
+const PROVIDER_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
 function configuredStripeRuntime(): {
   key: string;
   mode: StripeRuntimeMode;
@@ -84,13 +92,46 @@ function stripeClient(): StripeClient {
 
 function iso(value: Date | string | null): string | null {
   if (value === null) return null;
-  return value instanceof Date
-    ? value.toISOString()
-    : new Date(value).toISOString();
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+}
+
+function timestamp(value: Date | string | null): number | null {
+  if (value === null) return null;
+  const milliseconds =
+    value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(milliseconds) ? milliseconds : null;
+}
+
+function hasCurrentEntitlement(
+  row: SubscriptionRow | null,
+  expectedPriceId: string | null,
+  now = Date.now(),
+): boolean {
+  if (
+    !row ||
+    !expectedPriceId ||
+    !row.stripe_customer_id ||
+    !row.stripe_subscription_id ||
+    row.stripe_price_id !== expectedPriceId ||
+    (row.status !== "active" && row.status !== "trialing")
+  ) {
+    return false;
+  }
+
+  const periodEnd = timestamp(row.current_period_end);
+  const projectedAt = timestamp(row.last_provider_event_at);
+  if (periodEnd === null || projectedAt === null) return false;
+
+  return (
+    periodEnd > now &&
+    projectedAt <= now + PROVIDER_CLOCK_SKEW_MS &&
+    now - projectedAt <= ENTITLEMENT_PROJECTION_MAX_AGE_MS
+  );
 }
 
 function publicState(row: SubscriptionRow | null): BillingState {
-  const expectedPriceId = process.env.STRIPE_PRICE_UGC_BETA?.trim() ?? null;
+  const expectedPriceId = process.env.STRIPE_PRICE_UGC_BETA?.trim() || null;
   return {
     status: row?.status ?? "none",
     customerConfigured: Boolean(row?.stripe_customer_id),
@@ -98,10 +139,7 @@ function publicState(row: SubscriptionRow | null): BillingState {
     priceId: row?.stripe_price_id ?? null,
     currentPeriodEnd: iso(row?.current_period_end ?? null),
     cancelAtPeriodEnd: row?.cancel_at_period_end ?? false,
-    entitled:
-      expectedPriceId !== null &&
-      row?.stripe_price_id === expectedPriceId &&
-      (row.status === "active" || row.status === "trialing"),
+    entitled: hasCurrentEntitlement(row, expectedPriceId),
   };
 }
 
@@ -468,7 +506,7 @@ export async function createCheckoutSession(input: {
         UPDATE vixel_ugc.subscriptions
         SET
           stripe_subscription_id = NULL,
-          stripe_price_id = $2,
+          stripe_price_id = NULL,
           status = 'checkout_pending',
           current_period_end = NULL,
           cancel_at_period_end = false
@@ -483,7 +521,7 @@ export async function createCheckoutSession(input: {
           cancel_at_period_end,
           last_provider_event_at
       `,
-      [input.userId, priceId],
+      [input.userId],
     );
     return {
       url: checkout.url,
@@ -712,17 +750,16 @@ export async function projectStripeEvent(input: {
         null;
       const userId = await resolveEventUserId(client, metadataUserId, customer);
       if (!userId || !customer) return { replayed: false, projected: false };
+      const providerOccurredAt = unixDate(input.event.created);
+      if (!providerOccurredAt) {
+        throw new BillingError("billing_event_invalid");
+      }
       const projected = await client.query(
         `
           UPDATE vixel_ugc.subscriptions
           SET
             stripe_customer_id = $2,
-            stripe_subscription_id = COALESCE($3, stripe_subscription_id),
-            status = CASE
-              WHEN status IN ('active', 'trialing') THEN status
-              ELSE 'checkout_pending'
-            END,
-            last_provider_event_at = $4
+            stripe_subscription_id = COALESCE(stripe_subscription_id, $3)
           WHERE user_id = $1
             AND stripe_customer_id = $2
             AND (
@@ -739,7 +776,7 @@ export async function projectStripeEvent(input: {
           userId,
           customer,
           subscriptionId(checkout.subscription),
-          unixDate(input.event.created),
+          providerOccurredAt,
         ],
       );
       return {
@@ -883,7 +920,7 @@ export async function projectStripeEvent(input: {
           SET
             stripe_customer_id = $2,
             stripe_subscription_id = $3,
-            stripe_price_id = COALESCE($4, stripe_price_id),
+            stripe_price_id = $4,
             status = $5,
             current_period_end = $6,
             cancel_at_period_end = $7,
@@ -922,7 +959,6 @@ export async function requirePaidGenerationAccess(
 ): Promise<Response | null> {
   const config = getServerRuntimeConfig();
   if (!config.product.features.accountAuth.ready) {
-    const { apiError } = await import("./api");
     return apiError(
       503,
       "account_auth_not_ready",
@@ -931,12 +967,22 @@ export async function requirePaidGenerationAccess(
       requestId,
     );
   }
-  const authorization = await authorizeAccount(request, requestId, {
-    approved: true,
-  });
+  let authorization;
+  try {
+    authorization = await authorizeAccount(request, requestId, {
+      approved: true,
+    });
+  } catch {
+    return apiError(
+      503,
+      "entitlement_check_unavailable",
+      "Paid generation authorization is temporarily unavailable.",
+      true,
+      requestId,
+    );
+  }
   if (!authorization.allowed) return authorization.response;
   if (!config.product.features.billing.ready) {
-    const { apiError } = await import("./api");
     return apiError(
       503,
       "billing_not_ready",
@@ -948,7 +994,6 @@ export async function requirePaidGenerationAccess(
   try {
     configuredStripeRuntime();
   } catch {
-    const { apiError } = await import("./api");
     return apiError(
       503,
       "billing_not_ready",
@@ -957,14 +1002,23 @@ export async function requirePaidGenerationAccess(
       requestId,
     );
   }
-  const state = await getBillingState(authorization.account.userId);
-  const expectedPriceId = process.env.STRIPE_PRICE_UGC_BETA?.trim() ?? null;
-  if (!state.entitled || state.priceId !== expectedPriceId) {
-    const { apiError } = await import("./api");
+  let state: BillingState;
+  try {
+    state = await getBillingState(authorization.account.userId);
+  } catch {
+    return apiError(
+      503,
+      "entitlement_check_unavailable",
+      "Paid generation authorization is temporarily unavailable.",
+      true,
+      requestId,
+    );
+  }
+  if (!state.entitled) {
     return apiError(
       402,
       "subscription_required",
-      "An active subscription is required for paid generation.",
+      "A current subscription for this product is required for paid generation.",
       false,
       requestId,
     );
