@@ -46,6 +46,22 @@ describe("campaign JSON recovery", () => {
     expect(parsed.brief?.personas).toHaveLength(3);
     expect(parsed.jobs).toEqual([]);
     expect(parsed.receipts[0]?.action).toBe("Candidate adopted");
+    expect(parsed.briefProvider).toBe("demo");
+  });
+
+  it("loads a legacy campaign without Creative Brief provenance", () => {
+    const legacyCampaign: Partial<typeof demoCampaign> = { ...demoCampaign };
+    delete legacyCampaign.briefProvider;
+    const parsed = parseCampaignExport(
+      JSON.stringify({
+        format: "vixel-koc-campaign",
+        version: 1,
+        exportedAt: "2026-07-30T00:00:00.000Z",
+        campaign: legacyCampaign,
+      }),
+    );
+
+    expect(parsed.briefProvider).toBeNull();
   });
 
   it("uses Veo's canonical 8-second default for new campaigns", () => {

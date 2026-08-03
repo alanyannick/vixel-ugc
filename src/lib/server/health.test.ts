@@ -236,4 +236,28 @@ describe("health ledger readiness", () => {
       missing: ["account_auth"],
     });
   });
+
+  it("makes live creative planning independent from billing and paid media", () => {
+    const runtime = getServerRuntimeConfig({
+      NODE_ENV: "test",
+      ENABLE_LIVE_GENERATION: "false",
+      ENABLE_LIVE_CREATIVE_BRIEF: "true",
+      ENABLE_ACCOUNT_AUTH: "true",
+      DATABASE_APP_URL: "postgresql://runtime@example.test/postgres",
+      NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "publishable-key",
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "turnstile-site-key",
+      TURNSTILE_SECRET_KEY: "turnstile-secret-key",
+      NEWAPI_BASE_URL: "https://gateway.example.test/v1",
+      NEWAPI_API_KEY: "provider-key",
+    });
+
+    expect(runtime.liveGeneration).toBe(false);
+    expect(runtime.product.features.billing.enabled).toBe(false);
+    expect(runtime.product.features.creativeBrief).toEqual({
+      enabled: true,
+      ready: true,
+      missing: [],
+    });
+  });
 });

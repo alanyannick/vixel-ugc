@@ -6,6 +6,10 @@ import {
   type CampaignState,
   type CreativeBrief,
 } from "@/lib/client/campaign-store";
+import type {
+  DirectorTurnRequest,
+  DirectorTurnResponse,
+} from "@/lib/domain/director";
 
 export class StudioApiError extends Error {
   code: string;
@@ -147,6 +151,17 @@ export async function createCreativeBrief(
     provider: result.provider ?? "director",
     requestId: result.requestId,
   };
+}
+
+export async function askDirector(
+  input: DirectorTurnRequest,
+): Promise<DirectorTurnResponse> {
+  const response = await fetch("/api/director/turn", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return parseResponse<DirectorTurnResponse>(response);
 }
 
 export async function approveMediaInput(

@@ -388,7 +388,7 @@ export async function generateCreativeBrief(
   const apiKey = process.env.NEWAPI_API_KEY?.trim();
   if (
     input.facts.length === 0 ||
-    !runtime.liveGeneration ||
+    !runtime.product.features.creativeBrief.ready ||
     !runtime.newApi.configured ||
     !runtime.newApi.openAiBaseUrl ||
     !apiKey

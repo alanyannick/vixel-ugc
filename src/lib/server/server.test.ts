@@ -730,6 +730,42 @@ describe("creative fallback", () => {
     expect(first.groundingWarnings.length).toBeGreaterThan(0);
     expect(first.brief).toEqual(second.brief);
   });
+
+  it("attempts live text planning while paid media generation is disabled", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("ENABLE_LIVE_GENERATION", "false");
+    vi.stubEnv("ENABLE_LIVE_CREATIVE_BRIEF", "true");
+    vi.stubEnv("ENABLE_ACCOUNT_AUTH", "true");
+    vi.stubEnv("DATABASE_APP_URL", "postgresql://runtime@example.test/postgres");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "publishable-key");
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "turnstile-site-key");
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "turnstile-secret-key");
+    vi.stubEnv("NEWAPI_BASE_URL", "https://gateway.example.test/v1");
+    vi.stubEnv("NEWAPI_API_KEY", "provider-key");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("provider unavailable", { status: 503 }),
+    );
+
+    const result = await generateCreativeBrief(
+      {
+        productName: "Source Bottle",
+        facts: ["Made from stainless steel."],
+        audience: "commuters",
+        platform: "TikTok",
+        goal: "product consideration",
+        language: "English",
+      },
+      "request-independent-planning",
+    );
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(result.provider).toBe("fallback");
+    expect(getServerRuntimeConfig().liveGeneration).toBe(false);
+    expect(getServerRuntimeConfig().product.features.creativeBrief.ready).toBe(
+      true,
+    );
+  });
 });
 
 describe("image provider", () => {

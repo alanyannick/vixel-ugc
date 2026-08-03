@@ -101,6 +101,12 @@ test("campaign intake reaches a five-route planning decision while generation is
   await expect(page.getByText("5 routes ready", { exact: true })).toBeVisible();
   await expect(page.getByText("3 casting routes", { exact: true })).toBeVisible();
   await expect(
+    page.getByText("Template planning · no model call", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/illustrative casting reference imagery/i),
+  ).toBeVisible();
+  await expect(
     page.getByRole("button", { name: /Creative foundation/ }),
   ).toHaveAttribute("data-plan-stage-id", /^stage-/);
 
@@ -112,4 +118,27 @@ test("campaign intake reaches a five-route planning decision while generation is
   ).toBeDisabled();
   await expect(page.getByRole("dialog")).toBeHidden();
   expect(mediaSubmissions).toBe(0);
+});
+
+test("Director remains bounded when live planning is not enabled", async ({
+  page,
+}) => {
+  await page.goto("/studio?operator=recovery");
+  await expect(
+    page.getByText("Checking UGC Campaign access…"),
+  ).toBeHidden({ timeout: 10_000 });
+
+  await page.getByRole("button", { name: "Open Director" }).click();
+
+  const director = page.getByRole("complementary", { name: "Director" });
+  await expect(director).toBeVisible();
+  await expect(
+    director.getByText(/AI Director is not enabled here/i),
+  ).toBeVisible();
+  await expect(
+    director.getByRole("button", {
+      name: /Add product truth|Paid generation is not open/i,
+    }),
+  ).toBeVisible();
+  await expect(director.getByRole("textbox")).toHaveCount(0);
 });

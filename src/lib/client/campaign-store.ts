@@ -76,6 +76,8 @@ export type CreativeBrief = {
   shotDirection?: string;
 };
 
+export type CreativeBriefProvider = "live" | "fallback" | "demo";
+
 export type Candidate = {
   id: string;
   kind: "image" | "video";
@@ -122,6 +124,7 @@ export type CampaignState = {
   updatedAt: string;
   input: CampaignInput;
   brief: CreativeBrief | null;
+  briefProvider: CreativeBriefProvider | null;
   selectedHookId: string | null;
   selectedPersonaId: string | null;
   executionPlan: ExecutionPlan | null;
@@ -207,6 +210,10 @@ export const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
       shotDirection: z.string().max(2_000).optional(),
     })
     .nullable(),
+  briefProvider: z
+    .enum(["live", "fallback", "demo"])
+    .nullable()
+    .default(null),
   selectedHookId: z.string().max(180).nullable(),
   selectedPersonaId: z.string().max(180).nullable(),
   executionPlan: ExecutionPlanSchema.nullable().default(null),
@@ -385,6 +392,7 @@ export const demoCampaign: CampaignState = {
     creatorDescription: "Natural daylight, 28–35, precise and low-key delivery",
   },
   brief: demoBrief,
+  briefProvider: "demo",
   selectedHookId: "hook-texture",
   selectedPersonaId: "persona-editor",
   executionPlan: null,
@@ -436,11 +444,13 @@ export const demoCampaign: CampaignState = {
 function parseStoredCampaign(stored: unknown): CampaignState | null {
   if (!stored || typeof stored !== "object") return null;
   const candidate = stored as CampaignState & {
+    briefProvider?: CreativeBriefProvider | null;
     executionPlan?: ExecutionPlan | null;
     jobs?: CampaignState["jobs"];
   };
   const parsed = CampaignStateSchema.safeParse({
     ...candidate,
+    briefProvider: candidate.briefProvider ?? null,
     executionPlan: candidate.executionPlan ?? null,
     jobs: candidate.jobs ?? [],
   });
@@ -528,6 +538,7 @@ export function newCampaign(): CampaignState {
       format: "9:16 creator demo",
     },
     brief: null,
+    briefProvider: null,
     selectedHookId: null,
     selectedPersonaId: null,
     executionPlan: null,

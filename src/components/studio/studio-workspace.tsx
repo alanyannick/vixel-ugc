@@ -42,6 +42,7 @@ import { BillingPanel } from "@/components/billing/billing-panel";
 import { IconMark } from "@/components/studio/icon-mark";
 import {
   approveMediaInput,
+  askDirector,
   createCreativeBrief,
   createImageCandidate,
   listCloudCampaigns,
@@ -52,6 +53,10 @@ import {
   StudioApiError,
   submitVideoCandidate,
 } from "@/lib/client/api";
+import type {
+  DirectorRecommendation,
+  DirectorTurnResponse,
+} from "@/lib/domain/director";
 import {
   CampaignInput,
   CampaignState,
@@ -86,6 +91,7 @@ export type StudioCapabilities = {
   paidGenerationReady: boolean;
   liveGenerationEnabled: boolean;
   accountAuthEnabled: boolean;
+  creativeBriefReady: boolean;
   cloudCampaignsReady: boolean;
   billingReady: boolean;
 };
@@ -1106,6 +1112,46 @@ export function StudioWorkspace({
     setNotice(`${persona.label} is now the creator anchor.`);
   };
 
+  const applyDirectorRecommendation = (
+    recommendation: DirectorRecommendation,
+    expectedRevision: number,
+  ) => {
+    if (campaign.revision !== expectedRevision) {
+      setError(
+        "The campaign changed after that recommendation. Ask the Director again.",
+      );
+      return;
+    }
+    const hook = campaign.brief?.hooks.find(
+      (item) => item.id === recommendation.hookId,
+    );
+    const persona = campaign.brief?.personas.find(
+      (item) => item.id === recommendation.personaId,
+    );
+    if (!hook || !persona) {
+      setError("That Director recommendation no longer matches this campaign revision.");
+      return;
+    }
+    updateCampaign(
+      (current) => {
+        const next = {
+          ...current,
+          selectedHookId: hook.id,
+          selectedPersonaId: persona.id,
+        };
+        return {
+          ...next,
+          executionPlan: buildExecutionPlanForCampaign(next),
+        };
+      },
+      {
+        action: "Director recommendation applied",
+        detail: `${hook.label} × ${persona.label}. ${recommendation.rationale}`,
+      },
+    );
+    setNotice(`${hook.label} × ${persona.label} is now the production route.`);
+  };
+
   const adoptCandidate = (candidate: Candidate) => {
     updateCampaign(
       (current) => {
@@ -1878,6 +1924,10 @@ export function StudioWorkspace({
                         name: `${input.productName} · UGC routes`,
                         input,
                         brief: result.brief,
+                        briefProvider:
+                          result.provider === "live"
+                            ? ("live" as const)
+                            : ("fallback" as const),
                         selectedHookId: result.brief.recommendedHookId,
                         selectedPersonaId: result.brief.recommendedPersonaId,
                       };
@@ -1950,6 +2000,8 @@ export function StudioWorkspace({
             onGenerateVideo={startVideoGeneration}
             onExportDelivery={exportDelivery}
             onClose={() => setDirectorOpen(false)}
+            agentReady={capabilities.creativeBriefReady}
+            onApplyRecommendation={applyDirectorRecommendation}
             canGenerate={canUsePaidGeneration}
             generationUnavailableMessage={generationUnavailableMessage}
           />
@@ -2712,6 +2764,18 @@ function RoutesView({
       <section className={styles.detailIntro}>
         <span className={styles.objectNumber}>02</span>
         <p className={styles.sectionEyebrow}>Creative routes</p>
+        <div className={styles.briefProvenance}>
+          <Sparkles size={13} />
+          <span>
+            {campaign.briefProvider === "live"
+              ? "AI Director brief"
+              : campaign.briefProvider === "fallback"
+                ? "Template planning · no model call"
+                : campaign.briefProvider === "demo"
+                  ? "Demo brief"
+                  : "Planning source unavailable"}
+          </span>
+        </div>
         <h2>Five openings. One decision.</h2>
         <p>
           Each route changes the first three seconds—not just the wording.
@@ -2767,6 +2831,10 @@ function RoutesView({
           </div>
           <small>{campaign.brief.personas.length} casting routes</small>
         </div>
+        <p className={styles.castingReferenceNote}>
+          Photography below is illustrative casting reference imagery, not
+          generated for this campaign.
+        </p>
         <div className={styles.personaGrid}>
           {campaign.brief.personas.map((persona, index) => {
             const selected = persona.id === selectedPersona?.id;
@@ -3048,6 +3116,8 @@ function DirectorPanel({
   onGenerateVideo,
   onExportDelivery,
   onClose,
+  agentReady,
+  onApplyRecommendation,
   canGenerate,
   generationUnavailableMessage,
 }: {
@@ -3060,9 +3130,19 @@ function DirectorPanel({
   onGenerateVideo: () => void;
   onExportDelivery: () => void;
   onClose: () => void;
+  agentReady: boolean;
+  onApplyRecommendation: (
+    recommendation: DirectorRecommendation,
+    expectedRevision: number,
+  ) => void;
   canGenerate: boolean;
   generationUnavailableMessage: string;
 }) {
+  const [directorInput, setDirectorInput] = useState("");
+  const [directorBusy, setDirectorBusy] = useState(false);
+  const [directorError, setDirectorError] = useState("");
+  const [directorResult, setDirectorResult] =
+    useState<DirectorTurnResponse | null>(null);
   const acceptedImage = campaign.candidates.find(
     (item) => item.status === "adopted" && item.kind === "image",
   );
@@ -3072,6 +3152,48 @@ function DirectorPanel({
   const nextActionNeedsGeneration = Boolean(
     campaign.brief && selectedHook && selectedPersona && !acceptedVideo,
   );
+  const requestDirector = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!campaign.brief || !directorInput.trim() || directorBusy) return;
+    setDirectorBusy(true);
+    setDirectorError("");
+    try {
+      setDirectorResult(
+        await askDirector({
+          message: directorInput.trim(),
+          campaign: {
+            id: campaign.id,
+            revision: campaign.revision,
+            productName: campaign.input.productName,
+            facts: campaign.input.facts.filter(Boolean),
+            audience: campaign.input.audience,
+            goal: campaign.input.goal,
+            platform: campaign.input.platform,
+            language: campaign.input.language,
+            hooks: campaign.brief.hooks.map(({ id, label, script, why }) => ({
+              id,
+              label,
+              script,
+              why,
+            })),
+            personas: campaign.brief.personas,
+            selectedHookId: campaign.selectedHookId,
+            selectedPersonaId: campaign.selectedPersonaId,
+            hasAcceptedImage: Boolean(acceptedImage),
+            hasAcceptedVideo: Boolean(acceptedVideo),
+          },
+        }),
+      );
+    } catch (caught) {
+      setDirectorError(
+        caught instanceof Error
+          ? caught.message
+          : "The AI Director could not respond.",
+      );
+    } finally {
+      setDirectorBusy(false);
+    }
+  };
   return (
     <aside className={styles.directorPanel} aria-label="Director">
       <header>
@@ -3110,6 +3232,73 @@ function DirectorPanel({
               : "I need product truth before I can create a defensible campaign route."}
           </p>
         </div>
+
+        <section className={styles.directorSection}>
+          <span>Ask Director</span>
+          {agentReady && campaign.brief ? (
+            <form
+              className={styles.directorAgentForm}
+              onSubmit={requestDirector}
+            >
+              <label htmlFor="director-request">
+                One bounded recommendation
+              </label>
+              <textarea
+                id="director-request"
+                value={directorInput}
+                maxLength={1_000}
+                rows={3}
+                placeholder="Which existing route is strongest for this audience?"
+                onChange={(event) => setDirectorInput(event.target.value)}
+              />
+              <button
+                type="submit"
+                disabled={directorBusy || directorInput.trim().length < 2}
+              >
+                {directorBusy ? "Reviewing campaign…" : "Get recommendation"}
+              </button>
+            </form>
+          ) : (
+            <p className={styles.directorAgentUnavailable}>
+              AI Director is not enabled here. The campaign router below
+              remains deterministic.
+            </p>
+          )}
+          {directorError ? (
+            <p className={styles.directorAgentError} role="alert">
+              {directorError}
+            </p>
+          ) : null}
+          {directorResult ? (
+            <div className={styles.directorAgentResult}>
+              <small>AI Director · proposal only</small>
+              <p>{directorResult.message}</p>
+              {directorResult.recommendation ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onApplyRecommendation(
+                      directorResult.recommendation!,
+                      directorResult.campaignRevision,
+                    );
+                    setDirectorResult(null);
+                  }}
+                >
+                  Apply recommendation
+                </button>
+              ) : null}
+              {directorResult.nextView ? (
+                <button
+                  type="button"
+                  className={styles.directorSecondaryAction}
+                  onClick={() => onView(directorResult.nextView!.view)}
+                >
+                  Open {directorResult.nextView.view}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
 
         <section className={styles.directorSection}>
           <span>Current decision</span>

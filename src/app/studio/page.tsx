@@ -29,6 +29,8 @@ export default function StudioPage() {
           liveGenerationEnabled: runtime.liveGeneration,
           accountAuthEnabled:
             runtime.product.features.accountAuth.enabled,
+          creativeBriefReady:
+            runtime.product.features.creativeBrief.ready,
           cloudCampaignsReady:
             runtime.product.features.cloudCampaigns.ready,
           billingReady: runtime.product.features.billing.ready,

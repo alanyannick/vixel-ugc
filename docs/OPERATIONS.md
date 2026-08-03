@@ -59,14 +59,17 @@ proof succeeds:
    production-scoped Turnstile configuration.
 3. Account access: `ENABLE_ACCOUNT_AUTH=true`, the waitlist/database boundary,
    Supabase URL and keys, Turnstile, and verified email OTP delivery.
-4. Cloud campaigns: `ENABLE_CLOUD_CAMPAIGNS=true`, account auth, and the
+4. AI planning: `ENABLE_LIVE_CREATIVE_BRIEF=true`, account auth, and an HTTPS
+   NewAPI text provider. This enables provider-backed Creative Briefs and the
+   proposal-only Director independently from paid image/video generation.
+5. Cloud campaigns: `ENABLE_CLOUD_CAMPAIGNS=true`, account auth, and the
    restricted product-database runtime role.
-5. Lifecycle email: `ENABLE_LIFECYCLE_EMAIL=true`, product database, Resend
+6. Lifecycle email: `ENABLE_LIFECYCLE_EMAIL=true`, product database, Resend
    sender and webhook, plus the protected lifecycle cron.
-6. Billing: `ENABLE_BILLING=true`, approved account access, Stripe secret,
+7. Billing: `ENABLE_BILLING=true`, approved account access, Stripe secret,
    recurring price, and a verified webhook. Only server-projected `active` and
    `trialing` subscriptions grant entitlement.
-7. Paid generation: `ENABLE_LIVE_GENERATION=true`, an approved account, active
+8. Paid generation: `ENABLE_LIVE_GENERATION=true`, an approved account, active
    billing entitlement, exact-input approval, an HTTPS `NEWAPI_BASE_URL` with
    server-only `NEWAPI_API_KEY`, an explicitly isolated PostgreSQL ledger, and
    healthy runtime dependencies.

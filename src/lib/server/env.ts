@@ -37,6 +37,7 @@ export type ServerRuntimeConfig = {
     features: {
       waitlist: FeatureReadiness;
       accountAuth: FeatureReadiness;
+      creativeBrief: FeatureReadiness;
       cloudCampaigns: FeatureReadiness;
       lifecycleEmail: FeatureReadiness;
       billing: FeatureReadiness;
@@ -274,6 +275,13 @@ export function getServerRuntimeConfig(
       [accountAuthFeature.ready, "account_auth"],
     ],
   );
+  const creativeBriefFeature = featureReadiness(
+    enabled(env, "ENABLE_LIVE_CREATIVE_BRIEF"),
+    [
+      [accountAuthFeature.ready, "account_auth"],
+      [providerConfigured, "provider"],
+    ],
+  );
   const lifecycleEmailFeature = featureReadiness(
     enabled(env, "ENABLE_LIFECYCLE_EMAIL"),
     [
@@ -319,6 +327,7 @@ export function getServerRuntimeConfig(
       features: {
         waitlist: waitlistFeature,
         accountAuth: accountAuthFeature,
+        creativeBrief: creativeBriefFeature,
         cloudCampaigns: cloudCampaignsFeature,
         lifecycleEmail: lifecycleEmailFeature,
         billing: billingFeature,

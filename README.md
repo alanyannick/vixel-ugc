@@ -33,6 +33,10 @@ the public waitlist is protected by Turnstile, lifecycle mail is sent through
 the configured email provider, and recurring billing is managed through
 Stripe. Each capability has its own configuration and feature gate.
 
+Provider-backed Creative Briefs and the proposal-only Director use
+`ENABLE_LIVE_CREATIVE_BRIEF=true`. This text-planning capability is independent
+from paid media generation and still requires authenticated account access.
+
 Live generation is server-only. A paid submission requires an approved
 account, an active billing entitlement, exact-input approval, a secure server
 session boundary, an HTTPS NewAPI endpoint, an isolated PostgreSQL ledger,

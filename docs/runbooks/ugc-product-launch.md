@@ -15,6 +15,7 @@ corresponding provider proof below passes:
 | Base session and operator recovery | Always required in production | strong access code and session secret |
 | Public waitlist | `ENABLE_PUBLIC_WAITLIST` | app database, scoped Turnstile widget |
 | Account OTP | `ENABLE_ACCOUNT_AUTH` | waitlist prerequisites, Supabase URL and keys, verified custom SMTP |
+| AI Creative Brief and Director | `ENABLE_LIVE_CREATIVE_BRIEF` | account auth, HTTPS text provider |
 | Cloud campaigns | `ENABLE_CLOUD_CAMPAIGNS` | account auth, product database grants |
 | Lifecycle email | `ENABLE_LIFECYCLE_EMAIL` | Resend API key, verified sender, webhook secret, cron secret |
 | Billing | `ENABLE_BILLING` | Stripe live secret, recurring price, verified webhook |

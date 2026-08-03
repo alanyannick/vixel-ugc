@@ -11,6 +11,7 @@ export const revalidate = 0;
 const FEATURE_ISSUES = {
   waitlist: "waitlist_not_ready",
   accountAuth: "account_auth_not_ready",
+  creativeBrief: "creative_brief_not_ready",
   cloudCampaigns: "cloud_campaigns_not_ready",
   lifecycleEmail: "lifecycle_email_not_ready",
   billing: "billing_not_ready",
@@ -119,7 +120,8 @@ export async function GET(): Promise<Response> {
         // provider reachability or a successful generation canary.
         provider: runtimeConfig.newApi.configured
           ? "configured"
-          : runtimeConfig.liveGeneration
+          : runtimeConfig.liveGeneration ||
+              runtimeConfig.product.features.creativeBrief.enabled
             ? "not_configured"
             : "disabled",
         ledger: runtimeConfig.databaseConfigured
