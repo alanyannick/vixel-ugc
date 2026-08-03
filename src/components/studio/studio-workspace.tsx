@@ -20,6 +20,7 @@ import {
   MessageSquareText,
   PanelRightClose,
   PanelRightOpen,
+  PlayCircle,
   Plus,
   ReceiptText,
   RefreshCcw,
@@ -63,6 +64,7 @@ import {
   Candidate,
   CreativeHook,
   CreatorPersona,
+  ReferenceRole,
   demoCampaign,
   loadCampaign,
   newCampaign,
@@ -70,6 +72,11 @@ import {
   parseCampaignExport,
   saveCampaign,
 } from "@/lib/client/campaign-store";
+import {
+  CAMPAIGN_SKILLS,
+  getCampaignSkill,
+  type CampaignSkillId,
+} from "@/lib/domain/campaign-skills";
 import {
   advanceExecutionPlan,
   buildExecutionPlanForCampaign,
@@ -82,7 +89,13 @@ import {
 
 import styles from "./studio.module.css";
 
-type View = "board" | "sources" | "routes" | "candidates" | "receipts";
+type View =
+  | "board"
+  | "sources"
+  | "routes"
+  | "production"
+  | "candidates"
+  | "receipts";
 type SaveStatus = "saving" | "saved-local" | "saved-cloud" | "failed";
 type StorageMode = "checking" | "local" | "cloud";
 type PaidRuntimeReadiness = "checking" | "ready" | "not-ready";
@@ -197,18 +210,18 @@ async function imageReferenceDataUrl(url: string): Promise<string> {
     referrerPolicy: "no-referrer",
   });
   if (!response.ok) {
-    throw new Error("The adopted anchor could not be loaded for video.");
+    throw new Error("The image candidate could not be loaded as a reference.");
   }
   const blob = await response.blob();
   if (!["image/png", "image/jpeg", "image/webp"].includes(blob.type)) {
-    throw new Error("The adopted anchor is not a supported image.");
+    throw new Error("The candidate is not a supported reference image.");
   }
   if (blob.size > 1_200_000) {
-    throw new Error("Keep the adopted video anchor under 1.2 MB.");
+    throw new Error("Keep a reused reference under 1.2 MB.");
   }
   return await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error("The adopted anchor could not be read."));
+    reader.onerror = () => reject(new Error("The image candidate could not be read."));
     reader.onload = () => resolve(String(reader.result));
     reader.readAsDataURL(blob);
   });
@@ -351,6 +364,9 @@ export function StudioWorkspace({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [briefBusy, setBriefBusy] = useState(false);
   const [generationBusy, setGenerationBusy] = useState(false);
+  const [reuseBusyCandidateId, setReuseBusyCandidateId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pollingIssue, setPollingIssue] = useState("");
@@ -1184,6 +1200,85 @@ export function StudioWorkspace({
     );
   };
 
+  const selectCampaignSkill = (skillId: CampaignSkillId) => {
+    if (campaign.input.skillId === skillId) return;
+    const skill = getCampaignSkill(skillId);
+    updateCampaign(
+      (current) => ({
+        ...current,
+        input: { ...current.input, skillId },
+        brief: null,
+        briefProvider: null,
+        selectedHookId: null,
+        selectedPersonaId: null,
+        executionPlan: null,
+      }),
+      {
+        action: "Campaign skill changed",
+        detail: `${skill.label} selected. Existing creative routes were cleared so the next brief matches this structure.`,
+      },
+    );
+  };
+
+  const changeReference = (role: ReferenceRole, value?: string) => {
+    const field =
+      role === "product" ? "productImageDataUrl" : "creatorImageDataUrl";
+    updateCampaign((current) => ({
+      ...current,
+      input: { ...current.input, [field]: value },
+      referenceLineage: {
+        ...current.referenceLineage,
+        [role]: null,
+      },
+    }));
+  };
+
+  const reuseCandidateAsReference = async (
+    candidate: Candidate,
+    role: ReferenceRole,
+  ) => {
+    if (candidate.kind !== "image" || reuseBusyCandidateId) return;
+    setReuseBusyCandidateId(candidate.id);
+    setError("");
+    try {
+      const dataUrl = await imageReferenceDataUrl(candidate.url);
+      const field =
+        role === "product" ? "productImageDataUrl" : "creatorImageDataUrl";
+      const skill = role === "product" ? "product" : "creator";
+      updateCampaign(
+        (current) => ({
+          ...current,
+          input: { ...current.input, [field]: dataUrl },
+          referenceLineage: {
+            ...current.referenceLineage,
+            [role]: {
+              candidateId: candidate.id,
+              role,
+              provider: candidate.provider,
+              model: candidate.model ?? null,
+              inputSignature: candidate.inputSignature ?? null,
+              reusedAt: new Date().toISOString(),
+            },
+          },
+        }),
+        {
+          action: "Candidate reused as reference",
+          detail: `${candidate.label} became the ${skill} reference with its provider lineage preserved.`,
+        },
+      );
+      navigateTo("sources");
+      setNotice(`${candidate.label} is now the ${skill} reference.`);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The image candidate could not be reused as a reference.",
+      );
+    } finally {
+      setReuseBusyCandidateId(null);
+    }
+  };
+
   const startGeneration = () => {
     if (!canUsePaidGeneration) {
       setNotice(generationUnavailableMessage);
@@ -1628,6 +1723,16 @@ export function StudioWorkspace({
           </button>
           <button
             type="button"
+            className={view === "production" ? styles.navActive : ""}
+            onClick={() => {
+              navigateTo("production");
+            }}
+          >
+            <PlayCircle size={18} />
+            Production run
+          </button>
+          <button
+            type="button"
             className={view === "candidates" ? styles.navActive : ""}
             onClick={() => {
               navigateTo("candidates");
@@ -1912,6 +2017,8 @@ export function StudioWorkspace({
               key={campaign.id}
               campaign={campaign}
               busy={briefBusy}
+              onSkillChange={selectCampaignSkill}
+              onReferenceChange={changeReference}
               onSubmit={async (input) => {
                 setBriefBusy(true);
                 setError("");
@@ -1923,6 +2030,18 @@ export function StudioWorkspace({
                         ...current,
                         name: `${input.productName} · UGC routes`,
                         input,
+                        referenceLineage: {
+                          product:
+                            current.input.productImageDataUrl ===
+                            input.productImageDataUrl
+                              ? current.referenceLineage.product
+                              : null,
+                          creator:
+                            current.input.creatorImageDataUrl ===
+                            input.creatorImageDataUrl
+                              ? current.referenceLineage.creator
+                              : null,
+                        },
                         brief: result.brief,
                         briefProvider:
                           result.provider === "live"
@@ -1969,10 +2088,25 @@ export function StudioWorkspace({
               canGenerate={canUsePaidGeneration}
             />
           ) : null}
+          {view === "production" ? (
+            <ProductionRunView
+              campaign={campaign}
+              selectedHook={selectedHook}
+              selectedPersona={selectedPersona}
+              onView={navigateTo}
+              onGenerate={startGeneration}
+              onGenerateVideo={startVideoGeneration}
+              onExportDelivery={exportDelivery}
+              canGenerate={canUsePaidGeneration}
+              generationUnavailableMessage={generationUnavailableMessage}
+            />
+          ) : null}
           {view === "candidates" ? (
             <CandidatesView
               campaign={campaign}
               onAdopt={adoptCandidate}
+              onReuse={reuseCandidateAsReference}
+              reuseBusyCandidateId={reuseBusyCandidateId}
               onGenerate={startGeneration}
               canGenerate={canUsePaidGeneration}
               generationUnavailableMessage={generationUnavailableMessage}
@@ -2419,10 +2553,14 @@ function CampaignBoard({
 function SourcesView({
   campaign,
   busy,
+  onSkillChange,
+  onReferenceChange,
   onSubmit,
 }: {
   campaign: CampaignState;
   busy: boolean;
+  onSkillChange: (skillId: CampaignSkillId) => void;
+  onReferenceChange: (role: ReferenceRole, value?: string) => void;
   onSubmit: (input: CampaignInput) => Promise<void>;
 }) {
   const [input, setInput] = useState<CampaignInput>(campaign.input);
@@ -2465,6 +2603,36 @@ function SourcesView({
       </section>
 
       <form className={styles.sourceForm} onSubmit={submit}>
+        <fieldset>
+          <legend>Campaign skill</legend>
+          <p className={styles.fieldsetHint}>
+            Choose the story structure. It guides the brief without becoming a
+            product claim or triggering media generation.
+          </p>
+          <div className={styles.skillGrid} role="radiogroup" aria-label="Campaign skill">
+            {CAMPAIGN_SKILLS.map((skill) => {
+              const selected = input.skillId === skill.id;
+              return (
+                <button
+                  key={skill.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  className={selected ? styles.skillSelected : ""}
+                  onClick={() => {
+                    setField("skillId", skill.id);
+                    onSkillChange(skill.id);
+                  }}
+                >
+                  <span>{skill.label}</span>
+                  <small>{skill.description}</small>
+                  {selected ? <Check size={15} /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+
         <fieldset>
           <legend>Product</legend>
           <div className={styles.twoColumnFields}>
@@ -2615,13 +2783,21 @@ function SourcesView({
               label="Product image"
               hint="Packaging or product-in-context"
               value={input.productImageDataUrl}
-              onChange={(value) => setField("productImageDataUrl", value)}
+              lineage={campaign.referenceLineage.product}
+              onChange={(value) => {
+                setField("productImageDataUrl", value);
+                onReferenceChange("product", value);
+              }}
             />
             <ReferenceUpload
               label="Creator reference"
               hint="Identity or casting direction"
               value={input.creatorImageDataUrl}
-              onChange={(value) => setField("creatorImageDataUrl", value)}
+              lineage={campaign.referenceLineage.creator}
+              onChange={(value) => {
+                setField("creatorImageDataUrl", value);
+                onReferenceChange("creator", value);
+              }}
             />
           </div>
           <p className={styles.formHint}>
@@ -2663,11 +2839,13 @@ function ReferenceUpload({
   label,
   hint,
   value,
+  lineage,
   onChange,
 }: {
   label: string;
   hint: string;
   value?: string;
+  lineage: CampaignState["referenceLineage"][ReferenceRole];
   onChange: (value?: string) => void;
 }) {
   const [error, setError] = useState("");
@@ -2721,6 +2899,11 @@ function ReferenceUpload({
           />
         </label>
       )}
+      {lineage ? (
+        <small className={styles.referenceLineage}>
+          Reused from {lineage.provider} · {lineage.candidateId}
+        </small>
+      ) : null}
       {error ? <small className={styles.uploadError}>{error}</small> : null}
     </div>
   );
@@ -2775,6 +2958,7 @@ function RoutesView({
                   ? "Demo brief"
                   : "Planning source unavailable"}
           </span>
+          <span>· {getCampaignSkill(campaign.input.skillId).label}</span>
         </div>
         <h2>Five openings. One decision.</h2>
         <p>
@@ -2897,15 +3081,243 @@ function RoutesView({
   );
 }
 
+function ProductionRunView({
+  campaign,
+  selectedHook,
+  selectedPersona,
+  onView,
+  onGenerate,
+  onGenerateVideo,
+  onExportDelivery,
+  canGenerate,
+  generationUnavailableMessage,
+}: {
+  campaign: CampaignState;
+  selectedHook: CreativeHook | null;
+  selectedPersona: CreatorPersona | null;
+  onView: (view: View) => void;
+  onGenerate: () => void;
+  onGenerateVideo: () => void;
+  onExportDelivery: () => void;
+  canGenerate: boolean;
+  generationUnavailableMessage: string;
+}) {
+  const skill = getCampaignSkill(campaign.input.skillId);
+  const adoptedImage = campaign.candidates.find(
+    (candidate) => candidate.kind === "image" && candidate.status === "adopted",
+  );
+  const adoptedVideo = campaign.candidates.find(
+    (candidate) => candidate.kind === "video" && candidate.status === "adopted",
+  );
+  const latestVideo = [...campaign.candidates]
+    .reverse()
+    .find((candidate) => candidate.kind === "video");
+  const latestImage = [...campaign.candidates]
+    .reverse()
+    .find((candidate) => candidate.kind === "image");
+  const preview = adoptedVideo ?? latestVideo ?? adoptedImage ?? latestImage ?? null;
+  const activeJob = [...campaign.jobs]
+    .reverse()
+    .find((job) => job.status === "queued" || job.status === "processing");
+  const deliveryExported = campaign.receipts.some(
+    (receipt) => receipt.action === "Delivery receipt exported",
+  );
+
+  const stages = [
+    {
+      label: "Creative brief",
+      value: campaign.brief ? `${skill.label} ready` : "Not started",
+      done: Boolean(campaign.brief),
+    },
+    {
+      label: "Production route",
+      value:
+        selectedHook && selectedPersona
+          ? `${selectedHook.label} × ${selectedPersona.label}`
+          : "Waiting for selection",
+      done: Boolean(selectedHook && selectedPersona),
+    },
+    {
+      label: "Visual anchor",
+      value: adoptedImage?.label ?? "Not adopted",
+      done: Boolean(adoptedImage),
+    },
+    {
+      label: "Final video",
+      value: adoptedVideo?.label ?? (activeJob ? activeJob.status : "Not started"),
+      done: Boolean(adoptedVideo),
+    },
+    {
+      label: "Delivery",
+      value: deliveryExported ? "Receipt exported" : "Waiting",
+      done: deliveryExported,
+    },
+  ];
+
+  let actionLabel = "Add product sources";
+  let action = () => onView("sources");
+  let actionDisabled = false;
+  let actionTitle: string | undefined;
+  if (campaign.brief && (!selectedHook || !selectedPersona)) {
+    actionLabel = "Choose production route";
+    action = () => onView("routes");
+  } else if (campaign.brief && selectedHook && selectedPersona && !adoptedImage) {
+    actionLabel = canGenerate ? "Generate visual anchor" : "Generation not open";
+    action = onGenerate;
+    actionDisabled = !canGenerate;
+    actionTitle = !canGenerate ? generationUnavailableMessage : undefined;
+  } else if (adoptedImage && !adoptedVideo) {
+    actionLabel = activeJob
+      ? "Video processing"
+      : canGenerate
+        ? "Generate final video"
+        : "Generation not open";
+    action = onGenerateVideo;
+    actionDisabled = Boolean(activeJob) || !canGenerate;
+    actionTitle = !canGenerate ? generationUnavailableMessage : undefined;
+  } else if (adoptedVideo) {
+    actionLabel = "Export delivery receipt";
+    action = onExportDelivery;
+  }
+
+  return (
+    <div className={styles.productionRun}>
+      <section className={styles.productionRunIntro}>
+        <div>
+          <span className={styles.objectNumber}>03</span>
+          <p className={styles.sectionEyebrow}>Production run</p>
+          <h2>One route. One honest next action.</h2>
+        </div>
+        <p>
+          This console projects the current campaign state. It does not simulate
+          agent work or spend; provider actions still require the existing exact
+          input approval.
+        </p>
+      </section>
+
+      <div className={styles.productionRunGrid}>
+        <div className={styles.productionRunNarrative}>
+          <div className={styles.skillBadge}>
+            <Sparkles size={15} />
+            <span>
+              <small>Campaign skill</small>
+              <strong>{skill.label}</strong>
+            </span>
+          </div>
+          <div className={styles.runStages}>
+            {stages.map((stage, index) => (
+              <div key={stage.label} className={stage.done ? styles.stageDone : ""}>
+                <span>{stage.done ? <Check size={14} /> : index + 1}</span>
+                <div>
+                  <strong>{stage.label}</strong>
+                  <small>{stage.value}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <section className={styles.runDirection}>
+            <span>Director evidence</span>
+            <h3>{selectedHook?.label ?? "A route has not been selected."}</h3>
+            <p>
+              {selectedHook?.script ??
+                campaign.brief?.summary ??
+                "Add product sources to build a grounded creative brief."}
+            </p>
+            {campaign.brief?.shotDirection ? (
+              <small>{campaign.brief.shotDirection}</small>
+            ) : null}
+          </section>
+
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={action}
+            disabled={actionDisabled}
+            title={actionTitle}
+          >
+            {actionLabel}
+            <ArrowRight size={17} />
+          </button>
+        </div>
+
+        <aside className={styles.runPreview}>
+          <div className={styles.runPreviewHeader}>
+            <span>Current result</span>
+            <small>
+              {preview
+                ? preview.status === "adopted"
+                  ? "Accepted"
+                  : "Candidate"
+                : activeJob
+                  ? activeJob.status
+                  : "No result"}
+            </small>
+          </div>
+          {preview ? (
+            <div className={styles.runPreviewMedia}>
+              {preview.kind === "video" ? (
+                <video
+                  src={preview.url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  aria-label={`${preview.label} production result`}
+                />
+              ) : preview.url.startsWith("http") ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={preview.url}
+                  alt={`${preview.label} production result`}
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <Image
+                  src={preview.url}
+                  alt={`${preview.label} production result`}
+                  fill
+                  sizes="(max-width: 900px) 100vw, 38vw"
+                  unoptimized={preview.url.startsWith("data:")}
+                />
+              )}
+              <div>
+                <strong>{preview.label}</strong>
+                <small>
+                  {preview.provider}
+                  {preview.model ? ` / ${preview.model}` : ""}
+                </small>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.runPreviewEmpty}>
+              {activeJob ? <RefreshCcw className={styles.spin} size={24} /> : <PlayCircle size={28} />}
+              <strong>{activeJob ? "Provider job in progress" : "No production result yet"}</strong>
+              <span>
+                {activeJob
+                  ? `Job ${activeJob.id} is ${activeJob.status}. No percentage is shown unless the provider reports one.`
+                  : "Complete the grounded route, then approve an exact media request."}
+              </span>
+            </div>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 function CandidatesView({
   campaign,
   onAdopt,
+  onReuse,
+  reuseBusyCandidateId,
   onGenerate,
   canGenerate,
   generationUnavailableMessage,
 }: {
   campaign: CampaignState;
   onAdopt: (candidate: Candidate) => void;
+  onReuse: (candidate: Candidate, role: ReferenceRole) => Promise<void>;
+  reuseBusyCandidateId: string | null;
   onGenerate: () => void;
   canGenerate: boolean;
   generationUnavailableMessage: string;
@@ -2941,6 +3353,8 @@ function CandidatesView({
               candidate={candidate}
               featured={index === 0}
               onAdopt={() => onAdopt(candidate)}
+              onReuse={(role) => onReuse(candidate, role)}
+              reuseBusy={reuseBusyCandidateId === candidate.id}
             />
           ))}
         </div>
@@ -2969,10 +3383,14 @@ function CandidateCard({
   candidate,
   featured,
   onAdopt,
+  onReuse,
+  reuseBusy = false,
 }: {
   candidate: Candidate;
   featured?: boolean;
   onAdopt: () => void;
+  onReuse?: (role: ReferenceRole) => Promise<void>;
+  reuseBusy?: boolean;
 }) {
   return (
     <article
@@ -3061,6 +3479,24 @@ function CandidateCard({
             <ArrowRight size={16} />
           </button>
         )}
+        {candidate.kind === "image" && onReuse ? (
+          <div className={styles.reuseActions}>
+            <button
+              type="button"
+              disabled={reuseBusy}
+              onClick={() => void onReuse("product")}
+            >
+              {reuseBusy ? "Preparing…" : "Use as product"}
+            </button>
+            <button
+              type="button"
+              disabled={reuseBusy}
+              onClick={() => void onReuse("creator")}
+            >
+              {reuseBusy ? "Preparing…" : "Use as creator"}
+            </button>
+          </div>
+        ) : null}
       </div>
     </article>
   );

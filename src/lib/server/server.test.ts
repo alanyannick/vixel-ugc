@@ -705,6 +705,7 @@ describe("creative fallback", () => {
     vi.stubEnv("NEWAPI_BASE_URL", "");
     vi.stubEnv("NEWAPI_API_KEY", "");
     const input = {
+      skillId: "problem-demo" as const,
       productName: "Source Bottle",
       facts: ["Made from stainless steel."],
       audience: "commuters",
@@ -729,6 +730,8 @@ describe("creative fallback", () => {
     ).toBe(true);
     expect(first.groundingWarnings.length).toBeGreaterThan(0);
     expect(first.brief).toEqual(second.brief);
+    expect(first.brief.summary).toContain("Problem → Demo");
+    expect(first.brief.shotDirection).toContain("recognizable audience problem");
   });
 
   it("attempts live text planning while paid media generation is disabled", async () => {
@@ -749,6 +752,7 @@ describe("creative fallback", () => {
 
     const result = await generateCreativeBrief(
       {
+        skillId: "founder-story",
         productName: "Source Bottle",
         facts: ["Made from stainless steel."],
         audience: "commuters",

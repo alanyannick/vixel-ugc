@@ -81,6 +81,7 @@ test("campaign intake reaches a five-route planning decision while generation is
     await page.getByRole("button", { name: "Open navigation" }).click();
   }
   await page.getByRole("button", { name: "New campaign" }).click();
+  await page.getByRole("radio", { name: /Problem → Demo/ }).click();
 
   await page.getByLabel("Product name").fill("Pulse Mini Blender");
   await page.getByLabel("Category").fill("Kitchen appliance");
@@ -118,6 +119,15 @@ test("campaign intake reaches a five-route planning decision while generation is
   ).toBeDisabled();
   await expect(page.getByRole("dialog")).toBeHidden();
   expect(mediaSubmissions).toBe(0);
+
+  if (testInfo.project.name.includes("mobile")) {
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  }
+  await page.getByRole("button", { name: "Production run" }).click();
+  await expect(page.getByText("Problem → Demo", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Generation not open" }),
+  ).toBeDisabled();
 });
 
 test("Director remains bounded when live planning is not enabled", async ({
@@ -141,4 +151,60 @@ test("Director remains bounded when live planning is not enabled", async ({
     }),
   ).toBeVisible();
   await expect(director.getByRole("textbox")).toHaveCount(0);
+});
+
+test("Production Run reflects real state and reuses an image without provider spend", async ({
+  page,
+}, testInfo) => {
+  let mediaSubmissions = 0;
+  await page.route("**/api/media/approval", async (route) => {
+    mediaSubmissions += 1;
+    await route.abort();
+  });
+  await page.route("**/api/media/image", async (route) => {
+    mediaSubmissions += 1;
+    await route.abort();
+  });
+  await page.route("**/api/media/video", async (route) => {
+    mediaSubmissions += 1;
+    await route.abort();
+  });
+
+  await page.goto("/studio?operator=recovery");
+  await expect(page.getByText("Checking UGC Campaign access…")).toBeHidden({
+    timeout: 10_000,
+  });
+  await page.getByRole("button", { name: "Restore the demo campaign" }).click();
+
+  const openNavigation = async () => {
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByRole("button", { name: "Open navigation" }).click();
+    }
+  };
+
+  await openNavigation();
+  await page.getByRole("button", { name: "Production run" }).click();
+  await expect(
+    page.getByRole("heading", { name: "One route. One honest next action." }),
+  ).toBeVisible();
+  await expect(page.getByText("Product Review", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Creator + product anchor", { exact: true }).last(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Generation not open" }),
+  ).toBeDisabled();
+
+  await openNavigation();
+  await page.getByRole("button", { name: /Candidates/ }).click();
+  await page.getByRole("button", { name: "Use as product" }).first().click();
+
+  await expect(
+    page.getByRole("heading", { name: "Give the Director facts it can defend." }),
+  ).toBeVisible();
+  await expect(page.getByAltText("Product image preview")).toBeVisible();
+  await expect(
+    page.getByText(/Reused from Vixel demo set · candidate-serum-/),
+  ).toBeVisible();
+  expect(mediaSubmissions).toBe(0);
 });

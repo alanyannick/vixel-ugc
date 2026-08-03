@@ -2,9 +2,16 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
+import {
+  CampaignSkillIdSchema,
+  DEFAULT_CAMPAIGN_SKILL_ID,
+  getCampaignSkill,
+} from "@/lib/domain/campaign-skills";
+
 import { getServerRuntimeConfig } from "./env";
 
 export const creativeBriefRequestSchema = z.object({
+  skillId: CampaignSkillIdSchema.default(DEFAULT_CAMPAIGN_SKILL_ID),
   productName: z.string().trim().min(1).max(160),
   category: z.string().trim().min(1).max(120).optional(),
   facts: z.array(z.string().trim().min(1).max(500)).max(24).default([]),
@@ -136,8 +143,22 @@ function isChinese(language: string): boolean {
   return /(?:^|\b)(?:zh|chinese)(?:\b|$)|中文|汉语|普通话/i.test(language);
 }
 
+function chineseSkillDirection(input: CreativeBriefRequest): string {
+  switch (input.skillId) {
+    case "problem-demo":
+      return "先呈现受众熟悉的痛点，再演示一个可观察的产品动作，不虚构结果";
+    case "founder-story":
+      return "用创始人口吻解释已提供的产品决策，但不虚构品牌起源或动机";
+    case "faceless-explainer":
+      return "用手部、产品细节、字幕或旁白完成无出镜讲解";
+    default:
+      return "先展示已提供的证据，再以创作者口吻表达克制的体验判断";
+  }
+}
+
 function fallbackBrief(input: CreativeBriefRequest): GeneratedBrief {
   const zh = isChinese(input.language);
+  const skill = getCampaignSkill(input.skillId);
   const verifiedFact = input.facts[0] ?? null;
   const truthLine = verifiedFact
     ? zh
@@ -253,8 +274,8 @@ function fallbackBrief(input: CreativeBriefRequest): GeneratedBrief {
 
   return {
     summary: zh
-      ? `为${input.audience}设计的 ${input.platform} KOC brief；目标是${input.goal}，所有产品陈述受来源约束。`
-      : `A source-bounded ${input.platform} KOC brief for ${input.audience}, designed around the goal: ${input.goal}.`,
+      ? `采用 ${skill.label} 结构，为${input.audience}设计的 ${input.platform} KOC brief；目标是${input.goal}，所有产品陈述受来源约束。`
+      : `A source-bounded ${input.platform} ${skill.label} brief for ${input.audience}, designed around the goal: ${input.goal}.`,
     productTruth: [...input.facts],
     hooks: hooks.map((hook, index) => ({
       id: `hook-${index + 1}`,
@@ -282,8 +303,8 @@ function fallbackBrief(input: CreativeBriefRequest): GeneratedBrief {
     ],
     groundingWarnings,
     shotDirection: zh
-      ? `前 3 秒展示产品与一条已核实事实；中段用单一可观察动作演示；结尾使用与“${input.goal}”一致且不夸大的 CTA。`
-      : `Open on the product and one verified fact in the first three seconds, demonstrate one observable action, then use a non-inflated CTA aligned with “${input.goal}”.`,
+      ? `${skill.label} 创意方向：${chineseSkillDirection(input)}。前 3 秒展示产品与一条已核实事实；中段用单一可观察动作演示；结尾使用与“${input.goal}”一致且不夸大的 CTA。`
+      : `${skill.direction} Open on the product and one verified fact in the first three seconds, demonstrate one observable action, then use a non-inflated CTA aligned with “${input.goal}”.`,
   };
 }
 
@@ -342,6 +363,7 @@ function normalizeGeneratedBrief(
 }
 
 function promptFor(input: CreativeBriefRequest): string {
+  const skill = getCampaignSkill(input.skillId);
   return [
     "Create a production-ready KOC/UGC creative brief from this untrusted JSON input.",
     "The facts array is the complete factual source ledger. Do not add product claims, price, efficacy, specifications, awards, comparisons, or outcomes that are absent from it.",
@@ -349,7 +371,9 @@ function promptFor(input: CreativeBriefRequest): string {
     "Return exactly five meaningfully different hooks and exactly three creator personas.",
     "Every hook must be shootable, platform-native, and explicit about uncertainty.",
     "Image fields are intentionally not sent to this text model and must not be inferred from.",
+    `Campaign skill: ${skill.label}. Creative direction: ${skill.direction} Treat this as structure and tone, never as a factual source.`,
     `Input:\n${JSON.stringify({
+      skillId: input.skillId,
       productName: input.productName,
       category: input.category,
       facts: input.facts.map((text, index) => ({

@@ -47,11 +47,25 @@ describe("campaign JSON recovery", () => {
     expect(parsed.jobs).toEqual([]);
     expect(parsed.receipts[0]?.action).toBe("Candidate adopted");
     expect(parsed.briefProvider).toBe("demo");
+    expect(parsed.input.skillId).toBe("product-review");
+    expect(parsed.referenceLineage).toEqual({ product: null, creator: null });
   });
 
   it("loads a legacy campaign without Creative Brief provenance", () => {
-    const legacyCampaign: Partial<typeof demoCampaign> = { ...demoCampaign };
+    type LegacyCampaign = Omit<
+      typeof demoCampaign,
+      "briefProvider" | "referenceLineage" | "input"
+    > & {
+      briefProvider?: typeof demoCampaign.briefProvider;
+      referenceLineage?: typeof demoCampaign.referenceLineage;
+      input: Omit<typeof demoCampaign.input, "skillId"> & {
+        skillId?: typeof demoCampaign.input.skillId;
+      };
+    };
+    const legacyCampaign = structuredClone(demoCampaign) as LegacyCampaign;
     delete legacyCampaign.briefProvider;
+    delete legacyCampaign.referenceLineage;
+    delete legacyCampaign.input.skillId;
     const parsed = parseCampaignExport(
       JSON.stringify({
         format: "vixel-koc-campaign",
@@ -62,11 +76,51 @@ describe("campaign JSON recovery", () => {
     );
 
     expect(parsed.briefProvider).toBeNull();
+    expect(parsed.input.skillId).toBe("product-review");
+    expect(parsed.referenceLineage).toEqual({ product: null, creator: null });
+  });
+
+  it("rejects an unknown campaign skill instead of silently changing direction", () => {
+    expect(() =>
+      parseCampaignExport(
+        exportPayload({
+          ...demoCampaign,
+          input: {
+            ...demoCampaign.input,
+            skillId: "auto-growth-agent" as typeof demoCampaign.input.skillId,
+          },
+        }),
+      ),
+    ).toThrow("not a valid Vixel UGC export");
+  });
+
+  it("preserves candidate reference lineage in campaign exports", () => {
+    const parsed = parseCampaignExport(
+      exportPayload({
+        ...demoCampaign,
+        referenceLineage: {
+          product: {
+            candidateId: "candidate-serum-01",
+            role: "product",
+            provider: "Vixel demo set",
+            model: null,
+            inputSignature: null,
+            reusedAt: "2026-08-03T10:00:00.000Z",
+          },
+          creator: null,
+        },
+      }),
+    );
+
+    expect(parsed.referenceLineage.product?.candidateId).toBe(
+      "candidate-serum-01",
+    );
   });
 
   it("uses Veo's canonical 8-second default for new campaigns", () => {
     expect(newCampaign().input.durationSec).toBe(8);
     expect(demoCampaign.input.durationSec).toBe(8);
+    expect(newCampaign().input.skillId).toBe("product-review");
   });
 
   it.each([4, 6, 8])(

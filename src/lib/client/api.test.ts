@@ -11,6 +11,7 @@ import {
 import type { CampaignInput } from "./campaign-store";
 
 const input: CampaignInput = {
+  skillId: "problem-demo",
   productName: "Pulse Mini Blender",
   category: "Kitchen appliance",
   facts: ["Includes two 450 ml cups"],
@@ -75,6 +76,7 @@ describe("creative brief client", () => {
     >;
     expect(body.productImageDataUrl).toBeUndefined();
     expect(body.creatorImageDataUrl).toBeUndefined();
+    expect(body.skillId).toBe("problem-demo");
     expect(body.productImageAttached).toBe(true);
     expect(body.creatorImageAttached).toBe(true);
   });

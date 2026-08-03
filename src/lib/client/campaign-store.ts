@@ -7,6 +7,11 @@ import {
   ExecutionPlanSchema,
   type ExecutionPlan,
 } from "@/lib/domain/contracts";
+import {
+  CampaignSkillIdSchema,
+  DEFAULT_CAMPAIGN_SKILL_ID,
+  type CampaignSkillId,
+} from "@/lib/domain/campaign-skills";
 
 const LEGACY_CAMPAIGN_KEY = "vixel-koc:campaign:v1";
 const CAMPAIGN_KEY_PREFIX = "vixel-koc:campaign:v2";
@@ -33,6 +38,7 @@ const VeoDurationSecSchema = z.union([
 ]);
 
 export type CampaignInput = {
+  skillId: CampaignSkillId;
   productName: string;
   category: string;
   facts: string[];
@@ -45,6 +51,17 @@ export type CampaignInput = {
   creatorDescription?: string;
   productImageDataUrl?: string;
   creatorImageDataUrl?: string;
+};
+
+export type ReferenceRole = "product" | "creator";
+
+export type CandidateReferenceLineage = {
+  candidateId: string;
+  role: ReferenceRole;
+  provider: string;
+  model: string | null;
+  inputSignature: string | null;
+  reusedAt: string;
 };
 
 export type CreativeHook = {
@@ -128,6 +145,10 @@ export type CampaignState = {
   selectedHookId: string | null;
   selectedPersonaId: string | null;
   executionPlan: ExecutionPlan | null;
+  referenceLineage: {
+    product: CandidateReferenceLineage | null;
+    creator: CandidateReferenceLineage | null;
+  };
   jobs: GenerationJob[];
   candidates: Candidate[];
   receipts: Array<{
@@ -145,6 +166,7 @@ export const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   input: z.object({
+    skillId: CampaignSkillIdSchema.default(DEFAULT_CAMPAIGN_SKILL_ID),
     productName: z.string().max(160),
     category: z.string().max(160),
     facts: z.array(z.string().max(2_000)).max(24),
@@ -217,6 +239,30 @@ export const CampaignStateSchema: z.ZodType<CampaignState> = z.object({
   selectedHookId: z.string().max(180).nullable(),
   selectedPersonaId: z.string().max(180).nullable(),
   executionPlan: ExecutionPlanSchema.nullable().default(null),
+  referenceLineage: z
+    .object({
+      product: z
+        .object({
+          candidateId: z.string().min(1).max(180),
+          role: z.literal("product"),
+          provider: z.string().min(1).max(160),
+          model: z.string().min(1).max(240).nullable(),
+          inputSignature: z.string().min(8).max(160).nullable(),
+          reusedAt: z.string().datetime(),
+        })
+        .nullable(),
+      creator: z
+        .object({
+          candidateId: z.string().min(1).max(180),
+          role: z.literal("creator"),
+          provider: z.string().min(1).max(160),
+          model: z.string().min(1).max(240).nullable(),
+          inputSignature: z.string().min(8).max(160).nullable(),
+          reusedAt: z.string().datetime(),
+        })
+        .nullable(),
+    })
+    .default({ product: null, creator: null }),
   jobs: z.array(
     z.object({
       id: z.string().min(1).max(180),
@@ -376,6 +422,7 @@ export const demoCampaign: CampaignState = {
   createdAt: "2026-07-30T02:12:00.000Z",
   updatedAt: "2026-07-30T03:06:00.000Z",
   input: {
+    skillId: DEFAULT_CAMPAIGN_SKILL_ID,
     productName: "Dewdrop Barrier Serum",
     category: "Skincare",
     facts: [
@@ -396,6 +443,7 @@ export const demoCampaign: CampaignState = {
   selectedHookId: "hook-texture",
   selectedPersonaId: "persona-editor",
   executionPlan: null,
+  referenceLineage: { product: null, creator: null },
   jobs: [],
   candidates: [
     {
@@ -447,11 +495,20 @@ function parseStoredCampaign(stored: unknown): CampaignState | null {
     briefProvider?: CreativeBriefProvider | null;
     executionPlan?: ExecutionPlan | null;
     jobs?: CampaignState["jobs"];
+    referenceLineage?: CampaignState["referenceLineage"];
   };
   const parsed = CampaignStateSchema.safeParse({
     ...candidate,
+    input: {
+      ...candidate.input,
+      skillId: candidate.input?.skillId ?? DEFAULT_CAMPAIGN_SKILL_ID,
+    },
     briefProvider: candidate.briefProvider ?? null,
     executionPlan: candidate.executionPlan ?? null,
+    referenceLineage: candidate.referenceLineage ?? {
+      product: null,
+      creator: null,
+    },
     jobs: candidate.jobs ?? [],
   });
   return parsed.success ? parsed.data : null;
@@ -527,6 +584,7 @@ export function newCampaign(): CampaignState {
     createdAt: now,
     updatedAt: now,
     input: {
+      skillId: DEFAULT_CAMPAIGN_SKILL_ID,
       productName: "",
       category: "",
       facts: [""],
@@ -542,6 +600,7 @@ export function newCampaign(): CampaignState {
     selectedHookId: null,
     selectedPersonaId: null,
     executionPlan: null,
+    referenceLineage: { product: null, creator: null },
     jobs: [],
     candidates: [],
     receipts: [],
